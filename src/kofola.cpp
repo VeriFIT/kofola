@@ -17,7 +17,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "cola.hpp"
+#include "kofola.hpp"
 #include "optimizer.hpp"
 
 #include <vector>
@@ -58,7 +58,7 @@ namespace cola
   {
     for (unsigned sc = 0; sc < scc.scc_count(); ++sc)
     {
-      if ((scc_str[sc]&SCC_INSIDE_DET_TYPE) > 0 
+      if ((scc_str[sc]&SCC_INSIDE_DET_TYPE) > 0
       || (scc_str[sc]&SCC_WEAK_TYPE) > 0)
       {
           continue;
@@ -177,7 +177,7 @@ namespace cola
         // j reach d (i can reach d, so res[d + i * scccount] = 1)
         for (unsigned j = 0; j < scccount; ++j)
         {
-          // j is reachable from i if j is reachable from d 
+          // j is reachable from i if j is reachable from d
           res[ibase + j] = res[ibase + j] || res[dbase + j];
         }
       }
@@ -246,7 +246,7 @@ namespace cola
   //   }
   // }
   std::vector<bool>
-  get_accepting_reachable_sccs(spot::scc_info &si)
+  get_accepting_reachable_sccs(const spot::scc_info &si)
   {
     unsigned nscc = si.scc_count();
     assert(nscc);
@@ -359,8 +359,8 @@ namespace cola
     }
   }
   // copied from siminator/cutdet.cpp, this function is similar to spot/is_det.cpp/ about semi-deterministic..
-  bool 
-  is_deterministic_scc(unsigned scc, spot::scc_info& si,
+  bool
+  is_deterministic_scc(unsigned scc, const spot::scc_info& si,
                      bool inside_only)
   {
     for (unsigned src: si.states_of(scc))
@@ -380,25 +380,25 @@ namespace cola
   }
 
   bool
-  is_accepting_detscc(std::string& scc_types, unsigned scc)
+  is_accepting_detscc(const std::string& scc_types, unsigned scc)
   {
     return (scc_types[scc] & SCC_WEAK_TYPE) == 0 && (scc_types[scc] & SCC_INSIDE_DET_TYPE) > 0 && (scc_types[scc] & SCC_ACC) > 0;
   }
 
-  bool 
-  is_accepting_weakscc(std::string& scc_types, unsigned scc)
+  bool
+  is_accepting_weakscc(const std::string& scc_types, unsigned scc)
   {
     return (scc_types[scc] & SCC_WEAK_TYPE) > 0 && (scc_types[scc] & SCC_ACC) > 0;
   }
 
-  bool 
-  is_weakscc(std::string& scc_types, unsigned scc)
+  bool
+  is_weakscc(const std::string& scc_types, unsigned scc)
   {
     return (scc_types[scc] & SCC_WEAK_TYPE) > 0;
   }
 
   bool
-  is_accepting_nondetscc(std::string& scc_types, unsigned scc)
+  is_accepting_nondetscc(const std::string& scc_types, unsigned scc)
   {
     return (scc_types[scc] & SCC_WEAK_TYPE) == 0 && (scc_types[scc] & SCC_INSIDE_DET_TYPE) == 0 && (scc_types[scc] & SCC_ACC) > 0;
   }

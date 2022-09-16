@@ -16,7 +16,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 //#include "optimizer.hpp"
-#include "cola.hpp"
+#include "kofola.hpp"
 #include "complement_mstate.hpp"
 #include "complement_class.hpp"
 #include "simulation.hpp"
@@ -27,6 +27,7 @@
 #include "complement_mh.hpp"
 #include "complement_ncsb.hpp"
 #include "complement_rank.hpp"
+#include "abstract_complement_alg.hpp"
 
 #include <deque>
 #include <map>
@@ -1160,6 +1161,40 @@ namespace cola
         res_ = postprocess(res_);
       return res_;
     }
+
+    spot::twa_graph_ptr
+    run_new()
+    {
+
+      // TODO: SCC preprocessing
+      auto& scc_info = get_scc_info();
+      const auto scc_types = get_scc_types(scc_info);
+
+      using abs_cmpl_alg_p = std::unique_ptr<kofola::abstract_complement_alg>;
+      using abs_cmpl_ms_p = std::unique_ptr<kofola::abstract_complement_alg::mstate>;
+      using vec_algorithms = std::vector<abs_cmpl_alg_p>;
+      using vec_macrostates = std::vector<abs_cmpl_ms_p>;
+
+      vec_algorithms algos;
+
+      for (size_t i = 0; i < scc_info.scc_count(); ++i)
+      { // determine which algorithms to run on each of the SCCs
+        abs_cmpl_alg_p algo;
+        if (is_accepting_weakscc(scc_types, i)) {
+          // weaksccs_.push_back(i);
+        }
+        else if (is_accepting_detscc(scc_types, i))
+        {
+          // acc_detsccs_.push_back(i);
+        }
+        else if (is_accepting_nondetscc(scc_types, i))
+        {
+          // acc_nondetsccs_.emplace_back(i);
+        }
+      }
+
+      assert(false);
+    }
   };
 
   bool
@@ -1293,6 +1328,6 @@ namespace cola
     aut_to_compl = aut_reduced;
 
     auto comp = cola::tnba_complement(aut_to_compl, scc, om, implications, decomp_options);
-    return comp.run();
+    return comp.run_new();
   }
 }

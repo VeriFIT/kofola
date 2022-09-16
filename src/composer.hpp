@@ -12,7 +12,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "cola.hpp"
+#include "kofola.hpp"
 
 
 #include <spot/twaalgos/hoa.hh>
@@ -21,7 +21,7 @@
 namespace cola
 {
     class composer
-    {  
+    {
         private:
         std::vector<spot::twa_graph_ptr>& dpas_;
         spot::option_map& om_;

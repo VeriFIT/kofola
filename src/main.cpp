@@ -19,7 +19,7 @@
 
 #include "config.h"
 
-#include "cola.hpp"
+#include "kofola.hpp"
 #include "composer.hpp"
 #include "optimizer.hpp"
 #include "decomposer.hpp"
@@ -70,14 +70,14 @@ Input options:
               dc       Divide-and-Conquer determinization based on SCC decomposition
               iar      Specialized algorithm for limit-deterministic Buchi automata in TACAS'17 paper by Esparza et al.
               comp     Complementation algorithm based on SCC decomposition
-              ncsb     NCSB complementation variants for limit deterministic Buchi automata 
+              ncsb     NCSB complementation variants for limit deterministic Buchi automata
               congr    Congruence-based algorithm for containment checking (with --contain=...)
-    --type 
+    --type
             Output the type of the input Buchi automaton: deterministic, limit-deterministic, elevator, unambiguous or none of them
     --print-scc
             Output the information about the SCCs in the input NBA
     --contain=[FILENAME]
-            Test whether the language of the input contains the language of [FILENAME] 
+            Test whether the language of the input contains the language of [FILENAME]
 
 Output options:
     --verbose=[INT] Output verbose level (0 = minimal level, 1 = meduim level, 2 = debug level)
@@ -92,8 +92,8 @@ Optimizations:
     --simulation          Use direct simulation for determinization/complementation
     --stutter             Use stutter invariance for determinization
     --use-scc             Use SCC information for macrostates merging
-    --more-acc-egdes      Enumerate elementary cycles for obtaining more accepting egdes 
-    --trans-pruning=[INT] Number to limit the transition pruning in simulation (default=512) 
+    --more-acc-egdes      Enumerate elementary cycles for obtaining more accepting egdes
+    --trans-pruning=[INT] Number to limit the transition pruning in simulation (default=512)
     --unambiguous         Check whether the input is unambiguous and use this fact in determinization
     --rerank              Rearrange the labelling for NAC-states
 
@@ -330,7 +330,7 @@ int main(int argc, char *argv[])
   compl_decomp_options decomp_options;
 
   postprocess_level preprocess = Low;
-  postprocess_level post_process = Low; 
+  postprocess_level post_process = Low;
   bool use_scc = false;
   unsigned num_post = 30000;
 
@@ -714,7 +714,7 @@ int main(int argc, char *argv[])
           preprocessor.set_level(spot::postprocessor::High);
 
         if (decomp_options.scc_compl)
-          preprocessor.set_type(spot::postprocessor::Buchi); 
+          preprocessor.set_type(spot::postprocessor::Buchi);
         aut = preprocessor.run(aut);
       }
 
@@ -759,7 +759,7 @@ int main(int argc, char *argv[])
             std::cout << "Done for determinizing the input automaton in " << 1000.0 * (c_end - c_start) / CLOCKS_PER_SEC << " ms..." << std::endl;
           }
           aut = res;
-          // spot::print_hoa(std::cout, aut); 
+          // spot::print_hoa(std::cout, aut);
           // std::cout << std::endl;
         }
       }
@@ -774,7 +774,7 @@ int main(int argc, char *argv[])
         else if (complement == COMP)
         {
           aut = cola::complement_tnba(aut, om, decomp_options);
-          output_type = GeneralizedBuchi; 
+          output_type = GeneralizedBuchi;
         }
         else
         {
@@ -787,7 +787,7 @@ int main(int argc, char *argv[])
       }
       const char *opts = nullptr;
       aut->merge_edges();
-      if (om.get(VERBOSE_LEVEL) > 0) 
+      if (om.get(VERBOSE_LEVEL) > 0)
       {
         std::cout << "Number of (states, transitions, colors) in the result automaton: ("
                   << aut->num_states() << "," << aut->num_edges() << "," << aut->num_sets() << ")" << std::endl;

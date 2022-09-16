@@ -17,7 +17,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 //#include "optimizer.hpp"
-#include "cola.hpp"
+#include "kofola.hpp"
 #include "simulation.hpp"
 //#include "struct.hpp"
 
@@ -814,7 +814,7 @@ namespace cola
     }
     if (aut_tmp)
       aut_reduced = aut_tmp;
-    else 
+    else
       aut_reduced = aut;
     spot::scc_info scc(aut_reduced, spot::scc_info_options::ALL);
     auto det = cola::ldba_determinize(aut_reduced, scc, om, implications);

@@ -5,15 +5,15 @@
 #include <vector>
 #include <string>
 
-#include "cola.hpp"
+#include "kofola.hpp"
 
 namespace cola
 {
     class ranking : public std::map<int, int>
-    {   
+    {
         private:
             unsigned max_rank = 0;
-        
+
         public:
             ranking() : std::map<int, int>(){};
             std::string get_name();
@@ -33,7 +33,7 @@ namespace cola
                 }
                 return true;
             }
-            
+
             bool operator<(ranking &other) const
             {
                 if (this->max_rank == other.max_rank)
@@ -52,7 +52,7 @@ namespace cola
             }
     };
 
-    struct rank_state 
+    struct rank_state
     {
         std::set<int> reachable;
         ranking f;

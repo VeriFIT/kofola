@@ -1,9 +1,9 @@
 #pragma once
 
-#include "cola.hpp"
+#include "kofola.hpp"
 #include "complement_class.hpp"
 
-namespace cola 
+namespace cola
 {
     class mh_compl : public complement_class
     {
@@ -15,5 +15,5 @@ namespace cola
         std::vector<std::pair<complement_mstate, bool>> get_succ_active();
         std::vector<std::pair<complement_mstate, bool>> get_succ_track();
         std::vector<std::pair<complement_mstate, bool>> get_succ_track_to_active();
-    }; 
+    };
 }

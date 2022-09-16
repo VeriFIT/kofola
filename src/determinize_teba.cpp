@@ -14,7 +14,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 //#include "optimizer.hpp"
-#include "cola.hpp"
+#include "kofola.hpp"
 #include "simulation.hpp"
 //#include "struct.hpp"
 
@@ -432,7 +432,7 @@ namespace cola
               incoming[dst] = true;
             }
             return ignores[dst];
-          }else 
+          }else
           {
             return false;
           }
@@ -534,7 +534,7 @@ namespace cola
             {
               //2). stay in the same accepting deterministic SCC
               // will inherit the same labelling
-      
+
               // else the successor is also in the same scc, no change, inherit the labelling
               if (succ.ordered_states_[t.dst] == RANK_M) succ.ordered_states_[t.dst] = curr_label;
               else succ.ordered_states_[t.dst] = std::min(succ.ordered_states_[t.dst], curr_label);
@@ -542,7 +542,7 @@ namespace cola
           }
         }
       }
-      
+
       // remove redudant states
       if (use_simulation_)
       {
@@ -585,7 +585,7 @@ namespace cola
             }
             if (!has_succ && min_dcc == MAX_RANK)
             {
-              // i. no successor, record the smaller label 
+              // i. no successor, record the smaller label
               min_dcc = j;
             } else if (has_acc && min_acc == MAX_RANK)
             {
@@ -609,7 +609,7 @@ namespace cola
       }
 
       std::vector<int> colors;
-      //3. Determine the color on the transition for each accepting deterministic SCC 
+      //3. Determine the color on the transition for each accepting deterministic SCC
       // the minimal even color is 2 and the minimal odd color is 1
       for (unsigned i = 0; i < acc_detsccs_.size(); i++)
       {
@@ -687,7 +687,7 @@ namespace cola
           elevator_mstate tmp_succ(si_, nb_states_, RANK_M);
           std::vector<int> tmp_color(acc_detsccs_.size() + 1, -1);
           compute_successors(stutter_path.back(), letter, tmp_succ, tmp_color);
-         
+
           ms = tmp_succ;
           for (unsigned i = 0; i < mincolor.size(); i++)
           {
@@ -832,7 +832,7 @@ namespace cola
       if (! is_acc_detscc(si_.scc_of(init_state)))
       {
         new_init_state.ordered_states_[init_state] = RANK_N;
-      }else 
+      }else
       {
         new_init_state.ordered_states_[init_state] = 0;
       }
@@ -899,11 +899,11 @@ namespace cola
       std::vector<unsigned> color_bases(max_colors_.size(), 0);
       // the size of max_colors must be larger than 0
       int accumulated_colors = 0;
-      if (max_colors_.size() > 0) 
+      if (max_colors_.size() > 0)
       {
         accumulated_colors = (max_colors_[0] < 0) ? 0 : max_colors_[0] - min_colors_[0] + 1;
         color_bases[0] = 0;
-      } 
+      }
       for (unsigned i = 1; i < max_colors_.size(); i++)
       {
         if (max_colors_[i] < 0)
@@ -997,7 +997,7 @@ namespace cola
           std::vector<int> colors(acc_detsccs_.size() + 1, -1);
           //compute_labelling_successors(std::move(ms), top.second, letter, succ, color);
           make_stutter_state(ms, letter, succ, colors);
-      
+
           if (succ.is_empty()) continue;
 
           unsigned origin = top.second;
@@ -1071,7 +1071,7 @@ namespace cola
           set2scc[set] = val->second;
         }
       }
-      
+
       mstate_merger merger(aut, set2scc, scc_dpa, om_);
       spot::twa_graph_ptr res = merger.run();
       if (om_.get(VERBOSE_LEVEL) >= 1)

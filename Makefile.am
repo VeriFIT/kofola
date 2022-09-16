@@ -21,17 +21,17 @@
 ##
 ## Removed some unnecessary files (e.g. the python binding for Seminator)
 
-bin_PROGRAMS = cola
-lib_LTLIBRARIES = src/libcola.la
+bin_PROGRAMS = kofola
+lib_LTLIBRARIES = src/libkofola.la
 
 AM_CPPFLAGS = -I$(srcdir)/src -I$(SPOTPREFIX)/include
 
-cola_LDADD = -L$(SPOTPREFIX)/lib src/libcola.la -lspot -lbddx
-src_libcola_la_LIBADD = -L$(SPOTPREFIX)/lib -lspot -lbddx
+kofola_LDADD = -L$(SPOTPREFIX)/lib src/libkofola.la -lspot -lbddx
+src_libkofola_la_LIBADD = -L$(SPOTPREFIX)/lib -lspot -lbddx
 
-src_libcola_la_SOURCES =			\
-  src/cola.hpp			\
-  src/cola.cpp			\
+src_libkofola_la_SOURCES =			\
+  src/kofola.hpp			\
+  src/kofola.cpp			\
   src/complement_mstate.hpp     \
   src/complement_mstate.cpp \
   src/complement_class.hpp      \
@@ -64,4 +64,4 @@ src_libcola_la_SOURCES =			\
   src/complement_rank.hpp  \
   src/complement_rank.cpp
 
-cola_SOURCES = src/main.cpp
+kofola_SOURCES = src/main.cpp

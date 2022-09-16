@@ -14,7 +14,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // #include "optimizer.hpp"
-#include "cola.hpp"
+#include "kofola.hpp"
 #include "simulation.hpp"
 //#include "struct.hpp"
 
@@ -103,7 +103,7 @@ namespace cola
     {
       res ^= (res << 3) ^ i;
     }
-    
+
     return res;
   }
 
@@ -298,12 +298,12 @@ namespace cola
           }
         }
       }
-      
+
 
       // remove redudant states with simulation relation
       if (use_simulation_)
         make_simulation_state(succ);
-      
+
       int parity = 2;
       // B' is empty
       if (succ.break_set_.empty())

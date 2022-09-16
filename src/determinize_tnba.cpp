@@ -16,7 +16,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 //#include "optimizer.hpp"
-#include "cola.hpp"
+#include "kofola.hpp"
 #include "simulation.hpp"
 #include "types.hpp"
 //#include "struct.hpp"
@@ -187,7 +187,7 @@ namespace cola
         std::vector<label> copy = other.detscc_labels_[i];
         detscc_labels_.emplace_back(copy);
       }
-  
+
       this->nondetscc_breaces_.clear();
       this->nondetscc_labels_.clear();
       for (unsigned i = 0; i < other.nondetscc_breaces_.size(); i++)
@@ -236,7 +236,7 @@ namespace cola
         std::vector<label> copy = other.detscc_labels_[i];
         detscc_labels_.emplace_back(copy);
       }
-  
+
       this->nondetscc_breaces_.clear();
       this->nondetscc_labels_.clear();
       for (unsigned i = 0; i < other.nondetscc_breaces_.size(); i++)
@@ -254,7 +254,7 @@ namespace cola
     // SCC information
     spot::scc_info &si_;
     // 1. NAC states point to its braces
-    std::vector<std::vector<label>> nondetscc_labels_; 
+    std::vector<std::vector<label>> nondetscc_labels_;
     // the braces for each NAC
     std::vector<std::vector<int>> nondetscc_breaces_;
     // 2. DAC states point to its labelling
@@ -287,7 +287,7 @@ namespace cola
           if (detscc_labels_[i] == other.detscc_labels_[i])
           {
             continue;
-          }else 
+          }else
           {
             return detscc_labels_[i] < other.detscc_labels_[i];
           }
@@ -306,7 +306,7 @@ namespace cola
           if (nondetscc_labels_[i] == other.nondetscc_labels_[i])
           {
             continue;
-          }else 
+          }else
           {
             return nondetscc_labels_[i] < other.nondetscc_labels_[i];
           }
@@ -317,7 +317,7 @@ namespace cola
       {
         return break_set_ < other.break_set_;
       }
-    }else 
+    }else
     {
       return weak_set_ < other.weak_set_;
     }
@@ -684,7 +684,7 @@ namespace cola
       }
   }
 
-    
+
 
     // remove a state i if it is simulated by a state j
     void
@@ -922,7 +922,7 @@ namespace cola
           }
         }
       }
-      
+
       // std::cout << "After computation of nondet inside " << i << " size = " << next_nondetstates.size() << "\n";
       // New incoming states
       // Top level is 0, if we enter the SCC, we need more braces
@@ -1027,7 +1027,7 @@ namespace cola
       std::vector<unsigned> decr_by;
       decr_by.assign(braces.size(), 0);
       unsigned decr = 0;
-      
+
       for (int b = 0; b < braces.size(); ++b)
       {
         // At first, set it to iself
@@ -1195,7 +1195,7 @@ namespace cola
         // we move the states in accepting det SCC to ordered states
         if (is_accepting_detscc(scc_types_, scc_id))
         {
-          int det_scc_index = get_detscc_index(scc_id); 
+          int det_scc_index = get_detscc_index(scc_id);
           assert(det_scc_index != -1);
           // incoming states
           next_detstates[det_scc_index].insert(t.dst);
@@ -1453,7 +1453,7 @@ public:
       support_[i] = res_support;
       compat_[i] = res_compat;
     }
-    // need to add support of reachable states 
+    // need to add support of reachable states
     if (use_stutter_ && aut_->prop_stutter_invariant())
     {
       for (unsigned c = 0; c != si_.scc_count(); ++c)
@@ -1702,7 +1702,7 @@ public:
         // first add this transition
         res_->new_edge(origin, dst, letter);
         // handle with colors
-        // std::cout << "max_color_size = " << max_colors_.size() << " colors_size = " << colors.size() << "\n";  
+        // std::cout << "max_color_size = " << max_colors_.size() << " colors_size = " << colors.size() << "\n";
         for (unsigned i = 0; i < colors.size(); i++)
         {
           // std::cout << "color: " << colors[i] << std::endl;

@@ -16,7 +16,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "determinize.hpp"
-#include "cola.hpp"
+#include "kofola.hpp"
 
 #include <deque>
 #include <map>
@@ -1271,7 +1271,7 @@ namespace cola
       support_[i] = res_support;
       compat_[i] = res_compat;
     }
-    // need to add support of reachable states 
+    // need to add support of reachable states
     if (use_stutter_ && aut_->prop_stutter_invariant())
     {
       for (unsigned c = 0; c != si_.scc_count(); ++c)

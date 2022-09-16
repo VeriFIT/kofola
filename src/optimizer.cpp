@@ -13,7 +13,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "optimizer.hpp"
-#include "cola.hpp"
+#include "kofola.hpp"
 #include "simulation.hpp"
 
 #include <algorithm>
@@ -88,7 +88,7 @@ namespace cola
           // still the same SCC
           if (min_scc == scc_s_idx)
             min_state = std::min(min_state, s);
-        }else 
+        }else
         {
           // first time for this SCC
           min_state = s;
@@ -99,7 +99,7 @@ namespace cola
       {
         continue;
       }
-      
+
       for (auto t : p->second)
       {
         unsigned scc_idx = scc.scc_of(t);
@@ -158,7 +158,7 @@ namespace cola
       auto sn = dpa_->get_named_prop<std::vector<std::string>>("state-names");
       if(sn) res->copy_state_names_from(dpa_);
     }
-    
+
     res->set_init_state(replace_states[dpa_->get_init_state_number()]);
     // now acceptance condition
     res->set_acceptance(dpa_->num_sets(), dpa_->get_acceptance());
@@ -171,7 +171,7 @@ namespace cola
     clock_t c_end = clock();
         if (om_.get(VERBOSE_LEVEL) > 0)
           std::cout << "Done for state-merger in " << 1000.0 * (c_end - c_start) / CLOCKS_PER_SEC << " ms..." << std::endl;
-      
+
     return res;
   }
 
@@ -193,7 +193,7 @@ namespace cola
       }
       is_implies_.push_back(elem);
     }
-    
+
     // If use_simulation is false, implications is empty, so nothing is built
     std::vector<std::vector<char>> implies(
         implications.size(),

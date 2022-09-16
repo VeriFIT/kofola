@@ -1,6 +1,6 @@
 #pragma once
 
-#include "cola.hpp"
+#include "kofola.hpp"
 #include "types.hpp"
 #include "rankings.hpp"
 
@@ -172,5 +172,5 @@ namespace cola
         }
     };
 
-   
+
 }

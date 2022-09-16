@@ -40,7 +40,7 @@ static const char *NUM_SCC_LIMIT_MERGER = "num-scc-limit-merger";
 static const char *SCC_REACH_MEMORY_LIMIT = "scc-reach-memory-limit";
 static const char *REQUIRE_PARITY = "require-parity";
 static const char *NUM_TRANS_PRUNING = "num-trans-pruning";
-static const char *MSTATE_REARRANGE = "mstate-rearrange"; 
+static const char *MSTATE_REARRANGE = "mstate-rearrange";
 
 
 static const char SCC_WEAK_TYPE = 1;
@@ -171,7 +171,7 @@ namespace cola
 
   bool
   is_weak_automaton(const spot::const_twa_graph_ptr &aut);
-  
+
   bool
   is_weak_automaton(const spot::scc_info &scc, std::string& scc_str);
 
@@ -192,7 +192,7 @@ namespace cola
   /// Output a vector res such that res[i + scccount*j] = 1 iff SCC i is reachable from SCC j
   std::vector<bool>
   find_scc_paths(const spot::scc_info &scc);
-  /// Output a vector res such that res[i + (j+1)*j/2] = 1 iff SCC i is reachable from SCC 
+  /// Output a vector res such that res[i + (j+1)*j/2] = 1 iff SCC i is reachable from SCC
   /// Must ensure that j >= i
   std::vector<bool>
   find_scc_paths_(const spot::scc_info &scc);
@@ -201,10 +201,10 @@ namespace cola
   void output_file(spot::const_twa_graph_ptr aut, const char *file);
 
   std::vector<bool>
-  get_deterministic_sccs(spot::scc_info &scc);
+  get_deterministic_sccs(const spot::scc_info &scc);
 
   std::vector<bool>
-  get_accepting_reachable_sccs(spot::scc_info &scc);
+  get_accepting_reachable_sccs(const spot::scc_info &scc);
 
   std::string
   get_scc_types(spot::scc_info &scc);
@@ -212,26 +212,26 @@ namespace cola
   // std::vector<bool>
   // is_reachable_weak_sccs(const spot::scc_info &scc, state_simulator& sim);
   void
-  print_scc_types(std::string& scc_types, spot::scc_info &scc);
+  print_scc_types(const std::string& scc_types, const spot::scc_info &scc);
 
   // Check the equivalence of the constructed dpa and the input nba
   void
   check_equivalence(spot::const_twa_graph_ptr nba, spot::twa_graph_ptr dpa);
 
   bool
-  is_accepting_detscc(std::string& scc_types, unsigned scc);
-
-  bool 
-  is_accepting_weakscc(std::string& scc_types, unsigned scc);
-
-  bool 
-  is_weakscc(std::string& scc_types, unsigned scc);
+  is_accepting_detscc(const std::string& scc_types, unsigned scc);
 
   bool
-  is_accepting_nondetscc(std::string& scc_types, unsigned scc);
+  is_accepting_weakscc(const std::string& scc_types, unsigned scc);
 
-  bool 
-  is_deterministic_scc(unsigned scc, spot::scc_info& si,
+  bool
+  is_weakscc(const std::string& scc_types, unsigned scc);
+
+  bool
+  is_accepting_nondetscc(const std::string& scc_types, unsigned scc);
+
+  bool
+  is_deterministic_scc(unsigned scc, const spot::scc_info& si,
                      bool inside_only = true);
 
 }

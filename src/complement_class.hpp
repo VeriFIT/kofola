@@ -1,6 +1,6 @@
 #pragma once
 
-#include "cola.hpp"
+#include "kofola.hpp"
 #include "complement_mstate.hpp"
 
 namespace cola

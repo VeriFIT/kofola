@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "cola.hpp"
+#include "kofola.hpp"
 
 #include <set>
 #include <spot/twaalgos/postproc.hh>

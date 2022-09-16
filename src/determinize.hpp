@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "cola.hpp"
+#include "kofola.hpp"
 #include "types.hpp"
 #include "simulation.hpp"
 #include "optimizer.hpp"
@@ -367,7 +367,7 @@ namespace cola
         void finalize_acceptance();
 
         void remove(std::vector<state_rank>& nodes, state_set& to_remove);
-        
+
         void merge_redundant_states(tba_mstate &ms, std::vector<state_rank>& nodes, bool nondet);
 
         void make_simulation_state(tba_mstate &ms);

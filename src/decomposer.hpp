@@ -12,7 +12,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "cola.hpp"
+#include "kofola.hpp"
 
 #include <functional>
 #include <set>
@@ -37,7 +37,7 @@ namespace cola
         make_twa_with_scc(spot::scc_info& si, std::set<unsigned> sccs, std::vector<bool>& reach_sccs, bool nonacc_pred = false, bool merge_iwa = false, bool merge_det = false);
 
         public:
-        decomposer(spot::twa_graph_ptr &nba, spot::option_map& om)  
+        decomposer(spot::twa_graph_ptr &nba, spot::option_map& om)
         : nba_(nba), om_(om)
         {
             num_nbas_ = om.get(NUM_NBA_DECOMPOSED);
@@ -45,6 +45,6 @@ namespace cola
 
         std::vector<spot::twa_graph_ptr>
         run(bool nonacc_pred = false, bool merge_iwa = false, bool merge_det = false);
-        
+
     };
 }
