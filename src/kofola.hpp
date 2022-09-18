@@ -76,6 +76,32 @@ struct compl_decomp_options
   bool dataflow = false;
 };
 
+/// macro for debug outputs
+#define PRINT_VERBOSE_LVL(lvl, title, x) {\
+  if (kofola::LOG_VERBOSITY >= lvl) {\
+    std::cerr << title << ": " << x << "\n";\
+  }\
+}
+
+#define PRINT_VERBOSE_LVL_LN(lvl, title, x) {\
+  PRINT_VERBOSE_LVL(lvl, title, __FILE__ << ":" << __func__ << ":" << __LINE__ << ": " << x)\
+}
+
+// #define DEBUG_PRINT(x) { std::cerr << "debug: " << x << "\n"; }
+#define DEBUG_PRINT(x) { PRINT_VERBOSE_LVL(2, "debug", x); }
+#define DEBUG_PRINT_LN(x) { PRINT_VERBOSE_LVL_LN(2, "debug", x); }
+#define WARN_PRINT(x) { PRINT_VERBOSE_LVL(1, "warning", x); }
+
+namespace kofola
+{ // {{{
+  /// log verbosity
+  extern unsigned LOG_VERBOSITY;
+
+  /// type for representing simulation (NB: this is not very efficient... should be changed)
+  using Simulation = std::vector<std::pair<unsigned, unsigned>>;
+} // namespace kofola }}}
+
+
 namespace cola
 {
 

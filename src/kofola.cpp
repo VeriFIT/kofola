@@ -35,6 +35,11 @@
 #include <spot/twaalgos/complement.hh>
 #include <spot/twa/twagraph.hh>
 
+namespace kofola
+{
+  unsigned LOG_VERBOSITY = 42;
+}
+
 namespace cola
 {
   bool
