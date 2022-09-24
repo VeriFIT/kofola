@@ -1236,8 +1236,6 @@ namespace cola
       /// total ordering operator to allow use in std::set and std::map
       bool operator<(const uberstate& rhs) const
       { // {{{
-        DEBUG_PRINT_LN("this = " + this->to_string());
-        DEBUG_PRINT_LN("rhs  = " + rhs.to_string());
         assert(this->part_macrostates_.size() == rhs.part_macrostates_.size());
 
         // let's start by comparing reached_states_
@@ -1260,6 +1258,11 @@ namespace cola
       } // operator< }}}
     }; // uberstate }}}
 
+    /// target of a transition (including colours)
+    using state_col = std::pair<unsigned, std::set<unsigned>>;
+
+    /// return type of get_succ (set of pairs <state, set of colours>)
+    using vec_state_col = std::vector<state_col>;
 
     /// functor for comparison of uberstate pointers
     struct uberstate_ptr_less_ftor
@@ -1383,7 +1386,7 @@ namespace cola
 
     /// gets all successors of an uberstate wrt a vector of algorithms and a
     /// symbol
-    std::vector<unsigned> get_succ_uberstates(
+    vec_state_col get_succ_uberstates(
       const vec_algorithms&  algos,
       const uberstate&       src,
       const bdd&             symbol)
@@ -1411,7 +1414,7 @@ namespace cola
         compute_cartesian_prod(succ_part_macro_col);
 
       // generate uberstates
-      std::vector<unsigned> result;
+      vec_state_col result;
       for (const auto& vec : cp) {
         vec_macrostates vm;
         std::set<unsigned> cols;
@@ -1424,7 +1427,7 @@ namespace cola
         DEBUG_PRINT_LN("inserting")
         unsigned us_num = insert_uberstate(uberstate(all_succ, vm));
         DEBUG_PRINT_LN("inserted")
-        result.push_back(us_num);
+        result.emplace_back(us_num, std::move(cols));
       }
 
       DEBUG_PRINT_LN("computed successors: " + std::to_string(result));
@@ -1518,13 +1521,20 @@ namespace cola
 
       DEBUG_PRINT_LN("creating a sink state");
 
+      // our structure for the automaton (TODO: hash table might be better)
+      std::map<unsigned, std::vector<std::pair<bdd, vec_state_col>>> compl_states;
+
       // create a sink state (its transitions)
-      res_->new_edge(SINK_STATE, SINK_STATE, bddtrue, {0});
+      // FIXME: should have _all_ colours
+      compl_states.insert({SINK_STATE, {{bddtrue, {{SINK_STATE, {0}}}}}});
 
       // get initial uberstates
       auto init_vec{this->get_initial_uberstates(alg_vec)};
       std::stack<unsigned> todo;
-      for (unsigned state : init_vec) { todo.push(state); }
+      for (unsigned state : init_vec) {
+        compl_states.insert({state, {}});
+        todo.push(state);
+      }
 
       DEBUG_PRINT_LN("after get initial");
 
@@ -1535,6 +1545,11 @@ namespace cola
         unsigned us_num = todo.top();
         todo.pop();
         const uberstate& us = num_to_uberstate(us_num);
+
+        // get the post of 'us'
+        auto it = compl_states.find(us_num);
+        assert(compl_states.end() != it);
+        std::vector<std::pair<bdd, vec_state_col>>& us_post = it->second;
 
         DEBUG_PRINT_LN("processing " + std::to_string(us_num) + ": " + us.to_string());
 
@@ -1554,7 +1569,8 @@ namespace cola
         // direct non-support symbols to sink
         bdd all = n_s_compat;
         if (all != bddtrue) {
-          res_->new_edge(us_num, SINK_STATE, !all);
+          vec_state_col succs = {{SINK_STATE, {}}};
+          us_post.emplace_back(std::make_pair(!all, std::move(succs)));
         }
 
         // iterate over all symbols
@@ -1562,13 +1578,44 @@ namespace cola
           bdd letter = bdd_satoneset(all, msupport, bddfalse);
           all -= letter;
 
-          std::vector<unsigned> succs = get_succ_uberstates(alg_vec, us, letter);
-        }
+          vec_state_col succs = get_succ_uberstates(alg_vec, us, letter);
+          us_post.emplace_back(std::make_pair(letter, succs));
 
-        assert(false);
+          for (const auto& state_cols : succs) {
+            const unsigned& succ_state = state_cols.first;
+
+            auto it_bool_pair = compl_states.insert({succ_state, {}});
+            if (it_bool_pair.second) { // the successor state is new
+              todo.push(succ_state);
+            }
+          }
+        }
       }
 
-      assert(false);
+      DEBUG_PRINT_LN(std::to_string(compl_states));
+
+      // convert the result into a spot automaton
+      spot::twa_graph_ptr result = spot::make_twa_graph(this->aut_->get_dict());
+      for (const auto& st_trans_pair : compl_states) {
+        const unsigned& src = st_trans_pair.first;
+        unsigned spot_state = result->new_state();
+        assert(spot_state == src);
+
+        for (const auto& bdd_vec_tgt_pair : st_trans_pair.second) {
+          const bdd& symbol = bdd_vec_tgt_pair.first;
+          for (const auto& tgt_col_pair : bdd_vec_tgt_pair.second) {
+            const unsigned& tgt = tgt_col_pair.first;
+            const std::set<unsigned>& cols = tgt_col_pair.second;
+            spot::acc_cond::mark_t spot_cols(cols.begin(), cols.end());
+            result->new_edge(src, tgt, symbol, spot_cols);
+          }
+        }
+      }
+
+      spot::print_hoa(std::cerr, result);
+      std::cerr << "\n\n\n\n";
+
+      return result;
     } // run_new() }}}
   };
 
