@@ -5,6 +5,7 @@
 
 using namespace kofola;
 using mstate_set = abstract_complement_alg::mstate_set;
+using mstate_col_set = abstract_complement_alg::mstate_col_set;
 
 
 complement_mh::mstate_mh::mstate_mh(
@@ -17,7 +18,27 @@ complement_mh::mstate_mh::mstate_mh(
 
 std::string complement_mh::mstate_mh::to_string() const
 {
-  return "TODO TODO TODO";
+  std::string res = std::string("[MH(") + ((this->active_)? "A" : "T") + "): ";
+  res += "S=" + std::to_string(this->states_);
+  if (this->active_) {
+    res += ", B=" + std::to_string(this->breakpoint_);
+  }
+  res += "]";
+  return res;
+}
+
+bool complement_mh::mstate_mh::eq(const mstate& rhs) const
+{
+  const mstate_mh* rhs_mh = dynamic_cast<const mstate_mh*>(&rhs);
+  assert(rhs_mh);
+  return (this->active_ == rhs_mh->active_) &&
+    (this->states_ == rhs_mh->states_) &&
+    (this->breakpoint_ == rhs_mh->breakpoint_);
+}
+
+bool complement_mh::mstate_mh::lt(const mstate& rhs) const
+{
+  assert(false);
 }
 
 complement_mh::mstate_mh::~mstate_mh()
@@ -36,22 +57,44 @@ mstate_set complement_mh::get_init() const
     init_state.insert(orig_init);
   }
 
-  std::shared_ptr<mstate> ms(new mstate_mh(init_state, init_state));
+  std::shared_ptr<mstate> ms(new mstate_mh(init_state, {}));
   mstate_set result = {ms};
   return result;
 } // get_init() }}}
 
-mstate_set complement_mh::get_succ_track(const mstate& src, const bdd& symbol) const
+mstate_col_set complement_mh::get_succ_track(
+  const std::set<unsigned>&  glob_reached,
+  const mstate*              src,
+  const bdd&                 symbol) const
+{ // {{{
+  const mstate_mh* src_mh = dynamic_cast<const mstate_mh*>(src);
+  assert(src_mh);
+  assert(!src_mh->active_);
+
+  std::set<unsigned> states;
+  for (unsigned st : glob_reached) {
+    if (this->info_.scc_info_.scc_of(st) == this->scc_index_) {
+      states.insert(st);
+    }
+  }
+
+  std::shared_ptr<mstate> ms(new mstate_mh(states, {}));
+  mstate_col_set result = {{ms, {}}};
+  return result;
+} // get_succ_track() }}}
+
+mstate_col_set complement_mh::get_succ_track_to_active(
+  const std::set<unsigned>&  glob_reached,
+  const mstate*              src,
+  const bdd&                 symbol) const
 {
   assert(false);
 }
 
-mstate_set complement_mh::get_succ_track_to_active(const mstate& src, const bdd& symbol) const
-{
-  assert(false);
-}
-
-mstate_set complement_mh::get_succ_active(const mstate& src, const bdd& symbol) const
+mstate_col_set complement_mh::get_succ_active(
+  const std::set<unsigned>&  glob_reached,
+  const mstate*              src,
+  const bdd&                 symbol) const
 {
   assert(false);
 }

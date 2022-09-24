@@ -226,23 +226,24 @@ namespace cola
       return rank2n_.end() != rank2n_.find(s);
     }
 
-    std::set<unsigned> get_all_successors(std::set<unsigned> current_states, bdd symbol)
-    {
+    /// get all successors of a given set of states over a given symbol
+    std::set<unsigned> get_all_successors(
+      const std::set<unsigned>&  current_states,
+      const bdd&                 symbol)
+    { // {{{
       std::set<unsigned> successors;
 
       for (unsigned s : current_states)
       {
         for (const auto &t : aut_->out(s))
         {
-          if (!bdd_implies(symbol, t.cond))
-            continue;
-
-          successors.insert(t.dst);
+          if (bdd_implies(symbol, t.cond)) { successors.insert(t.dst); }
         }
       }
 
       return successors;
-    }
+    } // get_all_successors() }}}
+
 
     spot::twa_graph_ptr
     postprocess(spot::twa_graph_ptr aut)
@@ -1180,15 +1181,15 @@ namespace cola
 
       /// all reached states
       std::set<unsigned> reached_states_;
-      vec_macrostates macrostates_;
+      vec_macrostates part_macrostates_;
 
     public:  // METHODS
 
       /// constructor
-      uberstate(std::set<unsigned>&& reached_states,
-                vec_macrostates&& macrostates) :
-        reached_states_(std::move(reached_states)),
-        macrostates_(std::move(macrostates))
+      uberstate(const std::set<unsigned>& reached_states,
+                const vec_macrostates& part_macrostates) :
+        reached_states_(reached_states),
+        part_macrostates_(part_macrostates)
       { }
 
       /// move constructor
@@ -1200,15 +1201,63 @@ namespace cola
 
       /// converts to string
       std::string to_string() const
+      { // {{{
+        std::string result;
+        result += "<" + std::to_string(this->reached_states_);
+        result += " | ";
+
+        for (size_t i = 0; i < this->part_macrostates_.size(); ++i) {
+          result += "c" + std::to_string(i) + ": " +
+            this->part_macrostates_[i]->to_string();
+          if (this->part_macrostates_.size() != i + 1) {
+            result += ", ";
+          }
+        }
+
+        result += ">";
+        return result;
+      } // to_string() }}}
+
+      /// output stream operator
+      friend std::ostream& operator<<(std::ostream& os, const uberstate& us)
       {
-        assert(false);
+        os << us.to_string();
+        return os;
       }
+
+      /// returns the set of all reached states
+      const std::set<unsigned>& get_reach_set() const
+      { return this->reached_states_; }
+
+      /// returns the partial macrostates
+      const vec_macrostates& get_part_macrostates() const
+      { return this->part_macrostates_; }
 
       /// total ordering operator to allow use in std::set and std::map
       bool operator<(const uberstate& rhs) const
-      {
-        assert(false);
-      }
+      { // {{{
+        DEBUG_PRINT_LN("this = " + this->to_string());
+        DEBUG_PRINT_LN("rhs  = " + rhs.to_string());
+        assert(this->part_macrostates_.size() == rhs.part_macrostates_.size());
+
+        // let's start by comparing reached_states_
+        // FIXME: inefficient - in C++20, we would use the flying saucer
+        // operator <=>
+        if (this->reached_states_ != rhs.reached_states_) {
+          return this->reached_states_ < rhs.reached_states_;
+        }
+
+        // then, compare the partial macrostates lexicographically
+        const size_t length = this->part_macrostates_.size();
+        for (size_t i = 0; i < length; ++i) {
+          if (*(this->part_macrostates_[i]) != *(rhs.part_macrostates_[i])) {
+            return *(this->part_macrostates_[i]) < *(rhs.part_macrostates_[i]);
+          }
+        }
+
+        // they are equal
+        return false;
+      } // operator< }}}
     }; // uberstate }}}
 
 
@@ -1229,25 +1278,27 @@ namespace cola
     std::map<const uberstate*, unsigned, uberstate_ptr_less_ftor> uberstate_to_num_map_;
     /// maps state numbers to uberstates
     std::vector<uberstate> num_to_uberstate_map_;
-    /// counter of states (to be assigned to uberstates)
+    /// counter of states (to be assigned to uberstates) - 0 is reserved for sink
     unsigned cnt_state_ = 0;
+    const unsigned SINK_STATE = 0;
 
     /// accessor into the uberstate table
     unsigned uberstate_to_num(const uberstate& us) const
-    {
+    { // {{{
       auto it = uberstate_to_num_map_.find(&us);
       if (uberstate_to_num_map_.end() != it) {
         return it->second;
       } else {
         assert(false);
       }
-    }
+    } // uberstate_to_num() }}}
 
     /// translates state number to uberstate
     const uberstate& num_to_uberstate(unsigned num) const
     { // {{{
-      assert(num < num_to_uberstate_map_.size());
-      return num_to_uberstate_map_[num];
+      assert(0 != num);
+      assert(num <= num_to_uberstate_map_.size());
+      return num_to_uberstate_map_[num - 1];   // offset because of sink
     } // num_to_uberstate() }}}
 
     /// inserts an uberstate (by moving) and returns its assigned number (if
@@ -1255,19 +1306,79 @@ namespace cola
     /// present)
     unsigned insert_uberstate(uberstate&& us)
     { // {{{
+      DEBUG_PRINT_LN("inserting uberstate " + us.to_string());
+      for (const auto& elem : this->uberstate_to_num_map_) {
+        DEBUG_PRINT_LN("  uberstate map element: " + std::to_string(*(elem.first)) +
+          " -> " + std::to_string(elem.second));
+      }
+      DEBUG_PRINT_LN("num_to_uberstate_map_ = " + std::to_string(num_to_uberstate_map_));
       auto it = uberstate_to_num_map_.find(&us);
       if (uberstate_to_num_map_.end() == it) { // not found
+        DEBUG_PRINT_LN("1");
         num_to_uberstate_map_.emplace_back(std::move(us));
+        DEBUG_PRINT_LN("2");
         assert(num_to_uberstate_map_.size() == cnt_state_ + 1);  // invariant
         const uberstate& us_new = num_to_uberstate_map_[cnt_state_];
-        auto jt_bool_pair = uberstate_to_num_map_.insert({&us_new, cnt_state_});
+        auto jt_bool_pair = uberstate_to_num_map_.insert({&us_new, cnt_state_ + 1});    // increment by one (fixed sink)
         assert(jt_bool_pair.second);    // insertion happened
         ++cnt_state_;
+        DEBUG_PRINT_LN("inserted as " + std::to_string(jt_bool_pair.first->second));
         return jt_bool_pair.first->second;
       } else { // found
+        DEBUG_PRINT_LN("found as " + std::to_string(it->second));
         return it->second;
       }
-    } // insert_uberstate }}}
+    } // insert_uberstate() }}}
+
+
+    /// computes the Cartesian product of a vector of sets (no repetitions
+    /// assumed in the inputs)
+    template<class A>
+    std::vector<std::vector<A>> compute_cartesian_prod(
+      const std::vector<std::vector<A>> vec_of_sets)
+    { // {{{
+      const size_t length = vec_of_sets.size();
+      std::vector<std::vector<A>> result;
+
+      // this vector will iterate over all possible tuples of indices
+      std::vector<size_t> indices(length, 0);
+
+      while (true) {
+        std::vector<A> vec;
+        for (size_t i = 0; i < length; ++i) {
+          assert(indices[i] < vec_of_sets[i].size());
+          vec.push_back(vec_of_sets[i][indices[i]]);
+        }
+
+        assert(vec.size() == length);
+        result.push_back(std::move(vec));
+
+        // generate the next vector of indices, if possible
+        bool generated = false;
+        for (size_t j = 0; j < length; ++j) {
+          ++(indices[j]);
+          if (indices[j] < vec_of_sets[j].size()) { // indices is set
+            generated = true;
+            break;
+          }
+          else { // we need to move into the next index
+            indices[j] = 0;
+          }
+        }
+
+        if (!generated) { break; }
+      }
+
+      return result;
+    } // compute_cartesian_prod() }}}
+
+    /// removes duplicit values (warning: can change order!)
+    template <class T>
+    void remove_duplicit(T& t)
+    { // {{{
+      std::sort(t.begin(), t.end());
+      t.erase(std::unique(t.begin(), t.end()), t.end());
+    } // remove_duplicit }}}
 
 
     /// gets all successors of an uberstate wrt a vector of algorithms and a
@@ -1277,21 +1388,61 @@ namespace cola
       const uberstate&       src,
       const bdd&             symbol)
     { // {{{
-      std::vector<unsigned> vec;
+      using mstate_col = kofola::abstract_complement_alg::mstate_col;
+      using mstate_col_set = kofola::abstract_complement_alg::mstate_col_set;
+      assert(algos.size() == src.get_part_macrostates().size());
 
-      assert(false);
+      std::set<unsigned> all_succ = get_all_successors(src.get_reach_set(), symbol);
+      const vec_macrostates& prev_part_macro = src.get_part_macrostates();
+      // this container collects all sets of pairs of macrostates and colours,
+      // later, we will turn it into the Cartesian product
+      std::vector<mstate_col_set> succ_part_macro_col;
+      for (size_t i = 0; i < algos.size(); ++i) {
+        const kofola::abstract_complement_alg::mstate* ms = prev_part_macro[i].get();
+        mstate_col_set mcs = algos[i]->get_succ_track(all_succ, ms, symbol);
+        succ_part_macro_col.emplace_back(std::move(mcs));
+      }
 
-      return vec;
+      DEBUG_PRINT_LN("generated partial macrostates + colours: " +
+        std::to_string(succ_part_macro_col));
+
+      // compute the Cartesian product of the partial macrostates (+ colours)
+      std::vector<std::vector<mstate_col>> cp =
+        compute_cartesian_prod(succ_part_macro_col);
+
+      // generate uberstates
+      std::vector<unsigned> result;
+      for (const auto& vec : cp) {
+        vec_macrostates vm;
+        std::set<unsigned> cols;
+        for (const auto& ms_col : vec) {
+          vm.push_back(ms_col.first);
+          // FIXME: renumber colours
+          cols.insert(ms_col.second.begin(), ms_col.second.end());
+        }
+
+        DEBUG_PRINT_LN("inserting")
+        unsigned us_num = insert_uberstate(uberstate(all_succ, vm));
+        DEBUG_PRINT_LN("inserted")
+        result.push_back(us_num);
+      }
+
+      DEBUG_PRINT_LN("computed successors: " + std::to_string(result));
+
+      remove_duplicit(result);
+
+      return result;
     } // get_succ_uberstates() }}}
 
     /// gets all initial uberstates wrt a vector of algorithms
     std::vector<unsigned> get_initial_uberstates(const vec_algorithms& alg_vec)
     { // {{{
+      const size_t length = alg_vec.size();
       std::set<unsigned> initial_states = {aut_->get_init_state_number()};
 
       using mstate_set = kofola::abstract_complement_alg::mstate_set;
       std::vector<mstate_set> vec_mstate_sets;
-      for (auto& alg : alg_vec) { // get the cartesian product of all procedures
+      for (auto& alg : alg_vec) { // get outputs of all procedures
         mstate_set init_mstates = alg->get_init();
         if (init_mstates.empty()) { return {};}   // one empty terminates
         vec_mstate_sets.emplace_back(std::move(init_mstates));
@@ -1300,29 +1451,50 @@ namespace cola
       DEBUG_PRINT_LN("obtained vector of sets of partial macrostates");
 
       // compute the cartesian product from the vector of sets of macrostates
-      std::vector<vec_macrostates> cartesian_product;
-      std::vector<size_t> indices(alg_vec.size(), 0);
+      std::vector<vec_macrostates> cp = compute_cartesian_prod(vec_mstate_sets);
 
-      while (true) {
-        vec_macrostates mstates;
-        for (size_t i = 0; i < alg_vec.size(); ++i) {
-          assert(indices[i] < vec_mstate_sets[i].size());
-          mstates.push_back(vec_mstate_sets[i][indices[i]]);
-        }
+      DEBUG_PRINT_LN("generated Cartesian product: " + std::to_string(cp));
 
-        assert(mstates.size() == alg_vec.size());
-        cartesian_product.push_back(std::move(mstates));
+      std::vector<unsigned> result;
+      for (const auto& vec : cp) {
+        unsigned us_num = insert_uberstate(uberstate(initial_states, vec));
+        result.push_back(us_num);
       }
 
-      DEBUG_PRINT_LN("generated Cartesian product");
+      // sort and remove duplicates
+      remove_duplicit(result);
 
-      std::vector<unsigned> vec;
-
-      assert(false);
-
-      return vec;
+      return result;
     } // get_initial_uberstates() }}}
 
+
+    /// selects the algorithms to run on the SCCs
+    vec_algorithms select_algorithms(const kofola::cmpl_info& info) const
+    { // {{{
+      vec_algorithms result;
+
+      for (size_t i = 0; i < info.scc_info_.scc_count(); ++i)
+      { // determine which algorithms to run on each of the SCCs
+        abs_cmpl_alg_p alg;
+        if (is_accepting_weakscc(info.scc_types_, i)) {
+          alg = std::make_unique<kofola::complement_mh>(info, i);
+        }
+        else if (is_accepting_detscc(info.scc_types_, i)) {
+          assert(false);
+        }
+        else if (is_accepting_nondetscc(info.scc_types_, i)) {
+          assert(false);
+        }
+        else {
+          assert(false);
+        }
+
+        result.push_back(std::move(alg));
+        assert(result.size() == i + 1);
+      }
+
+      return result;
+    } // select_algorithms() }}}
 
     /// new modular complementation procedure
     spot::twa_graph_ptr
@@ -1335,56 +1507,65 @@ namespace cola
       const auto scc_types = get_scc_types(scc_info);
 
       // collect information for complementation
-      kofola::cmpl_info info(this->aut_, scc_info, this->dir_sim_);
+      kofola::cmpl_info info(this->aut_, scc_info, this->dir_sim_, scc_types);
 
-      DEBUG_PRINT_LN("get initial");
+      DEBUG_PRINT_LN("selecting algorithms");
 
-      vec_algorithms alg_vec;
+      // creates a vector of algorithms, for every SCC of aut one
+      vec_algorithms alg_vec = select_algorithms(info);
 
-      for (size_t i = 0; i < scc_info.scc_count(); ++i)
-      { // determine which algorithms to run on each of the SCCs
-        abs_cmpl_alg_p alg;
-        if (is_accepting_weakscc(scc_types, i)) {
-          alg = std::make_unique<kofola::complement_mh>(info, i);
-        }
-        else if (is_accepting_detscc(scc_types, i)) {
-          assert(false);
-        }
-        else if (is_accepting_nondetscc(scc_types, i)) {
-          assert(false);
-        }
-        else {
-          assert(false);
-        }
+      DEBUG_PRINT_LN("algorithms selected");
 
-        alg_vec.push_back(std::move(alg));
-        assert(alg_vec.size() == i + 1);
-      }
+      DEBUG_PRINT_LN("creating a sink state");
 
-      DEBUG_PRINT_LN("after get initial");
+      // create a sink state (its transitions)
+      res_->new_edge(SINK_STATE, SINK_STATE, bddtrue, {0});
 
       // get initial uberstates
       auto init_vec{this->get_initial_uberstates(alg_vec)};
       std::stack<unsigned> todo;
       for (unsigned state : init_vec) { todo.push(state); }
 
-      std::stack<unsigned> todo_copy = todo;
-      std::cerr << "Initial todo:\n";
-      while (!todo_copy.empty()) {
-        const uberstate& us = num_to_uberstate(todo_copy.top());
-        std::cerr << "  " << us.to_string() << "\n";
-        todo_copy.pop();
-      }
+      DEBUG_PRINT_LN("after get initial");
+
+      DEBUG_PRINT_LN("initial todo: " + std::to_string(todo));
 
       while (!todo.empty()) { // the main loop
         // get next uberstate
-        // uberstate us = todo.top();
-        // todo.pop();
+        unsigned us_num = todo.top();
+        todo.pop();
+        const uberstate& us = num_to_uberstate(us_num);
+
+        DEBUG_PRINT_LN("processing " + std::to_string(us_num) + ": " + us.to_string());
+
+        // compute support of all available states
+        // TODO: this should be cached for each reach_set
+        bdd msupport = bddtrue;
+        bdd n_s_compat = bddfalse;
+        const std::set<unsigned> &reach_set = us.get_reach_set();
+
+        // compute the occurred variables in the outgoing transitions of ms, stored in msupport
+        for (unsigned s : reach_set)
+        {
+          msupport &= support_[s];
+          n_s_compat |= compat_[s];
+        }
+
+        // direct non-support symbols to sink
+        bdd all = n_s_compat;
+        if (all != bddtrue) {
+          res_->new_edge(us_num, SINK_STATE, !all);
+        }
+
+        // iterate over all symbols
+        while (all != bddfalse) {
+          bdd letter = bdd_satoneset(all, msupport, bddfalse);
+          all -= letter;
+
+          std::vector<unsigned> succs = get_succ_uberstates(alg_vec, us, letter);
+        }
+
         assert(false);
-
-
-
-
       }
 
       assert(false);

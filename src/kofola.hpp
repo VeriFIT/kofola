@@ -99,6 +99,10 @@ namespace kofola
 
   /// type for representing simulation (NB: this is not very efficient... should be changed)
   using Simulation = std::vector<std::pair<unsigned, unsigned>>;
+
+  /// declaration of printer
+  template<class Tuple, size_t N>
+  struct TuplePrinter;
 } // namespace kofola }}}
 
 
@@ -261,3 +265,226 @@ namespace cola
                      bool inside_only = true);
 
 }
+
+// some things are missing in std
+namespace std
+{ // {{{
+
+// DECLARATIONS
+template <class A> std::string to_string(const A& value);
+template <class A> std::string to_string(const std::set<A>& st);
+template <class A> std::string to_string(const std::vector<A>& vec);
+template <class A> std::string to_string(const std::list<A>& vec);
+template <class A> std::string to_string(const std::stack<A>& stck);
+template <class A> std::string to_string(const std::function<A>& func);
+template <class A> std::string to_string(const std::shared_ptr<A>& ptr);
+template <class A, class B> std::string to_string(const std::pair<A, B>& p);
+template <class A, class B> std::string to_string(const std::map<A, B>& mp);
+template <class A, class B> std::string to_string(const std::unordered_map<A, B>& unmap);
+template <class A, class B> std::string to_string(const std::unordered_multimap<A, B>& unmmap);
+
+// DEFINITIONS
+/** Character to string */
+inline std::string to_string(char ch)
+{ // {{{
+	std::string str;
+	str += ch;
+	return str;
+} // to_string(char) }}}
+
+/** String to string */
+inline std::string to_string(const std::string& str) { return str; }
+
+/** Vector to string */
+template <class A>
+std::string to_string(const std::vector<A>& vec)
+{ // {{{
+	std::string result = "[";
+	bool first = true;
+	for (const auto& elem : vec)
+	{
+		if (!first) { result += ", "; }
+		first = false;
+		result += std::to_string(elem);
+	}
+	result += "]";
+
+	return result;
+} // to_string(std::vector) }}}
+
+/** List to string */
+template <class A>
+std::string to_string(const std::list<A>& vec)
+{ // {{{
+	std::string result = "[";
+	bool first = true;
+	for (auto elem : vec)
+	{
+		if (!first) { result += ", "; }
+		first = false;
+		result += std::to_string(elem);
+	}
+	result += "]";
+
+	return result;
+} // to_string(std::list) }}}
+
+// TODO: the following functions are similar
+
+/** unordered_map to string */
+template <class A, class B>
+std::string to_string(const std::unordered_map<A, B>& unmap)
+{ // {{{
+	std::string result = "{";
+	bool first = true;
+	for (auto key_val_pair : unmap)
+	{
+		if (!first) { result += ", "; }
+		first = false;
+		result +=
+			std::to_string(key_val_pair.first) +
+			" -> " +
+			std::to_string(key_val_pair.second);
+	}
+	result += "}";
+
+	return result;
+} // to_string(std::unordered_map) }}}
+
+/** map to string */
+template <class A, class B>
+std::string to_string(const std::map<A, B>& mp)
+{ // {{{
+	std::string result = "{";
+	bool first = true;
+	for (auto key_val_pair : mp)
+	{
+		if (!first) { result += ", "; }
+		first = false;
+		result +=
+			std::to_string(key_val_pair.first) +
+			" -> " +
+			std::to_string(key_val_pair.second);
+	}
+	result += "}";
+
+	return result;
+} // to_string(std::map) }}}
+
+/** unordered_multimap to string */
+template <class A, class B>
+std::string to_string(const std::unordered_multimap<A, B>& unmap)
+{ // {{{
+	std::string result = "{";
+	bool first = true;
+	for (auto key_val_pair : unmap)
+	{
+		if (!first) { result += ", "; }
+		first = false;
+		result +=
+			std::to_string(key_val_pair.first) +
+			" -> " +
+			std::to_string(key_val_pair.second);
+	}
+	result += "}";
+
+	return result;
+} // to_string(std::unordered_multimap) }}}
+
+
+/** set to string */
+template <class A>
+std::string to_string(const std::set<A>& st)
+{ // {{{
+	std::string result = "{";
+	bool first = true;
+	for (auto elem : st)
+	{
+		if (!first) { result += ", "; }
+		first = false;
+		result += std::to_string(elem);
+	}
+	result += "}";
+
+	return result;
+} // to_string(std::set) }}}
+
+/** stack to string */
+template <class A>
+std::string to_string(const std::stack<A>& stck)
+{ // {{{
+	std::stack<A> copy = stck;
+	std::vector<A> vec;
+	while (!copy.empty()) {
+		vec.push_back(copy.top());
+		copy.pop();
+	}
+	std::reverse(vec.begin(), vec.end());
+	return std::to_string(vec);
+} // to_string(std::stack) }}}
+
+/** function to string */
+template <class A>
+std::string to_string(const std::function<A>& fun)
+{ // {{{
+	return std::to_string(static_cast<const void*>(&fun));
+} // to_string(std::function) }}}
+
+/** shared_ptr to string */
+template <class A>
+std::string to_string(const std::shared_ptr<A>& ptr)
+{ // {{{
+  return "@(" + std::to_string(*ptr) + ")";
+} // to_string(std::shared_ptr) }}}
+
+/** tuple to string */
+template <class... Ts>
+std::string to_string(const std::tuple<Ts...>& tup)
+{ // {{{
+	std::string str = "<";
+  str += kofola::TuplePrinter<decltype(tup), sizeof...(Ts)>::print(tup);
+	str += ">";
+
+	return str;
+} // to_string(std::tuple) }}}
+
+template <class A, class B>
+std::string to_string(const std::pair<A, B>& p)
+{ // {{{
+	return std::to_string(std::tuple<A, B>(p.first, p.second));
+} // to_string(std::pair) }}}
+
+/** arbitrary type with the << operator */
+template <class A>
+std::string to_string(const A& value)
+{ // {{{
+	std::ostringstream os;
+  os << value;
+  return os.str();
+} // to_string(T) }}}
+
+} // namespace std }}}
+
+namespace kofola
+{ // {{{
+  // Taken from
+  //   http://en.cppreference.com/w/cpp/utility/tuple/tuple_cat
+  template<class Tuple, size_t N>
+  struct TuplePrinter
+  {
+    static std::string print(const Tuple& t)
+    {
+      std::string res = TuplePrinter<Tuple, N-1>::print(t);
+      return res + ", " + std::to_string(std::get<N-1>(t));
+    }
+  };
+
+  template<class Tuple>
+  struct TuplePrinter<Tuple, 1>
+  {
+    static std::string print(const Tuple& t)
+    {
+      return std::to_string(std::get<0>(t));
+    }
+  };
+} // namespace kofola }}}

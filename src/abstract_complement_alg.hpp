@@ -27,15 +27,20 @@ struct cmpl_info
   /// direct simulation
   const Simulation& dir_sim_;
 
+  /// types of SCCs
+  const std::string scc_types_;
+
   /// constructor
   cmpl_info(
     const spot::const_twa_graph_ptr&  aut,
     const spot::scc_info&             scc_info,
-    const Simulation&                 dir_sim
+    const Simulation&                 dir_sim,
+    const std::string&                scc_types
     ) :
     aut_(aut),
     scc_info_(scc_info),
-    dir_sim_(dir_sim)
+    dir_sim_(dir_sim),
+    scc_types_(scc_types)
   { }
 }; // struct cmpl_info }}}
 
@@ -53,12 +58,20 @@ public: // TYPES
     /// returns string representation of the partial macrostate
     virtual std::string to_string() const = 0;
 
+    /// equality test
+    virtual bool eq(const mstate& rhs) const = 0;
+
+    /// less-than relation
+    virtual bool lt(const mstate& rhs) const = 0;
+
     /// virtual destructor (to allow deletion via pointer)
     virtual ~mstate() { }
   }; // mstate }}}
 
-  /// set of partial macrostates
+  /// set of partial macrostates together with sets of colours on the edge
   using mstate_set = std::vector<std::shared_ptr<mstate>>;
+  using mstate_col = std::pair<std::shared_ptr<mstate>, std::set<unsigned>>;
+  using mstate_col_set = std::vector<mstate_col>;
 
 protected: // DATA MEMBERS
 
@@ -80,15 +93,43 @@ public: // METHODS
   virtual mstate_set get_init() const = 0;
 
   /// tracking successors
-  virtual mstate_set get_succ_track(const mstate& src, const bdd& symbol) const = 0;
+  virtual mstate_col_set get_succ_track(
+    const std::set<unsigned>&  glob_reached,      // all states reached over symbol
+    const mstate*              src,               // partial macrostate
+    const bdd&                 symbol) const = 0; // symbol
 
   /// tracking to active successors
-  virtual mstate_set get_succ_track_to_active(const mstate& src, const bdd& symbol) const = 0;
+  virtual mstate_col_set get_succ_track_to_active(
+    const std::set<unsigned>&  glob_reached,      // all states reached over symbol
+    const mstate*              src,               // partial macrostate
+    const bdd&                 symbol) const = 0; // symbol
 
   /// active successors
-  virtual mstate_set get_succ_active(const mstate& src, const bdd& symbol) const = 0;
+  virtual mstate_col_set get_succ_active(
+    const std::set<unsigned>&  glob_reached,      // all states reached over symbol
+    const mstate*              src,               // partial macrostate
+    const bdd&                 symbol) const = 0; // symbol
 
   /// virtual destructor (to allow deletion via pointer)
   virtual ~abstract_complement_alg() { }
 }; // abstract_complement_alg }}}
+
+/// output stream conversion
+std::ostream& operator<<(std::ostream& os, const abstract_complement_alg::mstate& ms);
+
+/// equality operator
+bool operator==(
+  const abstract_complement_alg::mstate& lhs,
+  const abstract_complement_alg::mstate& rhs);
+
+/// disequality operator
+bool operator!=(
+  const abstract_complement_alg::mstate& lhs,
+  const abstract_complement_alg::mstate& rhs);
+
+/// ordering relation
+bool operator<(
+  const abstract_complement_alg::mstate& lhs,
+  const abstract_complement_alg::mstate& rhs);
+
 } // namespace kofola }}}
