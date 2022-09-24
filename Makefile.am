@@ -32,9 +32,8 @@ src_libkofola_la_LIBADD = -L$(SPOTPREFIX)/lib -lspot -lbddx
 src_libkofola_la_SOURCES =			\
   src/kofola.hpp			\
   src/kofola.cpp			\
-  src/complement_alg_mh.hpp     \
+  src/abstract_complement_alg.cpp     \
   src/complement_alg_mh.cpp     \
-  src/complement_mstate.hpp     \
   src/complement_mstate.cpp \
   src/complement_class.hpp      \
   src/complement_class.cpp \
