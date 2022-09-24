@@ -13,10 +13,10 @@ namespace cola
     {
       complement_mstate succ_state(scc_info_);
 
-      auto S_succ = get_all_successors_in_scc(mstate_.acc_detsccs_[true_index_].second, symbol_);
+      auto S_succ = kofola::get_all_successors_in_scc(this->aut_, this->scc_info_, true_index_, mstate_.acc_detsccs_[true_index_].second, symbol_);
       std::vector<unsigned> S_prime = std::vector<unsigned>(S_succ.begin(), S_succ.end());
 
-      auto C_succ = get_all_successors_in_scc(mstate_.acc_detsccs_[true_index_].first, symbol_);
+      auto C_succ = kofola::get_all_successors_in_scc(this->aut_, this->scc_info_, true_index_, mstate_.acc_detsccs_[true_index_].first, symbol_);
       std::vector<unsigned> C_prime;
       std::set_difference(C_succ.begin(), C_succ.end(), S_succ.begin(), S_succ.end(), std::inserter(C_prime, C_prime.begin()));
 
@@ -38,7 +38,7 @@ namespace cola
       auto S_succ = get_all_successors_in_scc_same(mstate_.acc_detsccs_[true_index_].second, symbol_);
       std::vector<unsigned> S_prime = std::vector<unsigned>(S_succ.begin(), S_succ.end());
 
-      auto C_succ = get_all_successors_in_scc(mstate_.curr_reachable_, symbol_);
+      auto C_succ = kofola::get_all_successors_in_scc(this->aut_, this->scc_info_, true_index_, mstate_.curr_reachable_, symbol_);
       std::vector<unsigned> C_prime;
       std::set_difference(C_succ.begin(), C_succ.end(), S_succ.begin(), S_succ.end(), std::inserter(C_prime, C_prime.begin()));
 
@@ -85,7 +85,7 @@ namespace cola
 
       std::set<unsigned> S_prime = get_all_successors_in_scc_same(mstate_.acc_detsccs_[true_index_].second, symbol_);
 
-      std::set<unsigned> C_succ = get_all_successors_in_scc(mstate_.acc_detsccs_[true_index_].first, symbol_);
+      std::set<unsigned> C_succ = kofola::get_all_successors_in_scc(this->aut_, this->scc_info_, true_index_, mstate_.acc_detsccs_[true_index_].first, symbol_);
       std::set<unsigned> C_prime;
       std::set_difference(C_succ.begin(), C_succ.end(), S_prime.begin(), S_prime.end(), std::inserter(C_prime, C_prime.begin()));
 

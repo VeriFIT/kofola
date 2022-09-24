@@ -35,10 +35,10 @@
 #include <spot/twaalgos/complement.hh>
 #include <spot/twa/twagraph.hh>
 
-namespace kofola
-{
-  unsigned LOG_VERBOSITY = 42;
-}
+using namespace kofola;
+
+// verbosity of logging
+unsigned kofola::LOG_VERBOSITY = 42;
 
 namespace cola
 {
@@ -382,6 +382,12 @@ namespace cola
       }
     }
     return true;
+  }
+
+  bool
+  is_accepting_scc(const std::string& scc_types, unsigned scc)
+  {
+    return (scc_types[scc] & SCC_ACC) > 0;
   }
 
   bool

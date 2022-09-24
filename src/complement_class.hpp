@@ -29,7 +29,6 @@ namespace cola
 
         std::set<unsigned> get_all_successors(std::vector<unsigned> current_states, bdd symbol);
         std::set<unsigned> get_all_successors(std::set<unsigned> current_states, bdd symbol);
-        std::set<unsigned> get_all_successors_in_scc(std::vector<unsigned> current_states, bdd symbol);
         std::set<unsigned> get_all_successors_in_scc_same(std::vector<unsigned> current_states, bdd symbol);
         std::set<unsigned> get_succ_acc_trans_scc(std::vector<unsigned> current_states, bdd symbol);
         std::set<int> get_all_successors_acc(std::set<unsigned> current_states, bdd symbol, unsigned scc_index);

@@ -103,6 +103,42 @@ namespace kofola
   /// declaration of printer
   template<class Tuple, size_t N>
   struct TuplePrinter;
+
+  /// get all successors of a given set of states over a given symbol
+  template <class T>
+  std::set<unsigned> get_all_successors(
+    const spot::const_twa_graph_ptr&  aut,
+    const T&                          current_states,
+    const bdd&                        symbol)
+  { // {{{
+    std::set<unsigned> successors;
+
+    for (unsigned s : current_states) {
+      for (const auto &t : aut->out(s)) {
+        if (bdd_implies(symbol, t.cond)) { successors.insert(t.dst); }
+      }
+    }
+
+    return successors;
+  } // get_all_successors() }}}
+
+  /// get all successors of a given set over a symbol that are in SCC 'scc_num'
+  template <class T>
+  std::set<unsigned> get_all_successors_in_scc(
+    const spot::const_twa_graph_ptr&  aut,
+    const spot::scc_info&             scc_inf,
+    unsigned                          scc_num,
+    const T&                          current_states,
+    const bdd&                        symbol)
+  { // {{{
+    std::set<unsigned> successors = get_all_successors(aut, current_states, symbol);
+    std::set<unsigned> result;
+    std::copy_if(successors.begin(), successors.end(), std::inserter(result, result.end()),
+        [=](unsigned x){ return scc_num != scc_inf.scc_of(x); });
+
+    return result;
+  } // get_all_successors_in_scc() }}}
+
 } // namespace kofola }}}
 
 
@@ -247,6 +283,9 @@ namespace cola
   // Check the equivalence of the constructed dpa and the input nba
   void
   check_equivalence(spot::const_twa_graph_ptr nba, spot::twa_graph_ptr dpa);
+
+  bool
+  is_accepting_scc(const std::string& scc_types, unsigned scc);
 
   bool
   is_accepting_detscc(const std::string& scc_types, unsigned scc);

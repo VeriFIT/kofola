@@ -30,6 +30,7 @@
 
 #include "abstract_complement_alg.hpp"
 #include "complement_alg_mh.hpp"
+#include "complement_alg_ncsb.hpp"
 
 #include <deque>
 #include <map>
@@ -225,25 +226,6 @@ namespace cola
     {
       return rank2n_.end() != rank2n_.find(s);
     }
-
-    /// get all successors of a given set of states over a given symbol
-    std::set<unsigned> get_all_successors(
-      const std::set<unsigned>&  current_states,
-      const bdd&                 symbol)
-    { // {{{
-      std::set<unsigned> successors;
-
-      for (unsigned s : current_states)
-      {
-        for (const auto &t : aut_->out(s))
-        {
-          if (bdd_implies(symbol, t.cond)) { successors.insert(t.dst); }
-        }
-      }
-
-      return successors;
-    } // get_all_successors() }}}
-
 
     spot::twa_graph_ptr
     postprocess(spot::twa_graph_ptr aut)
@@ -697,7 +679,7 @@ namespace cola
           all -= letter;
           // std::cerr << "Current symbol: " << letter << std::endl;
 
-          std::set<unsigned> all_succ = get_all_successors(reachable, letter);
+          std::set<unsigned> all_succ = kofola::get_all_successors(this->aut_, reachable, letter);
 
           bool active_type = true;
           bool active_type2 = true;
@@ -1317,9 +1299,7 @@ namespace cola
       DEBUG_PRINT_LN("num_to_uberstate_map_ = " + std::to_string(num_to_uberstate_map_));
       auto it = uberstate_to_num_map_.find(&us);
       if (uberstate_to_num_map_.end() == it) { // not found
-        DEBUG_PRINT_LN("1");
         num_to_uberstate_map_.emplace_back(std::move(us));
-        DEBUG_PRINT_LN("2");
         assert(num_to_uberstate_map_.size() == cnt_state_ + 1);  // invariant
         const uberstate& us_new = num_to_uberstate_map_[cnt_state_];
         auto jt_bool_pair = uberstate_to_num_map_.insert({&us_new, cnt_state_ + 1});    // increment by one (fixed sink)
@@ -1395,7 +1375,8 @@ namespace cola
       using mstate_col_set = kofola::abstract_complement_alg::mstate_col_set;
       assert(algos.size() == src.get_part_macrostates().size());
 
-      std::set<unsigned> all_succ = get_all_successors(src.get_reach_set(), symbol);
+      std::set<unsigned> all_succ = kofola::get_all_successors(
+          this->aut_, src.get_reach_set(), symbol);
       const vec_macrostates& prev_part_macro = src.get_part_macrostates();
       // this container collects all sets of pairs of macrostates and colours,
       // later, we will turn it into the Cartesian product
@@ -1447,7 +1428,8 @@ namespace cola
       std::vector<mstate_set> vec_mstate_sets;
       for (auto& alg : alg_vec) { // get outputs of all procedures
         mstate_set init_mstates = alg->get_init();
-        if (init_mstates.empty()) { return {};}   // one empty terminates
+        assert(1 == init_mstates.size());   // FIXME: we don't support more init states yet!
+        if (init_mstates.empty()) { return {};}   // one empty set terminates
         vec_mstate_sets.emplace_back(std::move(init_mstates));
       }
 
@@ -1479,11 +1461,14 @@ namespace cola
       for (size_t i = 0; i < info.scc_info_.scc_count(); ++i)
       { // determine which algorithms to run on each of the SCCs
         abs_cmpl_alg_p alg;
-        if (is_accepting_weakscc(info.scc_types_, i)) {
+        if (!is_accepting_scc(info.scc_types_, i)) { // nonaccepting SCCs can be skipped
+          continue;
+        }
+        else if (is_accepting_weakscc(info.scc_types_, i)) {
           alg = std::make_unique<kofola::complement_mh>(info, i);
         }
         else if (is_accepting_detscc(info.scc_types_, i)) {
-          assert(false);
+          alg = std::make_unique<kofola::complement_ncsb>(info, i);
         }
         else if (is_accepting_nondetscc(info.scc_types_, i)) {
           assert(false);
@@ -1503,6 +1488,8 @@ namespace cola
     spot::twa_graph_ptr
     run_new()
     { // {{{
+
+      // FIXME: check that what we receive is a normal TBA
 
       // TODO: SCC preprocessing
 
@@ -1595,6 +1582,7 @@ namespace cola
       DEBUG_PRINT_LN(std::to_string(compl_states));
 
       // convert the result into a spot automaton
+      // FIXME: we should be directly constructing spot aut
       spot::twa_graph_ptr result = spot::make_twa_graph(this->aut_->get_dict());
       for (const auto& st_trans_pair : compl_states) {
         const unsigned& src = st_trans_pair.first;
@@ -1614,6 +1602,7 @@ namespace cola
 
       spot::print_hoa(std::cerr, result);
       std::cerr << "\n\n\n\n";
+      DEBUG_PRINT_LN("FIXME: handle initial states!");
 
       return result;
     } // run_new() }}}

@@ -34,8 +34,8 @@ src_libkofola_la_SOURCES =			\
   src/kofola.cpp			\
   src/abstract_complement_alg.cpp     \
   src/complement_alg_mh.cpp     \
+  src/complement_alg_ncsb.cpp     \
   src/complement_mstate.cpp \
-  src/complement_class.hpp      \
   src/complement_class.cpp \
   src/complement_tnba.cpp				\
   src/composer.cpp				\
