@@ -41,9 +41,17 @@ bool complement_ncsb::mstate_ncsb::eq(const mstate& rhs) const
 }
 
 bool complement_ncsb::mstate_ncsb::lt(const mstate& rhs) const
-{
-  assert(false);
-}
+{ // {{{
+  const mstate_ncsb* rhs_ncsb = dynamic_cast<const mstate_ncsb*>(&rhs);
+  assert(rhs_ncsb);
+
+  if (this->active_ != rhs_ncsb->active_) { return this->active_ < rhs_ncsb->active_; }
+  if (this->check_ != rhs_ncsb->check_) { return this->check_ < rhs_ncsb->check_; }
+  if (this->safe_ != rhs_ncsb->safe_) { return this->safe_ < rhs_ncsb->safe_; }
+  if (this->breakpoint_ != rhs_ncsb->breakpoint_) { return this->breakpoint_ < rhs_ncsb->breakpoint_; }
+
+  return false;   // if all are equal
+} // lt() }}}
 
 complement_ncsb::mstate_ncsb::~mstate_ncsb()
 { }
@@ -95,7 +103,7 @@ mstate_col_set complement_ncsb::get_succ_track(
     }
   }
 
-  std::shared_ptr<mstate> ms(new mstate_ncsb(succ_states, succ_safe, {}, false));   // FIXME: activity
+  std::shared_ptr<mstate> ms(new mstate_ncsb(succ_states, succ_safe, {}, false));
   mstate_col_set result = {{ms, {}}}; return result;
 } // get_succ_track() }}}
 
@@ -114,6 +122,7 @@ mstate_col_set complement_ncsb::get_succ_active(
   const mstate*              src,
   const bdd&                 symbol) const
 {
+  DEBUG_PRINT_LN("we're in SCC " + std::to_string(this->scc_index_));
   const mstate_ncsb* src_ncsb = dynamic_cast<const mstate_ncsb*>(src);
   assert(src_ncsb);
   assert(src_ncsb->active_);
@@ -131,13 +140,27 @@ mstate_col_set complement_ncsb::get_succ_active(
   std::set<unsigned> tmp_break = kofola::get_all_successors_in_scc(
     this->info_.aut_, this->info_.scc_info_, this->scc_index_, src_ncsb->breakpoint_, symbol);
 
+  DEBUG_PRINT_LN("tmp_break = " + std::to_string(tmp_break));
+
   std::set<unsigned> succ_break = get_set_difference(tmp_break, track_ms->safe_);
   if (succ_break.empty()) { // if we hit breakpoint
-    std::shared_ptr<mstate> ms(new mstate_ncsb(track_ms->check_, track_ms->safe_, succ_break, false));
+    std::shared_ptr<mstate> ms(new mstate_ncsb(track_ms->check_, track_ms->safe_, {}, false));
     return {{ms, {0}}};
-  } else {
+  } else { // not breakpoint
+    mstate_col_set result;
+    std::shared_ptr<mstate> ms(new mstate_ncsb(track_ms->check_, track_ms->safe_, succ_break, true));
+    result.push_back({ms, {}});
+
+    // check the breakpoint is not accepting
+    if (succ_break.end() == std::find_if(
+        succ_break.begin(), succ_break.end(),
+        [=](unsigned x) { return this-info_.state_accepting_[x]; })
+      ) { // no accepting state in breakpoint
+      assert(false);
     // FIXME: add decreasing transitions
-    assert(false);
+    }
+
+    return result;
   }
 }
 

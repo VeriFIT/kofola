@@ -18,7 +18,6 @@ public: // TYPES
   { // {{{
   private: // DATA MEMBERS
 
-    bool active_ = false;     // true = active ; false = track
     std::set<unsigned> states_;
     std::set<unsigned> breakpoint_;
 
@@ -28,6 +27,7 @@ public: // TYPES
     mstate_mh(const std::set<unsigned>& states, const std::set<unsigned>& breakpoint);
 
     virtual std::string to_string() const override;
+    virtual bool is_active() const override { return false; }
     virtual bool eq(const mstate& rhs) const override;
     virtual bool lt(const mstate& rhs) const override;
     virtual ~mstate_mh() override;

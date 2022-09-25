@@ -30,17 +30,22 @@ struct cmpl_info
   /// types of SCCs
   const std::string scc_types_;
 
+  /// accepting states
+  const std::vector<bool>& state_accepting_;
+
   /// constructor
   cmpl_info(
     const spot::const_twa_graph_ptr&  aut,
     const spot::scc_info&             scc_info,
     const Simulation&                 dir_sim,
-    const std::string&                scc_types
+    const std::string&                scc_types,
+    const std::vector<bool>&          state_accepting
     ) :
     aut_(aut),
     scc_info_(scc_info),
     dir_sim_(dir_sim),
-    scc_types_(scc_types)
+    scc_types_(scc_types),
+    state_accepting_(state_accepting)
   { }
 }; // struct cmpl_info }}}
 
@@ -54,6 +59,9 @@ public: // TYPES
   class mstate
   { // {{{
   public: // METHODS
+
+    /// is the macrostate active?
+    virtual bool is_active() const = 0;
 
     /// returns string representation of the partial macrostate
     virtual std::string to_string() const = 0;

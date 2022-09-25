@@ -31,6 +31,7 @@ public: // TYPES
       bool                       active);
 
     virtual std::string to_string() const override;
+    virtual bool is_active() const override { return this->active_; }
     virtual bool eq(const mstate& rhs) const override;
     virtual bool lt(const mstate& rhs) const override;
     virtual ~mstate_ncsb() override;

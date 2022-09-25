@@ -1321,11 +1321,6 @@ namespace cola
     unsigned insert_uberstate(uberstate&& us)
     { // {{{
       DEBUG_PRINT_LN("inserting uberstate " + us.to_string());
-      for (const auto& elem : this->uberstate_to_num_map_) {
-        DEBUG_PRINT_LN("  uberstate map element: " + std::to_string(*(elem.first)) +
-          " -> " + std::to_string(elem.second));
-      }
-      DEBUG_PRINT_LN("num_to_uberstate_map_ = " + std::to_string(this->num_to_uberstate_map_));
       auto it = uberstate_to_num_map_.find(&us);
       if (uberstate_to_num_map_.end() == it) { // not found
         DEBUG_PRINT_LN("not found!");
@@ -1402,7 +1397,7 @@ namespace cola
         }
       }
 
-      for (size_t i = 0; i < std::min(prev, static_cast<int>(alg_vec.size())); ++i) {
+      for (size_t i = 0; i < std::min(prev + 1, static_cast<int>(alg_vec.size())); ++i) {
         if (alg_vec[i]->use_round_robin()) {
           return i;
         }
@@ -1420,10 +1415,12 @@ namespace cola
       const uberstate&       src,
       const bdd&             symbol)
     { // {{{
+      using mstate_set = kofola::abstract_complement_alg::mstate_set;
       using mstate_col = kofola::abstract_complement_alg::mstate_col;
       using mstate_col_set = kofola::abstract_complement_alg::mstate_col_set;
       assert(algos.size() == src.get_part_macrostates().size());
 
+      const int active_index = src.get_active_scc();
       std::set<unsigned> all_succ = kofola::get_all_successors(
           this->aut_, src.get_reach_set(), symbol);
       const vec_macrostates& prev_part_macro = src.get_part_macrostates();
@@ -1433,7 +1430,7 @@ namespace cola
       for (size_t i = 0; i < algos.size(); ++i) {
         const kofola::abstract_complement_alg::mstate* ms = prev_part_macro[i].get();
         mstate_col_set mcs;
-        if (src.get_active_scc() == i) {
+        if (active_index == i) {
           mcs = algos[i]->get_succ_active(all_succ, ms, symbol);
         } else {
           mcs = algos[i]->get_succ_track(all_succ, ms, symbol);
@@ -1459,10 +1456,28 @@ namespace cola
           cols.insert(ms_col.second.begin(), ms_col.second.end());
         }
 
-        DEBUG_PRINT_LN("inserting")
-        unsigned us_num = insert_uberstate(uberstate(all_succ, vm, INACTIVE_SCC));    // FIXME: proper active index
-        DEBUG_PRINT_LN("inserted")
-        result.emplace_back(us_num, std::move(cols));
+        if (INACTIVE_SCC == active_index) { // no round robin
+          DEBUG_PRINT_LN("inserting")
+          unsigned us_num = insert_uberstate(uberstate(all_succ, vm, INACTIVE_SCC));
+          DEBUG_PRINT_LN("inserted")
+          result.emplace_back(us_num, std::move(cols));
+        } else { // round robin
+          if (vm[active_index]->is_active()) { // the same SCC active
+            unsigned us_num = insert_uberstate(uberstate(all_succ, vm, active_index));
+            result.emplace_back(us_num, std::move(cols));
+          } else { // another SCC active
+            int next_active = get_next_active_scc(algos, active_index);
+            DEBUG_PRINT_LN("next active index: " + std::to_string(next_active));
+            assert(INACTIVE_SCC != next_active);
+
+            // now we need to lift the macrostate for next_active from track to active
+            mstate_set active_macros = algos[next_active]->lift_track_to_active(vm[next_active].get());
+            assert(active_macros.size() == 1); // FIXME: this should be made proper
+            vm[next_active] = active_macros[0];
+            unsigned us_num = insert_uberstate(uberstate(all_succ, vm, next_active));
+            result.emplace_back(us_num, std::move(cols));
+          }
+        }
       }
 
       DEBUG_PRINT_LN("computed successors: " + std::to_string(result));
@@ -1564,7 +1579,7 @@ namespace cola
       const auto scc_types = get_scc_types(scc_info);
 
       // collect information for complementation
-      kofola::cmpl_info info(this->aut_, scc_info, this->dir_sim_, scc_types);
+      kofola::cmpl_info info(this->aut_, scc_info, this->dir_sim_, scc_types, this->is_accepting_);
 
       DEBUG_PRINT_LN("selecting algorithms");
 
@@ -1690,6 +1705,9 @@ namespace cola
           }
         }
       }
+
+      assert(init_vec.size() == 1);    // FIXME: do it properly
+      result->set_init_state(init_vec[0]);
 
       spot::print_hoa(std::cerr, result);
       std::cerr << "\n\n\n\n";

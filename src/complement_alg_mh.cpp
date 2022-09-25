@@ -18,11 +18,9 @@ complement_mh::mstate_mh::mstate_mh(
 
 std::string complement_mh::mstate_mh::to_string() const
 {
-  std::string res = std::string("[MH(") + ((this->active_)? "A" : "T") + "): ";
+  std::string res = "[MH: ";
   res += "C=" + std::to_string(this->states_);
-  if (this->active_) {
-    res += ", B=" + std::to_string(this->breakpoint_);
-  }
+  res += ", B=" + std::to_string(this->breakpoint_);
   res += "]";
   return res;
 }
@@ -31,14 +29,19 @@ bool complement_mh::mstate_mh::eq(const mstate& rhs) const
 {
   const mstate_mh* rhs_mh = dynamic_cast<const mstate_mh*>(&rhs);
   assert(rhs_mh);
-  return (this->active_ == rhs_mh->active_) &&
-    (this->states_ == rhs_mh->states_) &&
+  return (this->states_ == rhs_mh->states_) &&
     (this->breakpoint_ == rhs_mh->breakpoint_);
 }
 
 bool complement_mh::mstate_mh::lt(const mstate& rhs) const
 {
-  assert(false);
+  const mstate_mh* rhs_mh = dynamic_cast<const mstate_mh*>(&rhs);
+  assert(rhs_mh);
+
+  if (this->states_ != rhs_mh->states_) { return this->states_ < rhs_mh->states_; }
+  if (this->breakpoint_ != rhs_mh->breakpoint_) { return this->breakpoint_ < rhs_mh->breakpoint_; }
+
+  return false;   // if all are equal
 }
 
 complement_mh::mstate_mh::~mstate_mh()
@@ -69,7 +72,6 @@ mstate_col_set complement_mh::get_succ_track(
 { // {{{
   const mstate_mh* src_mh = dynamic_cast<const mstate_mh*>(src);
   assert(src_mh);
-  assert(!src_mh->active_);
 
   std::set<unsigned> states;
   for (unsigned st : glob_reached) {
@@ -78,8 +80,19 @@ mstate_col_set complement_mh::get_succ_track(
     }
   }
 
-  std::shared_ptr<mstate> ms(new mstate_mh(states, {}));
-  mstate_col_set result = {{ms, {}}};
+  std::set<unsigned> succ_break = kofola::get_all_successors_in_scc(
+    this->info_.aut_, this->info_.scc_info_, this->scc_index_, src_mh->breakpoint_, symbol);
+
+  mstate_col_set result;
+  if (succ_break.empty()) { // hit breakpoint
+    std::shared_ptr<mstate> ms(new mstate_mh(states, states));
+    result.push_back({ms, {0}});
+  }
+  else { // no breakpoint
+    std::shared_ptr<mstate> ms(new mstate_mh(states, succ_break));
+    result.push_back({ms, {}});
+  }
+
   return result;
 } // get_succ_track() }}}
 

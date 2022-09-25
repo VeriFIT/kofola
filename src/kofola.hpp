@@ -131,10 +131,19 @@ namespace kofola
     const T&                          current_states,
     const bdd&                        symbol)
   { // {{{
+    for (size_t i = 0; i < aut->num_states(); ++i) {
+      DEBUG_PRINT_LN("state " + std::to_string(i) + " is in SCC #" + std::to_string(scc_inf.scc_of(i)));
+    }
+
     std::set<unsigned> successors = get_all_successors(aut, current_states, symbol);
+    DEBUG_PRINT_LN("SCC num = " + std::to_string(scc_num));
+    for (const auto& elem : successors) {
+      DEBUG_PRINT_LN(std::to_string(elem) + " from SCC num " + std::to_string(scc_inf.scc_of(elem)));
+    }
+
     std::set<unsigned> result;
     std::copy_if(successors.begin(), successors.end(), std::inserter(result, result.end()),
-        [=](unsigned x){ return scc_num != scc_inf.scc_of(x); });
+        [=](unsigned x){ return scc_num == scc_inf.scc_of(x); });
 
     return result;
   } // get_all_successors_in_scc() }}}
