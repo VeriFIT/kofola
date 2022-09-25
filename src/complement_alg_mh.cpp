@@ -83,10 +83,7 @@ mstate_col_set complement_mh::get_succ_track(
   return result;
 } // get_succ_track() }}}
 
-mstate_col_set complement_mh::get_succ_track_to_active(
-  const std::set<unsigned>&  glob_reached,
-  const mstate*              src,
-  const bdd&                 symbol) const
+mstate_set complement_mh::lift_track_to_active(const mstate* src) const
 {
   assert(false);
 }

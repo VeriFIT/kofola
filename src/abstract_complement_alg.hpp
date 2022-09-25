@@ -98,17 +98,21 @@ public: // METHODS
     const mstate*              src,               // partial macrostate
     const bdd&                 symbol) const = 0; // symbol
 
-  /// tracking to active successors
-  virtual mstate_col_set get_succ_track_to_active(
-    const std::set<unsigned>&  glob_reached,      // all states reached over symbol
-    const mstate*              src,               // partial macrostate
-    const bdd&                 symbol) const = 0; // symbol
+  /// lifts tracking state to active state
+  virtual mstate_set lift_track_to_active(const mstate* src) const = 0;
 
   /// active successors
   virtual mstate_col_set get_succ_active(
     const std::set<unsigned>&  glob_reached,      // all states reached over symbol
     const mstate*              src,               // partial macrostate
     const bdd&                 symbol) const = 0; // symbol
+
+  /// determines whether the algorithm should be use in round-robin scheme;
+  /// in particular:
+  ///   true: the algorithm uses get_succ_track(), get_succ_track_to_active(),
+  ///         get_succ_active()
+  ///   false: the algorithm only uses get_succ_track()
+  virtual bool use_round_robin() const = 0;
 
   /// virtual destructor (to allow deletion via pointer)
   virtual ~abstract_complement_alg() { }

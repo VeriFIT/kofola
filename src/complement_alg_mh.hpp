@@ -47,15 +47,14 @@ public: // METHODS
     const mstate*              src,
     const bdd&                 symbol) const override;
 
-  virtual mstate_col_set get_succ_track_to_active(
-    const std::set<unsigned>&  glob_reached,
-    const mstate*              src,
-    const bdd&                 symbol) const override;
+  virtual mstate_set lift_track_to_active(const mstate* src) const override;
 
   virtual mstate_col_set get_succ_active(
     const std::set<unsigned>&  glob_reached,
     const mstate*              src,
     const bdd&                 symbol) const override;
+
+  virtual bool use_round_robin() const override { return false; }
 
   virtual ~complement_mh() override;
 }; // complement_mh }}}

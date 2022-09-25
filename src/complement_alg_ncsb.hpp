@@ -16,8 +16,8 @@ public: // TYPES
   { // {{{
   private: // DATA MEMBERS
 
-    bool active_ = false;            // true = active ; false = track
-    std::set<unsigned> states_;
+    bool active_;                    // true = active ; false = track
+    std::set<unsigned> check_;       // states for runs that need to be checked
     std::set<unsigned> safe_;        // safe states (cannot see accepting transition)
     std::set<unsigned> breakpoint_;
 
@@ -25,9 +25,10 @@ public: // TYPES
 
     /// constructor
     mstate_ncsb(
-      const std::set<unsigned>&  states,
+      const std::set<unsigned>&  check,
       const std::set<unsigned>&  safe,
-      const std::set<unsigned>&  breakpoint);
+      const std::set<unsigned>&  breakpoint,
+      bool                       active);
 
     virtual std::string to_string() const override;
     virtual bool eq(const mstate& rhs) const override;
@@ -49,15 +50,14 @@ public: // METHODS
     const mstate*              src,
     const bdd&                 symbol) const override;
 
-  virtual mstate_col_set get_succ_track_to_active(
-    const std::set<unsigned>&  glob_reached,
-    const mstate*              src,
-    const bdd&                 symbol) const override;
+  virtual mstate_set lift_track_to_active(const mstate* src) const override;
 
   virtual mstate_col_set get_succ_active(
     const std::set<unsigned>&  glob_reached,
     const mstate*              src,
     const bdd&                 symbol) const override;
+
+  virtual bool use_round_robin() const override { return true; }
 
   virtual ~complement_ncsb() override;
 }; // complement_ncsb }}}

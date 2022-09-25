@@ -38,6 +38,7 @@
 #include <stack>
 
 #include <spot/misc/hashfunc.hh>
+#include <spot/twaalgos/dot.hh>
 #include <spot/twaalgos/isdet.hh>
 #include <spot/twaalgos/sccinfo.hh>
 #include <spot/twaalgos/isunamb.hh>
@@ -128,7 +129,7 @@ namespace cola
     std::string scc_types_;
 
     // State names for graphviz display
-    std::vector<std::string> *names_;
+    std::vector<std::string>* names_;
 
     // the index of each weak SCCs
     std::vector<unsigned> weaksccs_;
@@ -565,8 +566,8 @@ namespace cola
 
       if (show_names_)
       {
-        names_ = new std::vector<std::string>();
-        res_->set_named_prop("state-names", names_);
+        this->names_ = new std::vector<std::string>();
+        res_->set_named_prop("state-names", &this->names_);
       }
 
       if (this->weaksccs_.size() == 0)
@@ -1163,22 +1164,32 @@ namespace cola
 
       /// all reached states
       std::set<unsigned> reached_states_;
+      /// vector of partial macrostates
       vec_macrostates part_macrostates_;
+      /// index of the active component for round robin
+      int active_scc_;
 
     public:  // METHODS
 
       /// constructor
       uberstate(const std::set<unsigned>& reached_states,
-                const vec_macrostates& part_macrostates) :
+                const vec_macrostates& part_macrostates,
+                int active_scc) :
         reached_states_(reached_states),
-        part_macrostates_(part_macrostates)
+        part_macrostates_(part_macrostates),
+        active_scc_(active_scc)
       { }
 
       /// move constructor
       uberstate(uberstate&& us) = default;
 
       /// deleted copy constructor and assignment operator
-      uberstate(const uberstate& us) = delete;
+      uberstate(const uberstate& us) :
+        reached_states_(us.reached_states_),
+        part_macrostates_(us.part_macrostates_),
+        active_scc_(us.active_scc_)
+      { }
+
       uberstate& operator=(const uberstate& us) = delete;
 
       /// converts to string
@@ -1186,7 +1197,7 @@ namespace cola
       { // {{{
         std::string result;
         result += "<" + std::to_string(this->reached_states_);
-        result += " | ";
+        result += " |" + std::to_string(this->active_scc_) + "| ";
 
         for (size_t i = 0; i < this->part_macrostates_.size(); ++i) {
           result += "c" + std::to_string(i) + ": " +
@@ -1215,12 +1226,21 @@ namespace cola
       const vec_macrostates& get_part_macrostates() const
       { return this->part_macrostates_; }
 
+      /// returns the index of the active SCC (INACTIVE_SCC if no active)
+      const int get_active_scc() const
+      { return this->active_scc_; }
+
       /// total ordering operator to allow use in std::set and std::map
       bool operator<(const uberstate& rhs) const
       { // {{{
         assert(this->part_macrostates_.size() == rhs.part_macrostates_.size());
 
-        // let's start by comparing reached_states_
+        // let's start by comparing active SCC indices
+        if (this->active_scc_ != rhs.active_scc_) {
+          return this->active_scc_ < rhs.active_scc_;
+        }
+
+        // continue by comparing reached_states_
         // FIXME: inefficient - in C++20, we would use the flying saucer
         // operator <=>
         if (this->reached_states_ != rhs.reached_states_) {
@@ -1250,7 +1270,10 @@ namespace cola
     struct uberstate_ptr_less_ftor
     {
       bool operator()(const uberstate* lhs, const uberstate* rhs) const
-      { return *lhs < *rhs; }
+      {
+        assert(lhs && rhs);
+        return *lhs < *rhs;
+      }
     };
 
 
@@ -1262,10 +1285,15 @@ namespace cola
     /// maps uberstates to state numbers
     std::map<const uberstate*, unsigned, uberstate_ptr_less_ftor> uberstate_to_num_map_;
     /// maps state numbers to uberstates
-    std::vector<uberstate> num_to_uberstate_map_;
+    std::vector<std::shared_ptr<uberstate>> num_to_uberstate_map_;
     /// counter of states (to be assigned to uberstates) - 0 is reserved for sink
     unsigned cnt_state_ = 0;
-    const unsigned SINK_STATE = 0;
+
+    /// number of designated sink state
+    static const unsigned SINK_STATE = 0;
+
+    /// index of active SCC if no SCC is active
+    static const int INACTIVE_SCC = -1;
 
     /// accessor into the uberstate table
     unsigned uberstate_to_num(const uberstate& us) const
@@ -1283,7 +1311,8 @@ namespace cola
     { // {{{
       assert(0 != num);
       assert(num <= num_to_uberstate_map_.size());
-      return num_to_uberstate_map_[num - 1];   // offset because of sink
+      assert(num_to_uberstate_map_[num - 1]);
+      return *num_to_uberstate_map_[num - 1];   // offset because of sink
     } // num_to_uberstate() }}}
 
     /// inserts an uberstate (by moving) and returns its assigned number (if
@@ -1296,13 +1325,15 @@ namespace cola
         DEBUG_PRINT_LN("  uberstate map element: " + std::to_string(*(elem.first)) +
           " -> " + std::to_string(elem.second));
       }
-      DEBUG_PRINT_LN("num_to_uberstate_map_ = " + std::to_string(num_to_uberstate_map_));
+      DEBUG_PRINT_LN("num_to_uberstate_map_ = " + std::to_string(this->num_to_uberstate_map_));
       auto it = uberstate_to_num_map_.find(&us);
       if (uberstate_to_num_map_.end() == it) { // not found
-        num_to_uberstate_map_.emplace_back(std::move(us));
+        DEBUG_PRINT_LN("not found!");
+        std::shared_ptr<uberstate> ptr(new uberstate(us));
+        num_to_uberstate_map_.push_back(ptr);
         assert(num_to_uberstate_map_.size() == cnt_state_ + 1);  // invariant
-        const uberstate& us_new = num_to_uberstate_map_[cnt_state_];
-        auto jt_bool_pair = uberstate_to_num_map_.insert({&us_new, cnt_state_ + 1});    // increment by one (fixed sink)
+        const uberstate* us_new = num_to_uberstate_map_[cnt_state_].get();
+        auto jt_bool_pair = uberstate_to_num_map_.insert({us_new, cnt_state_ + 1});    // increment by one (fixed sink)
         assert(jt_bool_pair.second);    // insertion happened
         ++cnt_state_;
         DEBUG_PRINT_LN("inserted as " + std::to_string(jt_bool_pair.first->second));
@@ -1363,6 +1394,24 @@ namespace cola
       t.erase(std::unique(t.begin(), t.end()), t.end());
     } // remove_duplicit }}}
 
+    static int get_next_active_scc(const vec_algorithms& alg_vec, int prev)
+    { // {{{
+      for (size_t i = prev+1; i < alg_vec.size(); ++i) {
+        if (alg_vec[i]->use_round_robin()) {
+          return i;
+        }
+      }
+
+      for (size_t i = 0; i < std::min(prev, static_cast<int>(alg_vec.size())); ++i) {
+        if (alg_vec[i]->use_round_robin()) {
+          return i;
+        }
+      }
+
+      return INACTIVE_SCC;
+    } // get_next_active_scc() }}}
+
+
 
     /// gets all successors of an uberstate wrt a vector of algorithms and a
     /// symbol
@@ -1383,7 +1432,12 @@ namespace cola
       std::vector<mstate_col_set> succ_part_macro_col;
       for (size_t i = 0; i < algos.size(); ++i) {
         const kofola::abstract_complement_alg::mstate* ms = prev_part_macro[i].get();
-        mstate_col_set mcs = algos[i]->get_succ_track(all_succ, ms, symbol);
+        mstate_col_set mcs;
+        if (src.get_active_scc() == i) {
+          mcs = algos[i]->get_succ_active(all_succ, ms, symbol);
+        } else {
+          mcs = algos[i]->get_succ_track(all_succ, ms, symbol);
+        }
         succ_part_macro_col.emplace_back(std::move(mcs));
       }
 
@@ -1406,7 +1460,7 @@ namespace cola
         }
 
         DEBUG_PRINT_LN("inserting")
-        unsigned us_num = insert_uberstate(uberstate(all_succ, vm));
+        unsigned us_num = insert_uberstate(uberstate(all_succ, vm, INACTIVE_SCC));    // FIXME: proper active index
         DEBUG_PRINT_LN("inserted")
         result.emplace_back(us_num, std::move(cols));
       }
@@ -1421,13 +1475,24 @@ namespace cola
     /// gets all initial uberstates wrt a vector of algorithms
     std::vector<unsigned> get_initial_uberstates(const vec_algorithms& alg_vec)
     { // {{{
-      const size_t length = alg_vec.size();
       std::set<unsigned> initial_states = {aut_->get_init_state_number()};
+
+      int init_active = get_next_active_scc(alg_vec, INACTIVE_SCC);
+      DEBUG_PRINT_LN("initial active SCC: " + std::to_string(init_active));
 
       using mstate_set = kofola::abstract_complement_alg::mstate_set;
       std::vector<mstate_set> vec_mstate_sets;
-      for (auto& alg : alg_vec) { // get outputs of all procedures
-        mstate_set init_mstates = alg->get_init();
+      for (size_t i = 0; i < alg_vec.size(); ++i) { // get outputs of all procedures
+        mstate_set init_mstates = alg_vec[i]->get_init();
+        if (i == init_active) { // make the partial macrostate active
+          mstate_set new_mstates;
+          for (const auto& st : init_mstates) {
+            mstate_set lifted = alg_vec[i]->lift_track_to_active(st.get());
+            new_mstates.insert(new_mstates.end(), lifted.begin(), lifted.end());
+          }
+          remove_duplicit(new_mstates);
+          init_mstates = std::move(new_mstates);
+        }
         assert(1 == init_mstates.size());   // FIXME: we don't support more init states yet!
         if (init_mstates.empty()) { return {};}   // one empty set terminates
         vec_mstate_sets.emplace_back(std::move(init_mstates));
@@ -1442,7 +1507,7 @@ namespace cola
 
       std::vector<unsigned> result;
       for (const auto& vec : cp) {
-        unsigned us_num = insert_uberstate(uberstate(initial_states, vec));
+        unsigned us_num = insert_uberstate(uberstate(initial_states, vec, init_active));
         result.push_back(us_num);
       }
 
@@ -1488,6 +1553,8 @@ namespace cola
     spot::twa_graph_ptr
     run_new()
     { // {{{
+      this->names_ = new std::vector<std::string>();   // FIXME: allocate at one place
+      this->show_names_ = true;     // FIXME: set from parameters
 
       // FIXME: check that what we receive is a normal TBA
 
@@ -1584,6 +1651,22 @@ namespace cola
       // convert the result into a spot automaton
       // FIXME: we should be directly constructing spot aut
       spot::twa_graph_ptr result = spot::make_twa_graph(this->aut_->get_dict());
+      result->copy_ap_of(this->aut_);
+      result->prop_copy(this->aut_,
+                        {
+                            false,        // state based
+                            false,        // inherently_weak
+                            false, false, // deterministic
+                            true,         // complete
+                            false         // stutter inv
+                        });
+      result->set_buchi();     // FIXME: change to proper acceptance condition
+
+      std::vector<std::string>* state_names = nullptr;
+      if (show_names_) { // show names
+        state_names = new std::vector<std::string>();
+        result->set_named_prop("state-names", state_names);
+      }
       for (const auto& st_trans_pair : compl_states) {
         const unsigned& src = st_trans_pair.first;
         unsigned spot_state = result->new_state();
@@ -1598,11 +1681,20 @@ namespace cola
             result->new_edge(src, tgt, symbol, spot_cols);
           }
         }
+
+        if (this->show_names_) {
+          if (SINK_STATE == src) {
+            state_names->push_back("SINK");
+          } else {
+            state_names->push_back(num_to_uberstate(src).to_string());
+          }
+        }
       }
 
       spot::print_hoa(std::cerr, result);
       std::cerr << "\n\n\n\n";
       DEBUG_PRINT_LN("FIXME: handle initial states!");
+      DEBUG_PRINT_LN("FIXME: handle acceptance condition!");
 
       return result;
     } // run_new() }}}

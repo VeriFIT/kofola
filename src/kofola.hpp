@@ -139,6 +139,17 @@ namespace kofola
     return result;
   } // get_all_successors_in_scc() }}}
 
+  template <class T>
+  std::set<T> get_set_difference(const std::set<T>& lhs, const std::set<T>& rhs)
+  { // {{{
+    std::set<T> result;
+    std::set_difference(lhs.begin(), lhs.end(),
+      rhs.begin(), rhs.end(),
+      std::inserter(result, result.end()));
+
+    return result;
+  } // get_set_difference() }}}
+
 } // namespace kofola }}}
 
 
