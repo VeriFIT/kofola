@@ -1435,6 +1435,11 @@ namespace cola
         } else {
           mcs = algos[i]->get_succ_track(all_succ, ms, symbol);
         }
+
+        if (mcs.empty()) { // one empty set of successor macrostates
+          return {};
+        }
+
         succ_part_macro_col.emplace_back(std::move(mcs));
       }
 

@@ -87,10 +87,13 @@ mstate_col_set complement_ncsb::get_succ_track(
   std::set<unsigned> succ_safe;
   for (unsigned s : src_ncsb->safe_) {
     for (const auto &t : this->info_.aut_->out(s)) {
-      if (t.acc) { // TODO: this says *any* colour is set
-        return {};
+      if (bdd_implies(symbol, t.cond)) {
+        if (t.acc || this->info_.state_accepting_[t.dst]) {
+          // TODO: this says *any* colour is set
+          return {};
+        }
+        succ_safe.insert(t.dst);
       }
-      if (bdd_implies(symbol, t.cond)) { succ_safe.insert(t.dst); }
     }
   }
 
@@ -122,13 +125,16 @@ mstate_col_set complement_ncsb::get_succ_active(
   const mstate*              src,
   const bdd&                 symbol) const
 {
-  DEBUG_PRINT_LN("we're in SCC " + std::to_string(this->scc_index_));
+  DEBUG_PRINT_LN("computing successor for glob_reached = " + std::to_string(glob_reached) +
+    ", " + std::to_string(*src) + " over " + std::to_string(symbol));
   const mstate_ncsb* src_ncsb = dynamic_cast<const mstate_ncsb*>(src);
   assert(src_ncsb);
   assert(src_ncsb->active_);
 
+  DEBUG_PRINT_LN("tracking successor of: " + std::to_string(*src_ncsb));
   mstate_ncsb tmp(src_ncsb->check_, src_ncsb->safe_, {}, false);
   mstate_col_set track_succ = this->get_succ_track(glob_reached, &tmp, symbol);
+
   if (track_succ.size() == 0) { return {};}
   assert(track_succ.size() == 1);
 
@@ -149,15 +155,21 @@ mstate_col_set complement_ncsb::get_succ_active(
   } else { // not breakpoint
     mstate_col_set result;
     std::shared_ptr<mstate> ms(new mstate_ncsb(track_ms->check_, track_ms->safe_, succ_break, true));
+    DEBUG_PRINT_LN("standard successor: " + ms->to_string());
     result.push_back({ms, {}});
 
     // check the breakpoint is not accepting
     if (succ_break.end() == std::find_if(
         succ_break.begin(), succ_break.end(),
-        [=](unsigned x) { return this-info_.state_accepting_[x]; })
+        [=](unsigned x) { return this->info_.state_accepting_[x]; })
       ) { // no accepting state in breakpoint
-      assert(false);
-    // FIXME: add decreasing transitions
+      // FIXME: also check transitions over accepting states
+      // add the decreasing successor
+      std::set<unsigned> decr_safe = get_set_union(track_ms->safe_, succ_break);
+      std::set<unsigned> decr_check = get_set_difference(track_ms->check_, decr_safe);
+      std::shared_ptr<mstate> decr_ms(new mstate_ncsb(decr_check, decr_safe, decr_check, true));
+      DEBUG_PRINT_LN("decreasing successor: " + decr_ms->to_string());
+      result.push_back({decr_ms, {0}});
     }
 
     return result;
