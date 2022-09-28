@@ -1452,13 +1452,16 @@ namespace cola
             if (algos[i]->use_round_robin()) {
               assert(0 == col);
               new_cols.insert(RR_COLOUR);
+            } else {
+              new_cols.insert(col + col_offset);
             }
-            else { new_cols.insert(col + col_offset); }
           }
           mstate_col.second = new_cols;
+          if (!algos[i]->use_round_robin()) {
+            col_offset += algos[i]->get_acc_cond().num_sets();
+          }
         }
 
-        col_offset += algos[i]->get_acc_cond().num_sets();
         succ_part_macro_col.emplace_back(std::move(mcs));
       }
 
@@ -1601,8 +1604,11 @@ namespace cola
       auto& scc_info = get_scc_info();
       const auto scc_types = get_scc_types(scc_info);
 
-      // DEBUG_PRINT_LN("Complementing the following aut:");
-      // spot::print_hoa(std::cerr, this->aut_);
+      if (kofola::LOG_VERBOSITY > 0) {
+        DEBUG_PRINT_LN("Complementing the following aut:");
+        spot::print_hoa(std::cerr, this->aut_);
+        std::cerr << "\n\n\n\n";
+      }
 
       // collect information for complementation
       kofola::cmpl_info info(this->aut_, scc_info, this->dir_sim_, scc_types, this->is_accepting_);
@@ -1692,23 +1698,29 @@ namespace cola
       DEBUG_PRINT_LN(std::to_string(compl_states));
 
       size_t num_colours = RESERVED_COLOURS;
+      bool at_least_one_rr = false;
       spot::acc_cond::acc_code sink_acc_code = spot::acc_cond::acc_code::inf({SINK_COLOUR});
-      spot::acc_cond::acc_code rr_acc_code = spot::acc_cond::acc_code::inf({RR_COLOUR});
       spot::acc_cond::acc_code alg_acc_code = spot::acc_cond::acc_code::t();
       for (const auto& alg : alg_vec) { // sum up acceptance conditions
         spot::acc_cond cond = alg->get_acc_cond();
         spot::acc_cond::acc_code cond_code = cond.get_acceptance();
-        if (!alg->use_round_robin()) {
+        if (alg->use_round_robin()) {
+          at_least_one_rr = true;
+        } else {
           cond_code <<= num_colours;
           alg_acc_code &= cond_code;
           num_colours += cond.num_sets();
         }
       }
 
+      if (at_least_one_rr) { // at least one round-robin algorithm
+        alg_acc_code &= spot::acc_cond::acc_code::inf({RR_COLOUR});
+      }
+
+
       spot::acc_cond result_cond(num_colours,
-        sink_acc_code |            // to accept, either stay in sink,
-          (rr_acc_code &           // or accept in all round-robined components
-           alg_acc_code));         // and also everywhere else
+        sink_acc_code |  // to accept, either stay in sink, or
+        alg_acc_code);   //  accept in all round-robined components and everywhere else
 
       // convert the result into a spot automaton
       // FIXME: we should be directly constructing spot aut
@@ -1759,9 +1771,12 @@ namespace cola
       assert(init_vec.size() == 1);    // FIXME: do it properly
       result->set_init_state(init_vec[0]);
 
-      spot::print_hoa(std::cerr, result);
-      std::cerr << "\n\n\n\n";
       DEBUG_PRINT_LN("FIXME: handle initial states!");
+
+      if (kofola::LOG_VERBOSITY > 0) {
+        spot::print_hoa(std::cerr, result);
+        std::cerr << "\n\n\n\n";
+      }
 
       return result;
     } // run_new() }}}
