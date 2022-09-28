@@ -1750,14 +1750,13 @@ namespace cola
       spot::print_hoa(std::cerr, result);
       std::cerr << "\n\n\n\n";
       DEBUG_PRINT_LN("FIXME: handle initial states!");
-      DEBUG_PRINT_LN("FIXME: handle acceptance condition!");
 
       return result;
     } // run_new() }}}
   };
 
   bool
-  all_trans_acc(const spot::twa_graph_ptr &aut, unsigned current_state, unsigned scc, spot::scc_info si)
+  all_trans_acc(const spot::twa_graph_ptr &aut, unsigned current_state, unsigned scc, const spot::scc_info& si)
   {
     auto current_scc = si.scc_of(current_state);
 
@@ -1774,7 +1773,7 @@ namespace cola
   }
 
   spot::twa_graph_ptr
-  saturation(const spot::twa_graph_ptr &aut, spot::scc_info si)
+  saturation(const spot::twa_graph_ptr &aut, const spot::scc_info& si)
   {
     bool change;
     for (unsigned i = 0; i < si.scc_count(); i++)

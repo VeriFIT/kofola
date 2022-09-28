@@ -10,15 +10,17 @@ using mstate_col_set = abstract_complement_alg::mstate_col_set;
 namespace { // anonymous namespace
 
   /// returns true of there is at least one outgoing accepting transition from
-  /// a set of states over the given symbol
+  /// a set of states over the given symbol in the given component
   bool contains_accepting_outgoing_transitions(
     const spot::const_twa_graph_ptr&  aut,
+    const spot::scc_info&             scc_inf,
+    unsigned                          scc_num,
     const std::set<unsigned>&         states,
     const bdd&                        symbol)
   { // {{{
     for (unsigned s : states) {
       for (const auto &t : aut->out(s)) {
-        if (bdd_implies(symbol, t.cond)) {
+        if (scc_inf.scc_of(t.dst) == scc_num && bdd_implies(symbol, t.cond)) {
           if (t.acc) { return true; }
         }
       }
@@ -113,7 +115,11 @@ mstate_col_set complement_ncsb::get_succ_track(
   assert(!src_ncsb->active_);
 
   // check that safe states do not see accepting transition
-  if (contains_accepting_outgoing_transitions(this->info_.aut_, src_ncsb->safe_, symbol)) {
+  if (contains_accepting_outgoing_transitions(
+      this->info_.aut_,
+      this->info_.scc_info_,
+      this->scc_index_,
+      src_ncsb->safe_, symbol)) {
     return {};
   }
 
@@ -199,7 +205,10 @@ mstate_col_set complement_ncsb::get_succ_active(
     }
 
     // 3) delta(src_ncsb->breakpoint_, symbol) contains no accepting condition
-    if (contains_accepting_outgoing_transitions(this->info_.aut_,
+    if (contains_accepting_outgoing_transitions(
+        this->info_.aut_,
+        this->info_.scc_info_,
+        this->scc_index_,
         src_ncsb->breakpoint_, symbol)) {
       return result;
     }
