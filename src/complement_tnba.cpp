@@ -1449,7 +1449,7 @@ namespace cola
           mstate_col.second = new_cols;
         }
 
-        col_offset += algos[i]->num_acc_cond();
+        col_offset += algos[i]->get_acc_cond().num_sets();
         succ_part_macro_col.emplace_back(std::move(mcs));
       }
 
@@ -1684,9 +1684,19 @@ namespace cola
       DEBUG_PRINT_LN(std::to_string(compl_states));
 
       size_t num_colours = 1;     // '0' is for sink
+      spot::acc_cond::acc_code sink_acc_code = spot::acc_cond::acc_code::inf({0});
+      spot::acc_cond::acc_code alg_acc_code = spot::acc_cond::acc_code::t();
       for (const auto& alg : alg_vec) { // sum up acceptance conditions
-        num_colours += alg->num_acc_cond();
+        spot::acc_cond cond = alg->get_acc_cond();
+        spot::acc_cond::acc_code cond_code = cond.get_acceptance();
+        cond_code <<= num_colours;
+        alg_acc_code &= cond_code;
+        num_colours += cond.num_sets();
       }
+
+      // FIXME: one colour for round robin!
+
+      spot::acc_cond result_cond(num_colours, sink_acc_code | alg_acc_code);
 
       // convert the result into a spot automaton
       // FIXME: we should be directly constructing spot aut
@@ -1700,7 +1710,10 @@ namespace cola
                             true,         // complete
                             false         // stutter inv
                         });
-      result->set_generalized_buchi(num_colours);     // FIXME: change to proper acceptance condition
+
+      result->set_acceptance(result_cond);
+      DEBUG_PRINT_LN("Acc = " + std::to_string(result->get_acceptance()));
+
 
       std::vector<std::string>* state_names = nullptr;
       if (show_names_) { // show names

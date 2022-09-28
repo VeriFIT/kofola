@@ -122,8 +122,8 @@ public: // METHODS
   ///   false: the algorithm only uses get_succ_track()
   virtual bool use_round_robin() const = 0;
 
-  /// returns the number of acceptance conditions used - if N is returned, conditions 0 ... N-1 are used
-  virtual size_t num_acc_cond() const = 0;
+  /// returns the acceptance condition
+  virtual spot::acc_cond get_acc_cond() const = 0;
 
   /// virtual destructor (to allow deletion via pointer)
   virtual ~abstract_complement_alg() { }
