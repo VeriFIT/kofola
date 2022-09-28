@@ -1292,6 +1292,11 @@ namespace cola
     /// number of designated accepting sink state
     static const unsigned SINK_ACCEPT_STATE = 0;
 
+    // reserved colours
+    static const unsigned SINK_COLOUR = 0;
+    static const unsigned RR_COLOUR = 1;      // colour for round robin
+    static const size_t RESERVED_COLOURS = 2; // how many colours are reserved
+
     /// index of active SCC if no SCC is active
     static const int INACTIVE_SCC = -1;
 
@@ -1426,7 +1431,7 @@ namespace cola
       // this container collects all sets of pairs of macrostates and colours,
       // later, we will turn it into the Cartesian product
       std::vector<mstate_col_set> succ_part_macro_col;
-      size_t col_offset = 1;   // current offset of colours ('0' is for sink)
+      size_t col_offset = RESERVED_COLOURS;   // current offset of colours
       for (size_t i = 0; i < algos.size(); ++i) {
         const kofola::abstract_complement_alg::mstate* ms = prev_part_macro[i].get();
         mstate_col_set mcs;
@@ -1444,7 +1449,11 @@ namespace cola
         for (auto& mstate_col : mcs) {
           std::set<unsigned> new_cols;
           for (const auto& col : mstate_col.second) {
-            new_cols.insert(col + col_offset);
+            if (algos[i]->use_round_robin()) {
+              assert(0 == col);
+              new_cols.insert(RR_COLOUR);
+            }
+            else { new_cols.insert(col + col_offset); }
           }
           mstate_col.second = new_cols;
         }
@@ -1569,11 +1578,10 @@ namespace cola
           assert(false);
         }
         else {
-          assert(false);
+          throw std::runtime_error("Strange SCC type found!");
         }
 
         result.push_back(std::move(alg));
-        assert(result.size() == i + 1);
       }
 
       return result;
@@ -1593,8 +1601,8 @@ namespace cola
       auto& scc_info = get_scc_info();
       const auto scc_types = get_scc_types(scc_info);
 
-      DEBUG_PRINT_LN("Complementing the following aut:");
-      spot::print_hoa(std::cerr, this->aut_);
+      // DEBUG_PRINT_LN("Complementing the following aut:");
+      // spot::print_hoa(std::cerr, this->aut_);
 
       // collect information for complementation
       kofola::cmpl_info info(this->aut_, scc_info, this->dir_sim_, scc_types, this->is_accepting_);
@@ -1613,7 +1621,7 @@ namespace cola
 
       // create a sink state (its transitions)
       // FIXME: should have _all_ colours
-      compl_states.insert({SINK_ACCEPT_STATE, {{bddtrue, {{SINK_ACCEPT_STATE, {0}}}}}});
+      compl_states.insert({SINK_ACCEPT_STATE, {{bddtrue, {{SINK_ACCEPT_STATE, {SINK_COLOUR}}}}}});
 
       // get initial uberstates
       auto init_vec{this->get_initial_uberstates(alg_vec)};
@@ -1683,20 +1691,24 @@ namespace cola
 
       DEBUG_PRINT_LN(std::to_string(compl_states));
 
-      size_t num_colours = 1;     // '0' is for sink
-      spot::acc_cond::acc_code sink_acc_code = spot::acc_cond::acc_code::inf({0});
+      size_t num_colours = RESERVED_COLOURS;
+      spot::acc_cond::acc_code sink_acc_code = spot::acc_cond::acc_code::inf({SINK_COLOUR});
+      spot::acc_cond::acc_code rr_acc_code = spot::acc_cond::acc_code::inf({RR_COLOUR});
       spot::acc_cond::acc_code alg_acc_code = spot::acc_cond::acc_code::t();
       for (const auto& alg : alg_vec) { // sum up acceptance conditions
         spot::acc_cond cond = alg->get_acc_cond();
         spot::acc_cond::acc_code cond_code = cond.get_acceptance();
-        cond_code <<= num_colours;
-        alg_acc_code &= cond_code;
-        num_colours += cond.num_sets();
+        if (!alg->use_round_robin()) {
+          cond_code <<= num_colours;
+          alg_acc_code &= cond_code;
+          num_colours += cond.num_sets();
+        }
       }
 
-      // FIXME: one colour for round robin!
-
-      spot::acc_cond result_cond(num_colours, sink_acc_code | alg_acc_code);
+      spot::acc_cond result_cond(num_colours,
+        sink_acc_code |            // to accept, either stay in sink,
+          (rr_acc_code &           // or accept in all round-robined components
+           alg_acc_code));         // and also everywhere else
 
       // convert the result into a spot automaton
       // FIXME: we should be directly constructing spot aut
@@ -1707,7 +1719,7 @@ namespace cola
                             false,        // state based
                             false,        // inherently_weak
                             false, false, // deterministic
-                            true,         // complete
+                            false,        // complete
                             false         // stutter inv
                         });
 
