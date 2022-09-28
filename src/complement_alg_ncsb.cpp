@@ -6,6 +6,29 @@ using namespace kofola;
 using mstate_set = abstract_complement_alg::mstate_set;
 using mstate_col_set = abstract_complement_alg::mstate_col_set;
 
+
+namespace { // anonymous namespace
+
+  /// returns true of there is at least one outgoing accepting transition from
+  /// a set of states over the given symbol
+  bool contains_accepting_outgoing_transitions(
+    const spot::const_twa_graph_ptr&  aut,
+    const std::set<unsigned>&         states,
+    const bdd&                        symbol)
+  { // {{{
+    for (unsigned s : states) {
+      for (const auto &t : aut->out(s)) {
+        if (bdd_implies(symbol, t.cond)) {
+          if (t.acc) { return true; }
+        }
+      }
+    }
+
+    return false;
+  } // contains_accepting_outgoing_transitions() }}}
+}
+
+
 complement_ncsb::mstate_ncsb::mstate_ncsb(
   const std::set<unsigned>&  check,
   const std::set<unsigned>&  safe,
@@ -62,7 +85,13 @@ complement_ncsb::complement_ncsb(const cmpl_info& info, unsigned scc_index)
 
 mstate_set complement_ncsb::get_init() const
 { // {{{
+  DEBUG_PRINT_LN("init NCSB for SCC " + std::to_string(this->scc_index_));
   std::set<unsigned> init_state;
+
+  for (size_t i = 0; i < this->info_.aut_->num_states(); ++i) {
+    DEBUG_PRINT_LN("state " + std::to_string(i) +"'s SCC: " +
+      std::to_string(this->info_.scc_info_.scc_of(i)));
+  }
 
   unsigned orig_init = this->info_.aut_->get_init_state_number();
   if (this->info_.scc_info_.scc_of(orig_init) == this->scc_index_) {
@@ -84,18 +113,12 @@ mstate_col_set complement_ncsb::get_succ_track(
   assert(!src_ncsb->active_);
 
   // check that safe states do not see accepting transition
-  std::set<unsigned> succ_safe;
-  for (unsigned s : src_ncsb->safe_) {
-    for (const auto &t : this->info_.aut_->out(s)) {
-      if (bdd_implies(symbol, t.cond)) {
-        if (t.acc || this->info_.state_accepting_[t.dst]) {
-          // TODO: this says *any* colour is set
-          return {};
-        }
-        succ_safe.insert(t.dst);
-      }
-    }
+  if (contains_accepting_outgoing_transitions(this->info_.aut_, src_ncsb->safe_, symbol)) {
+    return {};
   }
+
+  std::set<unsigned> succ_safe = kofola::get_all_successors_in_scc(
+    this->info_.aut_, this->info_.scc_info_, this->scc_index_, src_ncsb->safe_, symbol);
 
   std::set<unsigned> succ_states;
   for (unsigned st : glob_reached) {
@@ -158,19 +181,35 @@ mstate_col_set complement_ncsb::get_succ_active(
     DEBUG_PRINT_LN("standard successor: " + ms->to_string());
     result.push_back({ms, {}});
 
-    // check the breakpoint is not accepting
-    if (succ_break.end() == std::find_if(
-        succ_break.begin(), succ_break.end(),
-        [=](unsigned x) { return this->info_.state_accepting_[x]; })
-      ) { // no accepting state in breakpoint
-      // FIXME: also check transitions over accepting states
-      // add the decreasing successor
-      std::set<unsigned> decr_safe = get_set_union(track_ms->safe_, succ_break);
-      std::set<unsigned> decr_check = get_set_difference(track_ms->check_, decr_safe);
-      std::shared_ptr<mstate> decr_ms(new mstate_ncsb(decr_check, decr_safe, decr_check, true));
-      DEBUG_PRINT_LN("decreasing successor: " + decr_ms->to_string());
-      result.push_back({decr_ms, {0}});
+    // let us generate decreasing successor if the following three conditions hold:
+    //   1) src_ncsb->breakpoint_ contains no accepting state
+    //   2) succ_break contains no accepting state
+    //   3) delta(src_ncsb->breakpoint_, symbol) contains no accepting condition
+
+    // 1) check src_ncsb->breakpoint_ is not accepting
+    if (kofola::set_contains_accepting_state(src_ncsb->breakpoint_,
+      this->info_.state_accepting_)) {
+      return result;
     }
+
+    // 2) check succ_break contains no accepting state
+    if (kofola::set_contains_accepting_state(succ_break,
+      this->info_.state_accepting_)) {
+      return result;
+    }
+
+    // 3) delta(src_ncsb->breakpoint_, symbol) contains no accepting condition
+    if (contains_accepting_outgoing_transitions(this->info_.aut_,
+        src_ncsb->breakpoint_, symbol)) {
+      return result;
+    }
+
+    // add the decreasing successor
+    std::set<unsigned> decr_safe = get_set_union(track_ms->safe_, succ_break);
+    std::set<unsigned> decr_check = get_set_difference(track_ms->check_, decr_safe);
+    std::shared_ptr<mstate> decr_ms(new mstate_ncsb(decr_check, decr_safe, decr_check, true));
+    DEBUG_PRINT_LN("decreasing successor: " + decr_ms->to_string());
+    result.push_back({decr_ms, {0}});
 
     return result;
   }

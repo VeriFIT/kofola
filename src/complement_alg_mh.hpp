@@ -55,6 +55,7 @@ public: // METHODS
     const bdd&                 symbol) const override;
 
   virtual bool use_round_robin() const override { return false; }
+  virtual size_t num_acc_cond() const override { return 1; }
 
   virtual ~complement_mh() override;
 }; // complement_mh }}}

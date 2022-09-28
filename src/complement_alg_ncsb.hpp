@@ -59,6 +59,7 @@ public: // METHODS
     const bdd&                 symbol) const override;
 
   virtual bool use_round_robin() const override { return true; }
+  virtual size_t num_acc_cond() const override { return 1; }
 
   virtual ~complement_ncsb() override;
 }; // complement_ncsb }}}

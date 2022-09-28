@@ -1289,8 +1289,8 @@ namespace cola
     /// counter of states (to be assigned to uberstates) - 0 is reserved for sink
     unsigned cnt_state_ = 0;
 
-    /// number of designated sink state
-    static const unsigned SINK_STATE = 0;
+    /// number of designated accepting sink state
+    static const unsigned SINK_ACCEPT_STATE = 0;
 
     /// index of active SCC if no SCC is active
     static const int INACTIVE_SCC = -1;
@@ -1407,7 +1407,6 @@ namespace cola
     } // get_next_active_scc() }}}
 
 
-
     /// gets all successors of an uberstate wrt a vector of algorithms and a
     /// symbol
     vec_state_col get_succ_uberstates(
@@ -1427,6 +1426,7 @@ namespace cola
       // this container collects all sets of pairs of macrostates and colours,
       // later, we will turn it into the Cartesian product
       std::vector<mstate_col_set> succ_part_macro_col;
+      size_t col_offset = 1;   // current offset of colours ('0' is for sink)
       for (size_t i = 0; i < algos.size(); ++i) {
         const kofola::abstract_complement_alg::mstate* ms = prev_part_macro[i].get();
         mstate_col_set mcs;
@@ -1440,6 +1440,16 @@ namespace cola
           return {};
         }
 
+        // renumber colours
+        for (auto& mstate_col : mcs) {
+          std::set<unsigned> new_cols;
+          for (const auto& col : mstate_col.second) {
+            new_cols.insert(col + col_offset);
+          }
+          mstate_col.second = new_cols;
+        }
+
+        col_offset += algos[i]->num_acc_cond();
         succ_part_macro_col.emplace_back(std::move(mcs));
       }
 
@@ -1518,7 +1528,7 @@ namespace cola
         vec_mstate_sets.emplace_back(std::move(init_mstates));
       }
 
-      DEBUG_PRINT_LN("obtained vector of sets of partial macrostates");
+      DEBUG_PRINT_LN("obtained vector of sets of partial macrostates: " + std::to_string(vec_mstate_sets));
 
       // compute the cartesian product from the vector of sets of macrostates
       std::vector<vec_macrostates> cp = compute_cartesian_prod(vec_mstate_sets);
@@ -1583,6 +1593,9 @@ namespace cola
       auto& scc_info = get_scc_info();
       const auto scc_types = get_scc_types(scc_info);
 
+      DEBUG_PRINT_LN("Complementing the following aut:");
+      spot::print_hoa(std::cerr, this->aut_);
+
       // collect information for complementation
       kofola::cmpl_info info(this->aut_, scc_info, this->dir_sim_, scc_types, this->is_accepting_);
 
@@ -1600,7 +1613,7 @@ namespace cola
 
       // create a sink state (its transitions)
       // FIXME: should have _all_ colours
-      compl_states.insert({SINK_STATE, {{bddtrue, {{SINK_STATE, {0}}}}}});
+      compl_states.insert({SINK_ACCEPT_STATE, {{bddtrue, {{SINK_ACCEPT_STATE, {0}}}}}});
 
       // get initial uberstates
       auto init_vec{this->get_initial_uberstates(alg_vec)};
@@ -1643,7 +1656,7 @@ namespace cola
         // direct non-support symbols to sink
         bdd all = n_s_compat;
         if (all != bddtrue) {
-          vec_state_col succs = {{SINK_STATE, {}}};
+          vec_state_col succs = {{SINK_ACCEPT_STATE, {}}};
           us_post.emplace_back(std::make_pair(!all, std::move(succs)));
         }
 
@@ -1651,6 +1664,8 @@ namespace cola
         while (all != bddfalse) {
           bdd letter = bdd_satoneset(all, msupport, bddfalse);
           all -= letter;
+
+          DEBUG_PRINT_LN("symbol: " + std::to_string(letter));
 
           vec_state_col succs = get_succ_uberstates(alg_vec, us, letter);
           us_post.emplace_back(std::make_pair(letter, succs));
@@ -1668,6 +1683,11 @@ namespace cola
 
       DEBUG_PRINT_LN(std::to_string(compl_states));
 
+      size_t num_colours = 1;     // '0' is for sink
+      for (const auto& alg : alg_vec) { // sum up acceptance conditions
+        num_colours += alg->num_acc_cond();
+      }
+
       // convert the result into a spot automaton
       // FIXME: we should be directly constructing spot aut
       spot::twa_graph_ptr result = spot::make_twa_graph(this->aut_->get_dict());
@@ -1680,7 +1700,7 @@ namespace cola
                             true,         // complete
                             false         // stutter inv
                         });
-      result->set_buchi();     // FIXME: change to proper acceptance condition
+      result->set_generalized_buchi(num_colours);     // FIXME: change to proper acceptance condition
 
       std::vector<std::string>* state_names = nullptr;
       if (show_names_) { // show names
@@ -1703,7 +1723,7 @@ namespace cola
         }
 
         if (this->show_names_) {
-          if (SINK_STATE == src) {
+          if (SINK_ACCEPT_STATE == src) {
             state_names->push_back("SINK");
           } else {
             state_names->push_back(num_to_uberstate(src).to_string());

@@ -163,6 +163,11 @@ namespace kofola
     return result;
   } // get_set_union() }}}
 
+  /// checks whether a set contains at least one accepting state
+  bool set_contains_accepting_state(
+    const std::set<unsigned>&  input,               // input set
+    const std::vector<bool>&   vec_acceptance);     // vectoring denoting accepting states
+
 } // namespace kofola }}}
 
 

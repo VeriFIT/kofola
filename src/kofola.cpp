@@ -414,3 +414,14 @@ namespace cola
     return (scc_types[scc] & SCC_WEAK_TYPE) == 0 && (scc_types[scc] & SCC_INSIDE_DET_TYPE) == 0 && (scc_types[scc] & SCC_ACC) > 0;
   }
 }
+
+namespace kofola
+{
+  bool set_contains_accepting_state(
+    const std::set<unsigned>&  input,
+    const std::vector<bool>&   vec_acceptance)
+  {
+    return input.end() != std::find_if(input.begin(), input.end(),
+        [=](unsigned x) { return vec_acceptance[x]; });
+  }
+}

@@ -7,7 +7,6 @@ using namespace kofola;
 using mstate_set = abstract_complement_alg::mstate_set;
 using mstate_col_set = abstract_complement_alg::mstate_col_set;
 
-
 complement_mh::mstate_mh::mstate_mh(
   const std::set<unsigned>&  states,
   const std::set<unsigned>&  breakpoint
