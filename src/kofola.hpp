@@ -100,6 +100,25 @@ namespace kofola
   /// type for representing simulation (NB: this is not very efficient... should be changed)
   using Simulation = std::vector<std::pair<unsigned, unsigned>>;
 
+  /// type for mapping states to partitions where they are (-1 represents trivial SCCs)
+  /// TODO: a simple vector should suffice (-1 means invalid partition)
+  using StateToPartitionMap = std::unordered_map<unsigned, int>;
+
+  /// types of partitions
+  enum class PartitionType
+  {
+    INHERENTLY_WEAK,
+    DETERMINISTIC,
+    STRONGLY_DETERMINISTIC,
+    NONDETERMINISTIC
+  };
+
+  /// output stream overloaded operator
+  std::ostream& operator<<(std::ostream& os, const PartitionType& parttype);
+
+  /// the type for mapping partition numbers to their types
+  using PartitionToTypeMap = std::map<size_t, PartitionType>;
+
   /// declaration of printer
   template<class Tuple, size_t N>
   struct TuplePrinter;
@@ -126,7 +145,7 @@ namespace kofola
   template <class T>
   std::set<unsigned> get_all_successors_in_scc(
     const spot::const_twa_graph_ptr&  aut,
-    const spot::scc_info&             scc_inf,
+    const StateToPartitionMap&        st_to_part_map,
     unsigned                          scc_num,
     const T&                          current_states,
     const bdd&                        symbol)
@@ -134,7 +153,7 @@ namespace kofola
     std::set<unsigned> successors = get_all_successors(aut, current_states, symbol);
     std::set<unsigned> result;
     std::copy_if(successors.begin(), successors.end(), std::inserter(result, result.end()),
-        [=](unsigned x){ return scc_num == scc_inf.scc_of(x); });
+        [=](unsigned x){ return scc_num == st_to_part_map.at(x); });
 
     return result;
   } // get_all_successors_in_scc() }}}
@@ -302,7 +321,7 @@ namespace cola
   get_accepting_reachable_sccs(const spot::scc_info &scc);
 
   std::string
-  get_scc_types(spot::scc_info &scc);
+  get_scc_types(const spot::scc_info &scc);
   // /// \brief Output an automaton to a file
   // std::vector<bool>
   // is_reachable_weak_sccs(const spot::scc_info &scc, state_simulator& sim);

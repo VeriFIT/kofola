@@ -21,14 +21,17 @@ struct cmpl_info
   /// automaton
   const spot::const_twa_graph_ptr aut_;
 
-  /// information about SCCs
-  const spot::scc_info& scc_info_;
+  /// number of partitions
+  const size_t num_partitions_;
+
+  /// a map of states to partitions
+  const StateToPartitionMap& st_to_part_map_;
+
+  /// types of partitions
+  const PartitionToTypeMap& part_to_type_map_;
 
   /// direct simulation
   const Simulation& dir_sim_;
-
-  /// types of SCCs
-  const std::string scc_types_;
 
   /// accepting states
   const std::vector<bool>& state_accepting_;
@@ -36,15 +39,17 @@ struct cmpl_info
   /// constructor
   cmpl_info(
     const spot::const_twa_graph_ptr&  aut,
-    const spot::scc_info&             scc_info,
-    const Simulation&                 dir_sim,
-    const std::string&                scc_types,
-    const std::vector<bool>&          state_accepting
+    size_t                      num_partitions,
+    const PartitionToTypeMap&   part_to_type_map,
+    const StateToPartitionMap&  st_to_part_map,
+    const Simulation&           dir_sim,
+    const std::vector<bool>&    state_accepting
     ) :
     aut_(aut),
-    scc_info_(scc_info),
+    num_partitions_(num_partitions),
+    part_to_type_map_(part_to_type_map),
+    st_to_part_map_(st_to_part_map),
     dir_sim_(dir_sim),
-    scc_types_(scc_types),
     state_accepting_(state_accepting)
   { }
 }; // struct cmpl_info }}}

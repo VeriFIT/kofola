@@ -12,15 +12,15 @@ namespace { // anonymous namespace
   /// returns true of there is at least one outgoing accepting transition from
   /// a set of states over the given symbol in the given component
   bool contains_accepting_outgoing_transitions(
-    const spot::const_twa_graph_ptr&  aut,
-    const spot::scc_info&             scc_inf,
-    unsigned                          scc_num,
-    const std::set<unsigned>&         states,
-    const bdd&                        symbol)
+    const spot::const_twa_graph_ptr&    aut,
+    const kofola::StateToPartitionMap&  st_to_part_map,
+    unsigned                            scc_num,
+    const std::set<unsigned>&           states,
+    const bdd&                          symbol)
   { // {{{
     for (unsigned s : states) {
       for (const auto &t : aut->out(s)) {
-        if (scc_inf.scc_of(t.dst) == scc_num && bdd_implies(symbol, t.cond)) {
+        if (st_to_part_map.at(t.dst) == scc_num && bdd_implies(symbol, t.cond)) {
           if (t.acc) { return true; }
         }
       }
@@ -92,11 +92,11 @@ mstate_set complement_ncsb::get_init() const
 
   for (size_t i = 0; i < this->info_.aut_->num_states(); ++i) {
     DEBUG_PRINT_LN("state " + std::to_string(i) +"'s SCC: " +
-      std::to_string(this->info_.scc_info_.scc_of(i)));
+      std::to_string(this->info_.st_to_part_map_.at(i)));
   }
 
   unsigned orig_init = this->info_.aut_->get_init_state_number();
-  if (this->info_.scc_info_.scc_of(orig_init) == this->scc_index_) {
+  if (this->info_.st_to_part_map_.at(orig_init) == this->scc_index_) {
     init_state.insert(orig_init);
   }
 
@@ -117,18 +117,18 @@ mstate_col_set complement_ncsb::get_succ_track(
   // check that safe states do not see accepting transition
   if (contains_accepting_outgoing_transitions(
       this->info_.aut_,
-      this->info_.scc_info_,
+      this->info_.st_to_part_map_,
       this->scc_index_,
       src_ncsb->safe_, symbol)) {
     return {};
   }
 
   std::set<unsigned> succ_safe = kofola::get_all_successors_in_scc(
-    this->info_.aut_, this->info_.scc_info_, this->scc_index_, src_ncsb->safe_, symbol);
+    this->info_.aut_, this->info_.st_to_part_map_, this->scc_index_, src_ncsb->safe_, symbol);
 
   std::set<unsigned> succ_states;
   for (unsigned st : glob_reached) {
-    if (this->info_.scc_info_.scc_of(st) == this->scc_index_) {
+    if (this->info_.st_to_part_map_.at(st) == this->scc_index_) {
       if (succ_safe.find(st) == succ_safe.end()) { // if not in safe
         succ_states.insert(st);
       }
@@ -173,7 +173,7 @@ mstate_col_set complement_ncsb::get_succ_active(
   DEBUG_PRINT_LN("obtained track ms: " + std::to_string(*track_ms));
 
   std::set<unsigned> tmp_break = kofola::get_all_successors_in_scc(
-    this->info_.aut_, this->info_.scc_info_, this->scc_index_, src_ncsb->breakpoint_, symbol);
+    this->info_.aut_, this->info_.st_to_part_map_, this->scc_index_, src_ncsb->breakpoint_, symbol);
 
   DEBUG_PRINT_LN("tmp_break = " + std::to_string(tmp_break));
 
@@ -207,7 +207,7 @@ mstate_col_set complement_ncsb::get_succ_active(
     // 3) delta(src_ncsb->breakpoint_, symbol) contains no accepting condition
     if (contains_accepting_outgoing_transitions(
         this->info_.aut_,
-        this->info_.scc_info_,
+        this->info_.st_to_part_map_,
         this->scc_index_,
         src_ncsb->breakpoint_, symbol)) {
       return result;

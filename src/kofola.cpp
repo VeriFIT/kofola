@@ -38,8 +38,8 @@
 using namespace kofola;
 
 // verbosity of logging
-unsigned kofola::LOG_VERBOSITY = 42;
-// unsigned kofola::LOG_VERBOSITY = 0;
+// unsigned kofola::LOG_VERBOSITY = 42;
+unsigned kofola::LOG_VERBOSITY = 0;
 
 namespace cola
 {
@@ -299,8 +299,9 @@ namespace cola
   }
 
   std::string
-  get_scc_types(spot::scc_info &si)
+  get_scc_types(const spot::scc_info &si)
   {
+    spot::scc_info si_copy = si;
     unsigned nc = si.scc_count();
     std::string res(nc, 0);
     for (unsigned sc = 0; sc < nc; ++sc)
@@ -308,7 +309,7 @@ namespace cola
       char type = 0;
       type |= is_deterministic_scc(sc, si) ? SCC_INSIDE_DET_TYPE : 0; // only care about the states inside SCC
       type |= is_deterministic_scc(sc, si, false) ? SCC_DET_TYPE : 0; // must also be deterministic for all transitions after accepting
-      type |=  spot::is_inherently_weak_scc(si, sc) ? SCC_WEAK_TYPE : 0;
+      type |=  spot::is_inherently_weak_scc(si_copy, sc) ? SCC_WEAK_TYPE : 0;
       type |= si.is_accepting_scc(sc) ? SCC_ACC : 0;
       // other type is 0
       res[sc] = type;
@@ -424,5 +425,16 @@ namespace kofola
   {
     return input.end() != std::find_if(input.begin(), input.end(),
         [=](unsigned x) { return vec_acceptance[x]; });
+  }
+
+  std::ostream& operator<<(std::ostream& os, const PartitionType& parttype)
+  {
+    switch (parttype) {
+      case PartitionType::INHERENTLY_WEAK: return os << "Inherently weak";
+      case PartitionType::DETERMINISTIC: return os << "Deterministic";
+      case PartitionType::STRONGLY_DETERMINISTIC: return os << "Strongly deterministic";
+      case PartitionType::NONDETERMINISTIC: return os << "Nondeterministic";
+      default: throw std::runtime_error("Undefined partition type");
+    }
   }
 }

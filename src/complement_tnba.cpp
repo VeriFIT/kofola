@@ -1560,24 +1560,78 @@ namespace cola
     } // get_initial_uberstates() }}}
 
 
-    /// selects the algorithms to run on the SCCs
-    vec_algorithms select_algorithms(const kofola::cmpl_info& info) const
+    /// returns a triple (num_partitions, partition_types, state_to_partition_map)
+    static std::tuple<size_t, kofola::PartitionToTypeMap, kofola::StateToPartitionMap>
+    create_partitions(
+      const spot::scc_info&        scc_inf,
+      const compl_decomp_options&  opt)
     { // {{{
+      using kofola::PartitionType;
+
+      size_t part_index = 0;
+      kofola::PartitionToTypeMap part_to_type_map;
+      kofola::StateToPartitionMap st_to_part_map;
+      std::map<size_t, int> scc_to_part_map;   // -1 is invalid partition
+
+      // decide the partitioning
+      std::string scc_types = get_scc_types(scc_inf);
+      for (size_t i = 0; i < scc_inf.scc_count(); ++i) {
+        if (!is_accepting_scc(scc_types, i)) {
+          scc_to_part_map[i] = -1;
+          continue; // we don't care about nonaccepting SCCs
+        }
+
+        scc_to_part_map[i] = part_index;
+        if (is_accepting_weakscc(scc_types, i)) {
+          part_to_type_map[part_index] = PartitionType::INHERENTLY_WEAK;
+        } else if (is_accepting_detscc(scc_types, i)) {
+          part_to_type_map[part_index] = PartitionType::DETERMINISTIC;
+        } else if (is_accepting_nondetscc(scc_types, i)) {
+          part_to_type_map[part_index] = PartitionType::NONDETERMINISTIC;
+        } else if (!is_accepting_scc(scc_types, i)) {
+          // we don't care about nonaccepting SCCs
+        } else {
+          throw std::runtime_error("Invalid SCC on the input");
+        }
+
+        ++part_index;
+      }
+
+      // map states to correct partitions
+      for (size_t i = 0; i < scc_inf.get_aut()->num_states(); ++i) {
+        st_to_part_map[i] = scc_to_part_map[scc_inf.scc_of(i)];
+        DEBUG_PRINT_LN("Mapping state " + std::to_string(i) +
+            " from SCC " + std::to_string(scc_inf.scc_of(i)) +
+            " to partition " + std::to_string(st_to_part_map[i]));
+      }
+
+      DEBUG_PRINT_LN("number of partitions: " + std::to_string(part_index));
+      DEBUG_PRINT_LN("partition to type map: " + std::to_string(part_to_type_map));
+      DEBUG_PRINT_LN("state_to_partition map: " + std::to_string(st_to_part_map));
+
+      return {part_index, part_to_type_map, st_to_part_map};
+    } // create_partitions() }}}
+
+
+    /// selects the algorithms to run on the SCCs
+    vec_algorithms select_algorithms(const kofola::cmpl_info& compl_info) const
+    { // {{{
+      using kofola::PartitionType;
       vec_algorithms result;
 
-      for (size_t i = 0; i < info.scc_info_.scc_count(); ++i)
+      for (size_t i = 0; i < compl_info.num_partitions_; ++i)
       { // determine which algorithms to run on each of the SCCs
         abs_cmpl_alg_p alg;
-        if (!is_accepting_scc(info.scc_types_, i)) { // nonaccepting SCCs can be skipped
-          continue;
+        if (PartitionType::INHERENTLY_WEAK == compl_info.part_to_type_map_.at(i)) {
+          alg = std::make_unique<kofola::complement_mh>(compl_info, i);
         }
-        else if (is_accepting_weakscc(info.scc_types_, i)) {
-          alg = std::make_unique<kofola::complement_mh>(info, i);
+        else if (PartitionType::DETERMINISTIC == compl_info.part_to_type_map_.at(i)) {
+          alg = std::make_unique<kofola::complement_ncsb>(compl_info, i);
         }
-        else if (is_accepting_detscc(info.scc_types_, i)) {
-          alg = std::make_unique<kofola::complement_ncsb>(info, i);
+        else if (PartitionType::STRONGLY_DETERMINISTIC == compl_info.part_to_type_map_.at(i)) {
+          alg = std::make_unique<kofola::complement_ncsb>(compl_info, i);
         }
-        else if (is_accepting_nondetscc(info.scc_types_, i)) {
+        else if (PartitionType::NONDETERMINISTIC == compl_info.part_to_type_map_.at(i)) {
           assert(false);
         }
         else {
@@ -1590,28 +1644,44 @@ namespace cola
       return result;
     } // select_algorithms() }}}
 
+
     /// new modular complementation procedure
     spot::twa_graph_ptr
     run_new()
     { // {{{
-      this->names_ = new std::vector<std::string>();   // FIXME: allocate at one place
-      this->show_names_ = true;     // FIXME: set from parameters
-
-      // FIXME: check that what we receive is a normal TBA
-
-      // TODO: SCC preprocessing
-
-      auto& scc_info = get_scc_info();
-      const auto scc_types = get_scc_types(scc_info);
-
       if (kofola::LOG_VERBOSITY > 0) {
         DEBUG_PRINT_LN("Complementing the following aut:");
         spot::print_hoa(std::cerr, this->aut_);
         std::cerr << "\n\n\n\n";
       }
 
+      this->names_ = new std::vector<std::string>();   // FIXME: allocate at one place
+      this->show_names_ = true;     // FIXME: set from parameters
+
+      // validate our input is a BA
+      if (this->aut_->get_acceptance() != spot::acc_cond::acc_code::inf({0})) {
+        throw std::runtime_error("complement_tnba(): input is not Buchi! acceptance condition: " +
+          std::to_string(this->aut_->get_acceptance()));
+      }
+
+      // TODO: SCC preprocessing
+
+      spot::scc_info scc_inf(this->aut_, spot::scc_info_options::ALL);
+      std::pair<size_t, kofola::StateToPartitionMap> size_part_map;
+      auto partitions = create_partitions(scc_inf, this->decomp_options_);
+      const size_t num_partitions = std::get<0>(partitions);
+      kofola::PartitionToTypeMap part_to_type_map = std::get<1>(partitions);
+      kofola::StateToPartitionMap st_part_map = std::get<2>(partitions);
+
+
       // collect information for complementation
-      kofola::cmpl_info info(this->aut_, scc_info, this->dir_sim_, scc_types, this->is_accepting_);
+      kofola::cmpl_info info(
+        this->aut_,           // automaton
+        num_partitions,       // number of partitions
+        part_to_type_map,     // partition types
+        st_part_map,          // state to partition map
+        this->dir_sim_,       // direct simulation
+        this->is_accepting_); // vector for acceptance of states
 
       DEBUG_PRINT_LN("selecting algorithms");
 
@@ -1909,8 +1979,11 @@ namespace cola
       }
     }
 
+    // make sure the input is a BA
+    spot::postprocessor p;
+    p.set_type(spot::postprocessor::Buchi);
     spot::const_twa_graph_ptr aut_to_compl;
-    aut_to_compl = aut_reduced;
+    aut_to_compl = p.run(aut_reduced);
 
     auto comp = cola::tnba_complement(aut_to_compl, scc, om, implications, decomp_options);
     return comp.run_new();
