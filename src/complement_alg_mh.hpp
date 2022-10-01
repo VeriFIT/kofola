@@ -38,7 +38,7 @@ public: // TYPES
 public: // METHODS
 
   /// constructor
-  complement_mh(const cmpl_info& info, unsigned scc_index);
+  complement_mh(const cmpl_info& info, unsigned part_index);
 
   virtual mstate_set get_init() const override;
 

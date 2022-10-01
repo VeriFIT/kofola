@@ -46,8 +46,8 @@ bool complement_mh::mstate_mh::lt(const mstate& rhs) const
 complement_mh::mstate_mh::~mstate_mh()
 { }
 
-complement_mh::complement_mh(const cmpl_info& info, unsigned scc_index)
-  : abstract_complement_alg(info, scc_index)
+complement_mh::complement_mh(const cmpl_info& info, unsigned part_index)
+  : abstract_complement_alg(info, part_index)
 { }
 
 mstate_set complement_mh::get_init() const
@@ -55,7 +55,7 @@ mstate_set complement_mh::get_init() const
   std::set<unsigned> init_state;
 
   unsigned orig_init = this->info_.aut_->get_init_state_number();
-  if (this->info_.st_to_part_map_.at(orig_init) == this->scc_index_) {
+  if (this->info_.st_to_part_map_.at(orig_init) == this->part_index_) {
     init_state.insert(orig_init);
   }
 
@@ -74,13 +74,13 @@ mstate_col_set complement_mh::get_succ_track(
 
   std::set<unsigned> states;
   for (unsigned st : glob_reached) {
-    if (this->info_.st_to_part_map_.at(st) == this->scc_index_) {
+    if (this->info_.st_to_part_map_.at(st) == this->part_index_) {
       states.insert(st);
     }
   }
 
   std::set<unsigned> succ_break = kofola::get_all_successors_in_scc(
-    this->info_.aut_, this->info_.st_to_part_map_, this->scc_index_, src_mh->breakpoint_, symbol);
+    this->info_.aut_, this->info_.st_to_part_map_, this->part_index_, src_mh->breakpoint_, symbol);
 
   mstate_col_set result;
   if (succ_break.empty()) { // hit breakpoint
@@ -91,6 +91,8 @@ mstate_col_set complement_mh::get_succ_track(
     std::shared_ptr<mstate> ms(new mstate_mh(states, succ_break));
     result.push_back({ms, {}});
   }
+
+  // TODO: do more aggresive breakpoint pruning for merge_iwa
 
   return result;
 } // get_succ_track() }}}

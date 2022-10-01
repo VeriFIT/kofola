@@ -1560,8 +1560,12 @@ namespace cola
     } // get_initial_uberstates() }}}
 
 
-    /// returns a triple (num_partitions, partition_types, state_to_partition_map)
-    static std::tuple<size_t, kofola::PartitionToTypeMap, kofola::StateToPartitionMap>
+    /// partitions the SCCs of the input automaton according to decomposition
+    /// options, returns a triple (num_partitions, partition_types,
+    /// state_to_partition_map)
+    static std::tuple<size_t,
+                      kofola::PartitionToTypeMap,
+                      kofola::StateToPartitionMap>
     create_partitions(
       const spot::scc_info&        scc_inf,
       const compl_decomp_options&  opt)
@@ -1573,9 +1577,13 @@ namespace cola
       kofola::StateToPartitionMap st_to_part_map;
       std::map<size_t, int> scc_to_part_map;   // -1 is invalid partition
 
+      int iwa_index = -1;
+      int dac_index = -1;
+
       // decide the partitioning
       std::string scc_types = get_scc_types(scc_inf);
       for (size_t i = 0; i < scc_inf.scc_count(); ++i) {
+        DEBUG_PRINT_LN("Processing SCC " + std::to_string(i));
         if (!is_accepting_scc(scc_types, i)) {
           scc_to_part_map[i] = -1;
           continue; // we don't care about nonaccepting SCCs
@@ -1583,18 +1591,40 @@ namespace cola
 
         scc_to_part_map[i] = part_index;
         if (is_accepting_weakscc(scc_types, i)) {
-          part_to_type_map[part_index] = PartitionType::INHERENTLY_WEAK;
+          DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is IWA");
+          if (opt.merge_iwa) { // merging IWAs
+            if (-1 == iwa_index) {
+              iwa_index = part_index;
+              part_to_type_map[iwa_index] = PartitionType::INHERENTLY_WEAK;
+              ++part_index;
+            }
+            scc_to_part_map[i] = iwa_index;
+          } else { // not merging IWAs
+            part_to_type_map[part_index] = PartitionType::INHERENTLY_WEAK;
+            scc_to_part_map[i] = part_index;
+            ++part_index;
+          }
         } else if (is_accepting_detscc(scc_types, i)) {
-          part_to_type_map[part_index] = PartitionType::DETERMINISTIC;
+          DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is DAC");
+          if (opt.merge_det) { // merging DACs
+            if (-1 == dac_index) {
+              dac_index = part_index;
+              part_to_type_map[dac_index] = PartitionType::DETERMINISTIC;
+              ++part_index;
+            }
+            scc_to_part_map[i] = dac_index;
+          } else { // not merging DACs
+            part_to_type_map[part_index] = PartitionType::DETERMINISTIC;
+            scc_to_part_map[i] = part_index;
+            ++part_index;
+          }
         } else if (is_accepting_nondetscc(scc_types, i)) {
+          DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is NAC");
           part_to_type_map[part_index] = PartitionType::NONDETERMINISTIC;
-        } else if (!is_accepting_scc(scc_types, i)) {
-          // we don't care about nonaccepting SCCs
+          ++part_index;
         } else {
           throw std::runtime_error("Invalid SCC on the input");
         }
-
-        ++part_index;
       }
 
       // map states to correct partitions
@@ -1660,14 +1690,14 @@ namespace cola
 
       // validate our input is a BA
       if (this->aut_->get_acceptance() != spot::acc_cond::acc_code::inf({0})) {
-        throw std::runtime_error("complement_tnba(): input is not Buchi! acceptance condition: " +
+        throw std::runtime_error(
+          "complement_tnba(): input is not Buchi! acceptance condition: " +
           std::to_string(this->aut_->get_acceptance()));
       }
 
       // TODO: SCC preprocessing
 
       spot::scc_info scc_inf(this->aut_, spot::scc_info_options::ALL);
-      std::pair<size_t, kofola::StateToPartitionMap> size_part_map;
       auto partitions = create_partitions(scc_inf, this->decomp_options_);
       const size_t num_partitions = std::get<0>(partitions);
       kofola::PartitionToTypeMap part_to_type_map = std::get<1>(partitions);
@@ -1680,6 +1710,7 @@ namespace cola
         num_partitions,       // number of partitions
         part_to_type_map,     // partition types
         st_part_map,          // state to partition map
+        scc_inf,              // SCC information
         this->dir_sim_,       // direct simulation
         this->is_accepting_); // vector for acceptance of states
 

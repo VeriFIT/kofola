@@ -30,6 +30,9 @@ struct cmpl_info
   /// types of partitions
   const PartitionToTypeMap& part_to_type_map_;
 
+  /// information about SCCs
+  const spot::scc_info& scc_info_;
+
   /// direct simulation
   const Simulation& dir_sim_;
 
@@ -42,6 +45,7 @@ struct cmpl_info
     size_t                      num_partitions,
     const PartitionToTypeMap&   part_to_type_map,
     const StateToPartitionMap&  st_to_part_map,
+    const spot::scc_info&       scc_info,
     const Simulation&           dir_sim,
     const std::vector<bool>&    state_accepting
     ) :
@@ -49,6 +53,7 @@ struct cmpl_info
     num_partitions_(num_partitions),
     part_to_type_map_(part_to_type_map),
     st_to_part_map_(st_to_part_map),
+    scc_info_(scc_info),
     dir_sim_(dir_sim),
     state_accepting_(state_accepting)
   { }
@@ -91,15 +96,15 @@ protected: // DATA MEMBERS
   /// information for complementation
   const cmpl_info& info_;
 
-  /// index of the component
-  unsigned scc_index_;
+  /// index of the partition
+  unsigned part_index_;
 
 public: // METHODS
 
   /// constructor
-  abstract_complement_alg(const cmpl_info& info, unsigned scc_index) :
+  abstract_complement_alg(const cmpl_info& info, unsigned part_index) :
     info_(info),
-    scc_index_(scc_index)
+    part_index_(part_index)
   { }
 
   /// returns initial partial macrostate
