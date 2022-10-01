@@ -141,21 +141,41 @@ namespace kofola
     return successors;
   } // get_all_successors() }}}
 
-  /// get all successors of a given set over a symbol that are in SCC 'scc_num'
+  /// get all successors of a given set over a symbol that are in the partition 'part_num'
   template <class T>
-  std::set<unsigned> get_all_successors_in_scc(
+  std::set<unsigned> get_all_successors_in_part(
     const spot::const_twa_graph_ptr&  aut,
     const StateToPartitionMap&        st_to_part_map,
-    unsigned                          scc_num,
+    unsigned                          part_num,
     const T&                          current_states,
     const bdd&                        symbol)
   { // {{{
     std::set<unsigned> successors = get_all_successors(aut, current_states, symbol);
     std::set<unsigned> result;
     std::copy_if(successors.begin(), successors.end(), std::inserter(result, result.end()),
-        [=](unsigned x){ return scc_num == st_to_part_map.at(x); });
+        [=](unsigned x){ return part_num == st_to_part_map.at(x); });
 
     return result;
+  } // get_all_successors_in_part() }}}
+
+  /// get all successors of a given set over a symbol that are in the same SCC as the source state
+  template <class T>
+  std::set<unsigned> get_all_successors_in_scc(
+    const spot::const_twa_graph_ptr&  aut,
+    const spot::scc_info&             scc_info,
+    const T&                          current_states,
+    const bdd&                        symbol)
+  { // {{{
+    std::set<unsigned> successors;
+
+    for (unsigned s : current_states) {
+      for (const auto &t : aut->out(s)) {
+        if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(symbol, t.cond)) {
+          successors.insert(t.dst); }
+      }
+    }
+
+    return successors;
   } // get_all_successors_in_scc() }}}
 
   /// computes the difference of two sets

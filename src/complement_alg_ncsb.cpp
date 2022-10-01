@@ -114,8 +114,7 @@ mstate_col_set complement_ncsb::get_succ_track(
   assert(src_ncsb);
   assert(!src_ncsb->active_);
 
-  // check that safe states do not see accepting transition
-  // TODO: for merge_det, seeing accepting trans is OK if in another SCC
+  // check that safe states do not see accepting transition in the same SCC
   if (contains_accepting_outgoing_transitions_in_scc(
       this->info_.aut_,
       this->info_.st_to_part_map_,
@@ -125,9 +124,7 @@ mstate_col_set complement_ncsb::get_succ_track(
   }
 
   std::set<unsigned> succ_safe = kofola::get_all_successors_in_scc(
-    this->info_.aut_, this->info_.st_to_part_map_, this->part_index_, src_ncsb->safe_, symbol);
-
-  // TODO: for merge_det, when moving between SCCs, runs from safe should go to check
+    this->info_.aut_, this->info_.scc_info_, src_ncsb->safe_, symbol);
 
   std::set<unsigned> succ_states;
   for (unsigned st : glob_reached) {
@@ -137,8 +134,6 @@ mstate_col_set complement_ncsb::get_succ_track(
       }
     }
   }
-
-  // TODO: do more aggresive breakpoint pruning for merge_det
 
   std::shared_ptr<mstate> ms(new mstate_ncsb(succ_states, succ_safe, {}, false));
   mstate_col_set result = {{ms, {}}}; return result;
@@ -178,7 +173,7 @@ mstate_col_set complement_ncsb::get_succ_active(
   DEBUG_PRINT_LN("obtained track ms: " + std::to_string(*track_ms));
 
   std::set<unsigned> tmp_break = kofola::get_all_successors_in_scc(
-    this->info_.aut_, this->info_.st_to_part_map_, this->part_index_, src_ncsb->breakpoint_, symbol);
+    this->info_.aut_, this->info_.scc_info_, src_ncsb->breakpoint_, symbol);
 
   DEBUG_PRINT_LN("tmp_break = " + std::to_string(tmp_break));
 

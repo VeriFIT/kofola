@@ -80,7 +80,7 @@ mstate_col_set complement_mh::get_succ_track(
   }
 
   std::set<unsigned> succ_break = kofola::get_all_successors_in_scc(
-    this->info_.aut_, this->info_.st_to_part_map_, this->part_index_, src_mh->breakpoint_, symbol);
+    this->info_.aut_, this->info_.scc_info_, src_mh->breakpoint_, symbol);
 
   mstate_col_set result;
   if (succ_break.empty()) { // hit breakpoint
@@ -91,8 +91,6 @@ mstate_col_set complement_mh::get_succ_track(
     std::shared_ptr<mstate> ms(new mstate_mh(states, succ_break));
     result.push_back({ms, {}});
   }
-
-  // TODO: do more aggresive breakpoint pruning for merge_iwa
 
   return result;
 } // get_succ_track() }}}
