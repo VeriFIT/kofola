@@ -69,10 +69,13 @@ namespace cola
   {
   private:
     // The source automaton.
-    const spot::const_twa_graph_ptr aut_;
+    spot::const_twa_graph_ptr aut_;
 
     // Direct simulation on source automaton.
     kofola::Simulation dir_sim_;
+
+    // vector of reachable states for every state
+    std::vector<std::set<unsigned>> reachable_vector_;
 
     // SCCs information of the source automaton.
     spot::scc_info &si_;
@@ -340,12 +343,14 @@ namespace cola
       return this->si_;
     }
 
-    void compute_simulation()
+    void reduce_and_compute_simulation()
     {
       // compute simulation
       std::vector<bdd> implications;
-      auto aut_tmp = aut_;
-      spot::simulation(aut_, &implications, -1);
+      this->aut_ = spot::simulation(this->aut_, &implications, -1);
+
+      DEBUG_PRINT_LN("aut states:  " + std::to_string(this->aut_->num_states()));
+      DEBUG_PRINT_LN("implications: " + std::to_string(implications));
 
       // get vector of simulated states
       std::vector<std::vector<char>> implies(
@@ -364,11 +369,15 @@ namespace cola
               continue;
             // j simulates i and j cannot reach i
             bool i_implies_j = bdd_implies(implications[i], implications[j]);
-            if (i_implies_j)
+            if (i_implies_j) {
+              DEBUG_PRINT_LN("adding simulating pair " + std::to_string(std::make_pair(i, j)));
               dir_sim_.push_back({i, j});
+            }
           }
         }
       }
+
+      DEBUG_PRINT_LN("simulation: " + std::to_string(this->dir_sim_));
     }
 
     void get_initial_index(complement_mstate &init_state, int &active_index)
@@ -561,7 +570,7 @@ namespace cola
     {
       if (decomp_options_.iw_sim)
       {
-        compute_simulation();
+        this->reduce_and_compute_simulation();
       }
 
       if (show_names_)
@@ -1419,6 +1428,8 @@ namespace cola
       const uberstate&       src,
       const bdd&             symbol)
     { // {{{
+      DEBUG_PRINT_LN("Processing uberstate " + std::to_string(src) +
+        " for symbol " + std::to_string(symbol));
       using mstate_set = kofola::abstract_complement_alg::mstate_set;
       using mstate_col = kofola::abstract_complement_alg::mstate_col;
       using mstate_col_set = kofola::abstract_complement_alg::mstate_col_set;
@@ -1427,6 +1438,38 @@ namespace cola
       const int active_index = src.get_active_scc();
       std::set<unsigned> all_succ = kofola::get_all_successors(
           this->aut_, src.get_reach_set(), symbol);
+
+      if (this->decomp_options_.iw_sim ||
+          this->decomp_options_.det_sim) { // if doing simulation reduction
+                                           // TODO: distinguish iw_sim and det_sim
+        std::set<unsigned> pruned_succ = all_succ;
+
+        DEBUG_PRINT_LN("reachable vector: " + std::to_string(this->reachable_vector_));
+        DEBUG_PRINT_LN("dir_sim: " + std::to_string(this->dir_sim_));
+
+        std::set<unsigned> to_remove;
+        for (const auto& pr : this->dir_sim_) {
+          unsigned smaller = pr.first;
+          unsigned bigger = pr.second;
+          if (smaller == bigger ||  // identity
+              !kofola::is_in(smaller, all_succ) ||
+              !kofola::is_in(bigger, all_succ)
+            ) { // the pair is irrelevant
+            continue;
+          }
+
+          // if (kofola::is_in(bigger, this->reachable_vector_[smaller]) &&
+          //     !kofola::is_in(smaller, this->reachable_vector_[bigger])) {
+          if (this->si_.scc_of(smaller) > this->si_.scc_of(bigger)) {
+            // we assume that if SCC A is reachable from SCC B, then #(A) < #(B) (this is how spot seems to order SCCs)
+            DEBUG_PRINT_LN("removing " + std::to_string(smaller) +
+              " because of " + std::to_string(bigger));
+            pruned_succ.erase(smaller);
+          }
+        }
+        all_succ = pruned_succ;
+      }
+
       const vec_macrostates& prev_part_macro = src.get_part_macrostates();
       // this container collects all sets of pairs of macrostates and colours,
       // later, we will turn it into the Cartesian product
@@ -1520,7 +1563,7 @@ namespace cola
       std::set<unsigned> initial_states = {aut_->get_init_state_number()};
 
       int init_active = get_next_active_scc(alg_vec, INACTIVE_SCC);
-      DEBUG_PRINT_LN("initial active SCC: " + std::to_string(init_active));
+      DEBUG_PRINT_LN("initial active partition: " + std::to_string(init_active));
 
       using mstate_set = kofola::abstract_complement_alg::mstate_set;
       std::vector<mstate_set> vec_mstate_sets;
@@ -1630,9 +1673,6 @@ namespace cola
       // map states to correct partitions
       for (size_t i = 0; i < scc_inf.get_aut()->num_states(); ++i) {
         st_to_part_map[i] = scc_to_part_map[scc_inf.scc_of(i)];
-        DEBUG_PRINT_LN("Mapping state " + std::to_string(i) +
-            " from SCC " + std::to_string(scc_inf.scc_of(i)) +
-            " to partition " + std::to_string(st_to_part_map[i]));
       }
 
       DEBUG_PRINT_LN("number of partitions: " + std::to_string(part_index));
@@ -1685,8 +1725,31 @@ namespace cola
         std::cerr << "\n\n\n\n";
       }
 
+      this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
+      if (this->decomp_options_.iw_sim || this->decomp_options_.det_sim) {
+        this->reduce_and_compute_simulation();
+      }
+      this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
+
       this->names_ = new std::vector<std::string>();   // FIXME: allocate at one place
       this->show_names_ = true;     // FIXME: set from parameters
+
+
+      std::vector<std::set<int>> aux_reach = this->get_reachable_vector();
+      for (unsigned st = 0; st < this->aut_->num_states(); ++st) {
+        const std::set<int>& old_set = aux_reach[st];
+        std::set<unsigned> new_set;
+        for (const auto& el : old_set) {
+          assert(el >= 0);
+          DEBUG_PRINT_LN("scc_info.scc_of(st) = " + std::to_string(this->si_.scc_of(st)));
+          DEBUG_PRINT_LN("scc_info.scc_of(el) = " + std::to_string(this->si_.scc_of(el)));
+
+          assert(this->si_.scc_of(st) >= this->si_.scc_of(el));     // check scc numbering is reverse-compatible with reachability
+          new_set.insert(static_cast<unsigned>(el));
+        }
+
+        this->reachable_vector_.push_back(new_set);
+      }
 
       // validate our input is a BA
       if (this->aut_->get_acceptance() != spot::acc_cond::acc_code::inf({0})) {
@@ -1695,10 +1758,7 @@ namespace cola
           std::to_string(this->aut_->get_acceptance()));
       }
 
-      // TODO: SCC preprocessing
-
-      spot::scc_info scc_inf(this->aut_, spot::scc_info_options::ALL);
-      auto partitions = create_partitions(scc_inf, this->decomp_options_);
+      auto partitions = create_partitions(this->si_, this->decomp_options_);
       const size_t num_partitions = std::get<0>(partitions);
       kofola::PartitionToTypeMap part_to_type_map = std::get<1>(partitions);
       kofola::StateToPartitionMap st_part_map = std::get<2>(partitions);
@@ -1710,7 +1770,7 @@ namespace cola
         num_partitions,       // number of partitions
         part_to_type_map,     // partition types
         st_part_map,          // state to partition map
-        scc_inf,              // SCC information
+        this->si_,            // SCC information
         this->dir_sim_,       // direct simulation
         this->is_accepting_); // vector for acceptance of states
 
@@ -1782,7 +1842,7 @@ namespace cola
 
           DEBUG_PRINT_LN("symbol: " + std::to_string(letter));
 
-          vec_state_col succs = get_succ_uberstates(alg_vec, us, letter);
+          vec_state_col succs = this->get_succ_uberstates(alg_vec, us, letter);
           us_post.emplace_back(std::make_pair(letter, succs));
 
           for (const auto& state_cols : succs) {

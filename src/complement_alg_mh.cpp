@@ -82,6 +82,9 @@ mstate_col_set complement_mh::get_succ_track(
   std::set<unsigned> succ_break = kofola::get_all_successors_in_scc(
     this->info_.aut_, this->info_.scc_info_, src_mh->breakpoint_, symbol);
 
+  // intersect with what is really reachable (for simulation pruning)
+  succ_break = kofola::get_set_intersection(succ_break, glob_reached);
+
   mstate_col_set result;
   if (succ_break.empty()) { // hit breakpoint
     std::shared_ptr<mstate> ms(new mstate_mh(states, states));

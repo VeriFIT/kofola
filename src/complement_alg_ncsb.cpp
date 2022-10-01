@@ -87,13 +87,8 @@ complement_ncsb::complement_ncsb(const cmpl_info& info, unsigned part_index)
 
 mstate_set complement_ncsb::get_init() const
 { // {{{
-  DEBUG_PRINT_LN("init NCSB for SCC " + std::to_string(this->part_index_));
+  DEBUG_PRINT_LN("init NCSB for partition " + std::to_string(this->part_index_));
   std::set<unsigned> init_state;
-
-  for (size_t i = 0; i < this->info_.aut_->num_states(); ++i) {
-    DEBUG_PRINT_LN("state " + std::to_string(i) +"'s SCC: " +
-      std::to_string(this->info_.st_to_part_map_.at(i)));
-  }
 
   unsigned orig_init = this->info_.aut_->get_init_state_number();
   if (this->info_.st_to_part_map_.at(orig_init) == this->part_index_) {
@@ -134,6 +129,9 @@ mstate_col_set complement_ncsb::get_succ_track(
       }
     }
   }
+
+  // intersect with what is really reachable (for simulation pruning)
+  // TODO: make intersection with glob_reached()
 
   std::shared_ptr<mstate> ms(new mstate_ncsb(succ_states, succ_safe, {}, false));
   mstate_col_set result = {{ms, {}}}; return result;
