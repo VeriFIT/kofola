@@ -64,6 +64,62 @@
 
 namespace cola
 {
+  bool all_trans_acc(
+    const spot::const_twa_graph_ptr&  aut,
+    unsigned                          current_state,
+    unsigned                          scc,
+    const spot::scc_info&             si)
+  {
+    auto current_scc = si.scc_of(current_state);
+
+    for (auto &t : aut->out(current_state))
+    {
+      if (si.scc_of(t.dst) == current_scc)
+      {
+        if (not t.acc)
+          return false;
+      }
+    }
+
+    return true;
+  }
+
+  spot::twa_graph_ptr
+  saturation(const spot::const_twa_graph_ptr& aut, const spot::scc_info& si)
+  {
+    spot::twa_graph_ptr aut_new = spot::make_twa_graph(aut, spot::twa::prop_set::all());
+    bool change;
+    for (unsigned i = 0; i < si.scc_count(); i++)
+    {
+      do
+      {
+        change = false;
+        for (auto state : si.states_of(i))
+        {
+          if (all_trans_acc(aut_new, state, i, si))
+          {
+            for (auto s : si.states_of(i))
+            {
+              for (auto &t : aut_new->out(s))
+              {
+                if (t.dst == state)
+                {
+                  if (not t.acc)
+                  {
+                    t.acc = spot::acc_cond::mark_t{0};
+                    change = true;
+                  }
+                }
+              }
+            }
+          }
+        }
+      } while (change);
+    }
+    return aut_new;
+  }
+
+
   // complementation Buchi automata
   class tnba_complement
   {
@@ -564,6 +620,8 @@ namespace cola
       if (si_.scc_of(orig_init) != active_index)
         init_state.set_iw_break_set(std::vector<unsigned>());
     }
+
+
 
     spot::twa_graph_ptr
     run()
@@ -1730,6 +1788,7 @@ namespace cola
         this->reduce_and_compute_simulation();
       }
       this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
+      this->aut_ = saturation(this->aut_, this->si_);
 
       this->names_ = new std::vector<std::string>();   // FIXME: allocate at one place
       this->show_names_ = true;     // FIXME: set from parameters
@@ -1943,58 +2002,6 @@ namespace cola
     } // run_new() }}}
   };
 
-  bool
-  all_trans_acc(const spot::twa_graph_ptr &aut, unsigned current_state, unsigned scc, const spot::scc_info& si)
-  {
-    auto current_scc = si.scc_of(current_state);
-
-    for (auto &t : aut->out(current_state))
-    {
-      if (si.scc_of(t.dst) == current_scc)
-      {
-        if (not t.acc)
-          return false;
-      }
-    }
-
-    return true;
-  }
-
-  spot::twa_graph_ptr
-  saturation(const spot::twa_graph_ptr &aut, const spot::scc_info& si)
-  {
-    bool change;
-    for (unsigned i = 0; i < si.scc_count(); i++)
-    {
-      do
-      {
-        change = false;
-        for (auto state : si.states_of(i))
-        {
-          if (all_trans_acc(aut, state, i, si))
-          {
-            for (auto s : si.states_of(i))
-            {
-              for (auto &t : aut->out(s))
-              {
-                if (t.dst == state)
-                {
-                  if (not t.acc)
-                  {
-                    t.acc = spot::acc_cond::mark_t{0};
-                    change = true;
-                  }
-                }
-              }
-            }
-          }
-        }
-      } while (change);
-    }
-
-    return aut;
-  }
-
   spot::twa_graph_ptr
   complement_tnba(const spot::twa_graph_ptr &aut, spot::option_map &om, compl_decomp_options decomp_options)
   {
@@ -2073,6 +2080,7 @@ namespace cola
     // make sure the input is a BA
     spot::postprocessor p;
     p.set_type(spot::postprocessor::Buchi);
+    p.set_level(spot::postprocessor::High);
     spot::const_twa_graph_ptr aut_to_compl;
     aut_to_compl = p.run(aut_reduced);
 
