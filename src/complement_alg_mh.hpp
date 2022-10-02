@@ -18,16 +18,17 @@ public: // TYPES
   { // {{{
   private: // DATA MEMBERS
 
+    bool active_;
     std::set<unsigned> states_;
     std::set<unsigned> breakpoint_;
 
   public: // METHODS
 
     /// constructor
-    mstate_mh(const std::set<unsigned>& states, const std::set<unsigned>& breakpoint);
+    mstate_mh(const std::set<unsigned>& states, const std::set<unsigned>& breakpoint, bool active_);
 
     virtual std::string to_string() const override;
-    virtual bool is_active() const override { return false; }
+    virtual bool is_active() const override { return this->active_; }
     virtual bool eq(const mstate& rhs) const override;
     virtual bool lt(const mstate& rhs) const override;
     virtual ~mstate_mh() override;
@@ -54,7 +55,7 @@ public: // METHODS
     const mstate*              src,
     const bdd&                 symbol) const override;
 
-  virtual bool use_round_robin() const override { return false; }
+  virtual bool use_round_robin() const override { return true; }
 
   virtual spot::acc_cond get_acc_cond() const override
   { return spot::acc_cond(1, spot::acc_cond::inf({0})); }

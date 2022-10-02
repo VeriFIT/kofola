@@ -405,9 +405,6 @@ namespace cola
       std::vector<bdd> implications;
       this->aut_ = spot::simulation(this->aut_, &implications, -1);
 
-      DEBUG_PRINT_LN("aut states:  " + std::to_string(this->aut_->num_states()));
-      DEBUG_PRINT_LN("implications: " + std::to_string(implications));
-
       // get vector of simulated states
       std::vector<std::vector<char>> implies(
           implications.size(),
@@ -426,14 +423,11 @@ namespace cola
             // j simulates i and j cannot reach i
             bool i_implies_j = bdd_implies(implications[i], implications[j]);
             if (i_implies_j) {
-              DEBUG_PRINT_LN("adding simulating pair " + std::to_string(std::make_pair(i, j)));
               dir_sim_.push_back({i, j});
             }
           }
         }
       }
-
-      DEBUG_PRINT_LN("simulation: " + std::to_string(this->dir_sim_));
     }
 
     void get_initial_index(complement_mstate &init_state, int &active_index)
@@ -1356,9 +1350,6 @@ namespace cola
     /// counter of states (to be assigned to uberstates) - 0 is reserved for sink
     unsigned cnt_state_ = 0;
 
-    /// number of designated accepting sink state
-    static const unsigned SINK_ACCEPT_STATE = 0;
-
     // reserved colours
     static const unsigned SINK_COLOUR = 0;
     static const unsigned RR_COLOUR = 1;      // colour for round robin
@@ -1370,8 +1361,8 @@ namespace cola
     /// accessor into the uberstate table
     unsigned uberstate_to_num(const uberstate& us) const
     { // {{{
-      auto it = uberstate_to_num_map_.find(&us);
-      if (uberstate_to_num_map_.end() != it) {
+      auto it = this->uberstate_to_num_map_.find(&us);
+      if (this->uberstate_to_num_map_.end() != it) {
         return it->second;
       } else {
         assert(false);
@@ -1381,10 +1372,9 @@ namespace cola
     /// translates state number to uberstate
     const uberstate& num_to_uberstate(unsigned num) const
     { // {{{
-      assert(0 != num);
-      assert(num <= num_to_uberstate_map_.size());
-      assert(num_to_uberstate_map_[num - 1]);
-      return *num_to_uberstate_map_[num - 1];   // offset because of sink
+      assert(num < this->num_to_uberstate_map_.size());
+      assert(this->num_to_uberstate_map_[num]);
+      return *this->num_to_uberstate_map_[num];
     } // num_to_uberstate() }}}
 
     /// inserts an uberstate (by moving) and returns its assigned number (if
@@ -1393,16 +1383,16 @@ namespace cola
     unsigned insert_uberstate(uberstate&& us)
     { // {{{
       DEBUG_PRINT_LN("inserting uberstate " + us.to_string());
-      auto it = uberstate_to_num_map_.find(&us);
-      if (uberstate_to_num_map_.end() == it) { // not found
+      auto it = this->uberstate_to_num_map_.find(&us);
+      if (this->uberstate_to_num_map_.end() == it) { // not found
         DEBUG_PRINT_LN("not found!");
         std::shared_ptr<uberstate> ptr(new uberstate(us));
-        num_to_uberstate_map_.push_back(ptr);
-        assert(num_to_uberstate_map_.size() == cnt_state_ + 1);  // invariant
-        const uberstate* us_new = num_to_uberstate_map_[cnt_state_].get();
-        auto jt_bool_pair = uberstate_to_num_map_.insert({us_new, cnt_state_ + 1});    // increment by one (fixed sink)
+        this->num_to_uberstate_map_.push_back(ptr);
+        assert(this->num_to_uberstate_map_.size() == this->cnt_state_ + 1);  // invariant
+        const uberstate* us_new = this->num_to_uberstate_map_[this->cnt_state_].get();
+        auto jt_bool_pair = this->uberstate_to_num_map_.insert({us_new, this->cnt_state_});
         assert(jt_bool_pair.second);    // insertion happened
-        ++cnt_state_;
+        ++this->cnt_state_;
         DEBUG_PRINT_LN("inserted as " + std::to_string(jt_bool_pair.first->second));
         return jt_bool_pair.first->second;
       } else { // found
@@ -1502,9 +1492,6 @@ namespace cola
                                            // TODO: distinguish iw_sim and det_sim
         std::set<unsigned> pruned_succ = all_succ;
 
-        DEBUG_PRINT_LN("reachable vector: " + std::to_string(this->reachable_vector_));
-        DEBUG_PRINT_LN("dir_sim: " + std::to_string(this->dir_sim_));
-
         std::set<unsigned> to_remove;
         for (const auto& pr : this->dir_sim_) {
           unsigned smaller = pr.first;
@@ -1536,7 +1523,7 @@ namespace cola
       for (size_t i = 0; i < algos.size(); ++i) {
         const kofola::abstract_complement_alg::mstate* ms = prev_part_macro[i].get();
         mstate_col_set mcs;
-        if (active_index == i) {
+        if (active_index == i || !algos[i]->use_round_robin()) {
           mcs = algos[i]->get_succ_active(all_succ, ms, symbol);
         } else {
           mcs = algos[i]->get_succ_track(all_succ, ms, symbol);
@@ -1800,9 +1787,6 @@ namespace cola
         std::set<unsigned> new_set;
         for (const auto& el : old_set) {
           assert(el >= 0);
-          DEBUG_PRINT_LN("scc_info.scc_of(st) = " + std::to_string(this->si_.scc_of(st)));
-          DEBUG_PRINT_LN("scc_info.scc_of(el) = " + std::to_string(this->si_.scc_of(el)));
-
           assert(this->si_.scc_of(st) >= this->si_.scc_of(el));     // check scc numbering is reverse-compatible with reachability
           new_set.insert(static_cast<unsigned>(el));
         }
@@ -1840,14 +1824,8 @@ namespace cola
 
       DEBUG_PRINT_LN("algorithms selected");
 
-      DEBUG_PRINT_LN("creating a sink state");
-
       // our structure for the automaton (TODO: hash table might be better)
       std::map<unsigned, std::vector<std::pair<bdd, vec_state_col>>> compl_states;
-
-      // create a sink state (its transitions)
-      // FIXME: should have _all_ colours
-      compl_states.insert({SINK_ACCEPT_STATE, {{bddtrue, {{SINK_ACCEPT_STATE, {SINK_COLOUR}}}}}});
 
       // get initial uberstates
       auto init_vec{this->get_initial_uberstates(alg_vec)};
@@ -1857,7 +1835,8 @@ namespace cola
         todo.push(state);
       }
 
-      DEBUG_PRINT_LN("after get initial");
+      bool is_sink_created = false;
+      unsigned sink_state = static_cast<unsigned>(-1);
 
       DEBUG_PRINT_LN("initial todo: " + std::to_string(todo));
 
@@ -1890,7 +1869,17 @@ namespace cola
         // direct non-support symbols to sink
         bdd all = n_s_compat;
         if (all != bddtrue) {
-          vec_state_col succs = {{SINK_ACCEPT_STATE, {}}};
+          if (!is_sink_created) { // first time encountering sink state
+            is_sink_created = true;
+            sink_state = this->cnt_state_;
+            ++this->cnt_state_;
+            this->num_to_uberstate_map_.push_back(nullptr);
+
+            DEBUG_PRINT_LN("creating a sink state: " + std::to_string(sink_state));
+            // create a sink state (its transitions)
+            compl_states.insert({sink_state, {{bddtrue, {{sink_state, {SINK_COLOUR}}}}}});
+          }
+          vec_state_col succs = {{sink_state, {}}};
           us_post.emplace_back(std::make_pair(!all, std::move(succs)));
         }
 
@@ -1937,10 +1926,12 @@ namespace cola
         alg_acc_code &= spot::acc_cond::acc_code::inf({RR_COLOUR});
       }
 
+      spot::acc_cond::acc_code final_code = alg_acc_code;  // accept in all round-robined
+      if (is_sink_created) {                     // components and everywhere else or stay in sink
+        final_code |= sink_acc_code;
+      }
 
-      spot::acc_cond result_cond(num_colours,
-        sink_acc_code |  // to accept, either stay in sink, or
-        alg_acc_code);   //  accept in all round-robined components and everywhere else
+      spot::acc_cond result_cond(num_colours, final_code);
 
       // convert the result into a spot automaton
       // FIXME: we should be directly constructing spot aut
@@ -1980,7 +1971,7 @@ namespace cola
         }
 
         if (this->show_names_) {
-          if (SINK_ACCEPT_STATE == src) {
+          if (is_sink_created && sink_state == src) {
             state_names->push_back("SINK");
           } else {
             state_names->push_back(num_to_uberstate(src).to_string());

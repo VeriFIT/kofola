@@ -9,17 +9,20 @@ using mstate_col_set = abstract_complement_alg::mstate_col_set;
 
 complement_mh::mstate_mh::mstate_mh(
   const std::set<unsigned>&  states,
-  const std::set<unsigned>&  breakpoint
+  const std::set<unsigned>&  breakpoint,
+  bool                       active
   ) :
   states_(states),
-  breakpoint_(breakpoint)
+  breakpoint_(breakpoint),
+  active_(active)
 { }
-
 std::string complement_mh::mstate_mh::to_string() const
 {
-  std::string res = "[MH: ";
+  std::string res = std::string("[MH(") + ((this->active_)? "A" : "T") + "): ";
   res += "C=" + std::to_string(this->states_);
-  res += ", B=" + std::to_string(this->breakpoint_);
+  if (this->active_) {
+    res += ", B=" + std::to_string(this->breakpoint_);
+  }
   res += "]";
   return res;
 }
@@ -59,8 +62,14 @@ mstate_set complement_mh::get_init() const
     init_state.insert(orig_init);
   }
 
-  std::shared_ptr<mstate> ms(new mstate_mh(init_state, {}));
-  mstate_set result = {ms};
+  mstate_set result;
+  if (this->use_round_robin()) {
+    std::shared_ptr<mstate> ms(new mstate_mh(init_state, {}, false));
+    result.push_back(ms);
+  } else { // no round robin
+    std::shared_ptr<mstate> ms(new mstate_mh(init_state, init_state, true));
+    result.push_back(ms);
+  }
   return result;
 } // get_init() }}}
 
@@ -71,6 +80,7 @@ mstate_col_set complement_mh::get_succ_track(
 { // {{{
   const mstate_mh* src_mh = dynamic_cast<const mstate_mh*>(src);
   assert(src_mh);
+  assert(!src_mh->active_);
 
   std::set<unsigned> states;
   for (unsigned st : glob_reached) {
@@ -78,6 +88,41 @@ mstate_col_set complement_mh::get_succ_track(
       states.insert(st);
     }
   }
+
+  std::shared_ptr<mstate> ms(new mstate_mh(states, {}, false));
+  return {{ms, {}}};
+} // get_succ_track() }}}
+
+mstate_set complement_mh::lift_track_to_active(const mstate* src) const
+{ // {{{
+  const mstate_mh* src_mh = dynamic_cast<const mstate_mh*>(src);
+  assert(src_mh);
+  assert(!src_mh->active_);
+
+  std::shared_ptr<mstate> ms(new mstate_mh(src_mh->states_, src_mh->states_, true));
+  return {ms};
+} // lift_track_to_active() }}}
+
+mstate_col_set complement_mh::get_succ_active(
+  const std::set<unsigned>&  glob_reached,
+  const mstate*              src,
+  const bdd&                 symbol) const
+{
+  const mstate_mh* src_mh = dynamic_cast<const mstate_mh*>(src);
+  assert(src_mh);
+  assert(src_mh->active_);
+
+  DEBUG_PRINT_LN("tracking successor of: " + std::to_string(*src_mh));
+  mstate_mh tmp(src_mh->states_, {}, false);
+  mstate_col_set track_succ = this->get_succ_track(glob_reached, &tmp, symbol);
+
+  if (track_succ.size() == 0) { return {};}
+  assert(track_succ.size() == 1);
+
+  const mstate_mh* track_ms = dynamic_cast<const mstate_mh*>(track_succ[0].first.get());
+  assert(track_ms);
+
+  DEBUG_PRINT_LN("obtained track ms: " + std::to_string(*track_ms));
 
   std::set<unsigned> succ_break = kofola::get_all_successors_in_scc(
     this->info_.aut_, this->info_.scc_info_, src_mh->breakpoint_, symbol);
@@ -87,28 +132,20 @@ mstate_col_set complement_mh::get_succ_track(
 
   mstate_col_set result;
   if (succ_break.empty()) { // hit breakpoint
-    std::shared_ptr<mstate> ms(new mstate_mh(states, states));
-    result.push_back({ms, {0}});
+    if (this->use_round_robin()) {
+      std::shared_ptr<mstate> ms(new mstate_mh(track_ms->states_, {}, false));
+      result.push_back({ms, {0}});
+    } else { // no round robin
+      std::shared_ptr<mstate> ms(new mstate_mh(track_ms->states_, track_ms->states_, true));
+      result.push_back({ms, {0}});
+    }
   }
   else { // no breakpoint
-    std::shared_ptr<mstate> ms(new mstate_mh(states, succ_break));
+    std::shared_ptr<mstate> ms(new mstate_mh(track_ms->states_, succ_break, true));
     result.push_back({ms, {}});
   }
 
   return result;
-} // get_succ_track() }}}
-
-mstate_set complement_mh::lift_track_to_active(const mstate* src) const
-{
-  assert(false);
-}
-
-mstate_col_set complement_mh::get_succ_active(
-  const std::set<unsigned>&  glob_reached,
-  const mstate*              src,
-  const bdd&                 symbol) const
-{
-  assert(false);
 }
 
 complement_mh::~complement_mh()
