@@ -759,8 +759,6 @@ int main(int argc, char *argv[])
             std::cout << "Done for determinizing the input automaton in " << 1000.0 * (c_end - c_start) / CLOCKS_PER_SEC << " ms..." << std::endl;
           }
           aut = res;
-          // spot::print_hoa(std::cout, aut);
-          // std::cout << std::endl;
         }
       }
       if (complement && !determinize)
@@ -774,12 +772,12 @@ int main(int argc, char *argv[])
         else if (complement == COMP)
         {
           aut = cola::complement_tnba(aut, om, decomp_options);
-          output_type = GeneralizedBuchi;
+          output_type = Generic;
         }
         else
         {
           // set NCSB algorithm later
-          aut = cola::complement_tnba(aut, om, decomp_options);
+          assert(false);
         }
       }else if (comp && determinize)
       {
@@ -794,143 +792,14 @@ int main(int argc, char *argv[])
         spot::print_hoa(std::cout, aut);
         std::cout << std::endl;
       }
-      // postprocessing, remove dead states
-      //aut->purge_unreachable_states();
-      if (post_process != None && !decompose)
-      {
-        clock_t c_start = clock();
-        if (aut->acc().is_all())
-        {
-          aut = spot::minimize_monitor(aut);
-        }
-        else if (output_type != Buchi and output_type != GeneralizedBuchi)//if (aut->num_states() < num_post)
-        {
-          spot::postprocessor p;
-          if (output_type == Parity)
-          {
-            if (use_acd)
-            {
-              p.set_type(spot::postprocessor::Generic);
-            }
-            else
-            {
-              p.set_type(spot::postprocessor::Parity);
-            }
-          }
-          else if (output_type == Generic || output_type == Rabin)
-          {
-            p.set_type(spot::postprocessor::Generic);
-          }
-          p.set_pref(spot::postprocessor::Deterministic);
-          // set postprocess level
-          if (post_process == Low)
-          {
-            p.set_level(spot::postprocessor::Low);
-          }
-          else if (post_process == Medium)
-          {
-            p.set_level(spot::postprocessor::Medium);
-          }
-          else if (post_process == High)
-          {
-            p.set_level(spot::postprocessor::High);
-          }
-          aut = p.run(aut);
-        }
-        if (output_type == Rabin)
-        {
-          aut = spot::to_generalized_rabin(aut, true);
-        }
-        else if (output_type == Parity && use_acd)
-        {
-          // call the alternating cycle decomposition to translate our rabin automaton
-          // to parity automaton
-          aut = spot::acd_transform(aut);
-        }
-        // now post processing again since we may not do postprocessing above
-        {
-          spot::postprocessor p;
-          if (post_process == Low)
-          {
-            p.set_level(spot::postprocessor::Low);
-          }
-          else if (post_process == Medium)
-          {
-            p.set_level(spot::postprocessor::Medium);
-          }
-          else if (post_process == High)
-          {
-            p.set_level(spot::postprocessor::High);
-          }
-          if (output_type != Buchi and output_type != GeneralizedBuchi) p.set_pref(spot::postprocessor::Deterministic);
-          if (output_type == Generic)
-          {
-            p.set_type(spot::postprocessor::Generic);
-          }
-          else if (output_type == Parity)
-          {
-            p.set_type(spot::postprocessor::Parity);
-          }
-          else if (output_type == Buchi)
-          {
-            p.set_type(spot::postprocessor::Buchi);
-          }
-          else if (output_type == GeneralizedBuchi)
-          {
-            p.set_type(spot::postprocessor::GeneralizedBuchi);
-          }
-          aut = p.run(aut);
-        }
-        clock_t c_end = clock();
-        if (om.get(VERBOSE_LEVEL) > 0)
-          std::cout << "Done for postprocessing the result automaton in " << 1000.0 * (c_end - c_start) / CLOCKS_PER_SEC << " ms..." << std::endl;
-      }
 
-      if (contain)
-      {
-        //now check whether the output is complementation
-        if (!aut_to_contain)
-        {
-          std::cout << "Contained" << std::endl;
-          break;
-        }
-        std::stringstream ss;
-        bool has_counterexample = false;
-        if (comp)
-        {
-          spot::twa_word_ptr word = aut->intersecting_word(aut_to_contain);
-          if (word != nullptr)
-          {
-            ss << (*word);
-            has_counterexample = true;
-          }
-        }
-        else
-        {
-          // not complement, now the automaton should be determinized
-          aut = spot::complement(aut);
-          spot::twa_word_ptr word = aut->intersecting_word(aut_to_contain);
-          if (word != nullptr)
-          {
-            ss << (*word);
-            has_counterexample = true;
-          }
-        }
-        if (!has_counterexample)
-        {
-          std::cout << "Contained" << std::endl;
-        }
-        else
-        {
-          std::cout << "Not contained: " << ss.str() << std::endl;
-        }
-      }
-      else if (output_filename != "")
+      if (output_filename != "")
       {
         cola::output_file(aut, output_filename.c_str());
       }
       else
       {
+        DEBUG_PRINT_LN("before final print");
         spot::print_hoa(std::cout, aut, opts);
         std::cout << "\n";
       }

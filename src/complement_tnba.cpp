@@ -1545,9 +1545,10 @@ namespace cola
             }
           }
           mstate_col.second = new_cols;
-          if (!algos[i]->use_round_robin()) {
-            col_offset += algos[i]->get_acc_cond().num_sets();
-          }
+        }
+
+        if (!algos[i]->use_round_robin()) {
+          col_offset += algos[i]->get_acc_cond().num_sets();
         }
 
         succ_part_macro_col.emplace_back(std::move(mcs));
@@ -1614,7 +1615,7 @@ namespace cola
       std::vector<mstate_set> vec_mstate_sets;
       for (size_t i = 0; i < alg_vec.size(); ++i) { // get outputs of all procedures
         mstate_set init_mstates = alg_vec[i]->get_init();
-        if (i == init_active) { // make the partial macrostate active
+        if (i == init_active || !alg_vec[i]->use_round_robin()) { // make the partial macrostate active
           mstate_set new_mstates;
           for (const auto& st : init_mstates) {
             mstate_set lifted = alg_vec[i]->lift_track_to_active(st.get());
@@ -1633,7 +1634,7 @@ namespace cola
       // compute the cartesian product from the vector of sets of macrostates
       std::vector<vec_macrostates> cp = compute_cartesian_prod(vec_mstate_sets);
 
-      DEBUG_PRINT_LN("generated Cartesian product: " + std::to_string(cp));
+      DEBUG_PRINT_LN("initial macrostates: " + std::to_string(cp));
 
       std::vector<unsigned> result;
       for (const auto& vec : cp) {
@@ -1660,7 +1661,9 @@ namespace cola
     { // {{{
       using kofola::PartitionType;
 
+      std::string scc_types = get_scc_types(scc_inf);
       size_t part_index = 0;
+
       kofola::PartitionToTypeMap part_to_type_map;
       kofola::StateToPartitionMap st_to_part_map;
       std::map<size_t, int> scc_to_part_map;   // -1 is invalid partition
@@ -1668,8 +1671,32 @@ namespace cola
       int iwa_index = -1;
       int dac_index = -1;
 
+      // When merging IWAs, move the IWA partition to the front.  This makes it
+      // be active first, and may avoid larger state space generation.
+      if (opt.merge_iwa) {
+        for (size_t i = 0; i < scc_inf.scc_count(); ++i) {
+          if (is_accepting_weakscc(scc_types, i)) { // if there is some IWA
+            iwa_index = part_index;
+            ++part_index;
+            part_to_type_map[iwa_index] = PartitionType::INHERENTLY_WEAK;
+            break;
+          }
+        }
+      }
+
+      // similar thing as above for DACs
+      if (opt.merge_det) {
+        for (size_t i = 0; i < scc_inf.scc_count(); ++i) {
+          if (is_accepting_detscc(scc_types, i)) { // if there is some DAC
+            dac_index = part_index;
+            ++part_index;
+            part_to_type_map[dac_index] = PartitionType::DETERMINISTIC;
+            break;
+          }
+        }
+      }
+
       // decide the partitioning
-      std::string scc_types = get_scc_types(scc_inf);
       for (size_t i = 0; i < scc_inf.scc_count(); ++i) {
         DEBUG_PRINT_LN("Processing SCC " + std::to_string(i));
         if (!is_accepting_scc(scc_types, i)) {
@@ -2033,19 +2060,21 @@ namespace cola
         std::vector<spot::twa_graph_ptr> part_res;
 
         spot::postprocessor p;
+        p.set_type(spot::postprocessor::Buchi);
+        p.set_level(spot::postprocessor::High);
 
         for (auto aut : decomposed)
         {
-          if (decomp_options.scc_compl_high)
-            p.set_level(spot::postprocessor::High);
-          else
-            p.set_level(spot::postprocessor::Low);
+          // if (decomp_options.scc_compl_high)
+          //   p.set_level(spot::postprocessor::High);
+          // else
+          //   p.set_level(spot::postprocessor::Low);
           // complement each automaton
           auto aut_preprocessed = p.run(aut);
           spot::scc_info part_scc(aut_preprocessed, spot::scc_info_options::ALL);
 
           auto comp = cola::tnba_complement(aut_preprocessed, part_scc, om, implications, decomp_options);
-          auto dec_aut = comp.run();
+          auto dec_aut = comp.run_new();
           // postprocessing for each automaton
           part_res.push_back(p.run(dec_aut));
         }
@@ -2076,6 +2105,8 @@ namespace cola
     aut_to_compl = p.run(aut_reduced);
 
     auto comp = cola::tnba_complement(aut_to_compl, scc, om, implications, decomp_options);
-    return comp.run_new();
+    auto res = comp.run_new();
+    DEBUG_PRINT_LN("finished call to run_new()");
+    return res;
   }
 }

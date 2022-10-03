@@ -63,13 +63,9 @@ mstate_set complement_mh::get_init() const
   }
 
   mstate_set result;
-  if (this->use_round_robin()) {
-    std::shared_ptr<mstate> ms(new mstate_mh(init_state, {}, false));
-    result.push_back(ms);
-  } else { // no round robin
-    std::shared_ptr<mstate> ms(new mstate_mh(init_state, init_state, true));
-    result.push_back(ms);
-  }
+  std::shared_ptr<mstate> ms(new mstate_mh(init_state, {}, false));
+  result.push_back(ms);
+
   return result;
 } // get_init() }}}
 

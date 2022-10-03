@@ -55,7 +55,7 @@ public: // METHODS
     const mstate*              src,
     const bdd&                 symbol) const override;
 
-  virtual bool use_round_robin() const override { return true; }
+  virtual bool use_round_robin() const override { return false; }
 
   virtual spot::acc_cond get_acc_cond() const override
   { return spot::acc_cond(1, spot::acc_cond::inf({0})); }

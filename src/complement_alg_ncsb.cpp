@@ -177,8 +177,15 @@ mstate_col_set complement_ncsb::get_succ_active(
 
   std::set<unsigned> succ_break = get_set_difference(tmp_break, track_ms->safe_);
   if (succ_break.empty()) { // if we hit breakpoint
-    std::shared_ptr<mstate> ms(new mstate_ncsb(track_ms->check_, track_ms->safe_, {}, false));
-    return {{ms, {0}}};
+    mstate_col_set result;
+    if (this->use_round_robin()) {
+      std::shared_ptr<mstate> ms(new mstate_ncsb(track_ms->check_, track_ms->safe_, {}, false));
+      result.push_back({ms, {0}});
+    } else { // no round robing
+      std::shared_ptr<mstate> ms(new mstate_ncsb(track_ms->check_, track_ms->safe_, track_ms->check_, true));
+      result.push_back({ms, {0}});
+    }
+    return result;
   } else { // not breakpoint
     mstate_col_set result;
     std::shared_ptr<mstate> ms(new mstate_ncsb(track_ms->check_, track_ms->safe_, succ_break, true));
