@@ -31,6 +31,7 @@
 #include "abstract_complement_alg.hpp"
 #include "complement_alg_mh.hpp"
 #include "complement_alg_ncsb.hpp"
+#include "complement_alg_safra.hpp"
 
 #include <deque>
 #include <map>
@@ -1774,7 +1775,7 @@ namespace cola
           alg = std::make_unique<kofola::complement_ncsb>(compl_info, i);
         }
         else if (PartitionType::NONDETERMINISTIC == compl_info.part_to_type_map_.at(i)) {
-          assert(false);
+          alg = std::make_unique<kofola::complement_safra>(compl_info, i);
         }
         else {
           throw std::runtime_error("Strange SCC type found!");

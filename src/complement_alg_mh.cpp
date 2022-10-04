@@ -16,6 +16,7 @@ complement_mh::mstate_mh::mstate_mh(
   breakpoint_(breakpoint),
   active_(active)
 { }
+
 std::string complement_mh::mstate_mh::to_string() const
 {
   std::string res = std::string("[MH(") + ((this->active_)? "A" : "T") + "): ";
