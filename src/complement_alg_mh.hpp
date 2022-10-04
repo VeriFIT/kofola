@@ -11,31 +11,6 @@ namespace kofola { // {{{
 /// inherently weak SCCs
 class complement_mh : public abstract_complement_alg
 { // {{{
-public: // TYPES
-
-  /// partial macrostate for the given component
-  class mstate_mh : public abstract_complement_alg::mstate
-  { // {{{
-  private: // DATA MEMBERS
-
-    bool active_;
-    std::set<unsigned> states_;
-    std::set<unsigned> breakpoint_;
-
-  public: // METHODS
-
-    /// constructor
-    mstate_mh(const std::set<unsigned>& states, const std::set<unsigned>& breakpoint, bool active_);
-
-    virtual std::string to_string() const override;
-    virtual bool is_active() const override { return this->active_; }
-    virtual bool eq(const mstate& rhs) const override;
-    virtual bool lt(const mstate& rhs) const override;
-    virtual ~mstate_mh() override;
-
-    friend class complement_mh;
-  }; // mstate_mh }}}
-
 public: // METHODS
 
   /// constructor

@@ -7,17 +7,43 @@ using namespace kofola;
 using mstate_set = abstract_complement_alg::mstate_set;
 using mstate_col_set = abstract_complement_alg::mstate_col_set;
 
-complement_mh::mstate_mh::mstate_mh(
-  const std::set<unsigned>&  states,
-  const std::set<unsigned>&  breakpoint,
-  bool                       active
-  ) :
-  states_(states),
-  breakpoint_(breakpoint),
-  active_(active)
-{ }
 
-std::string complement_mh::mstate_mh::to_string() const
+namespace { // {{{
+
+/// partial macrostate for the given component
+class mstate_mh : public abstract_complement_alg::mstate
+{ // {{{
+private: // DATA MEMBERS
+
+  bool active_;
+  std::set<unsigned> states_;
+  std::set<unsigned> breakpoint_;
+
+public: // METHODS
+
+  /// constructor
+  mstate_mh(
+    const std::set<unsigned>&  states,
+    const std::set<unsigned>&  breakpoint,
+    bool                       active
+  ) : states_(states),
+    breakpoint_(breakpoint),
+    active_(active)
+  { }
+
+  virtual std::string to_string() const override;
+  virtual bool is_active() const override { return this->active_; }
+  virtual bool eq(const mstate& rhs) const override;
+  virtual bool lt(const mstate& rhs) const override;
+  virtual ~mstate_mh() override { }
+
+  friend class kofola::complement_mh;
+}; // mstate_mh }}}
+
+} // anonymous namespace }}}
+
+
+std::string mstate_mh::to_string() const
 {
   std::string res = std::string("[MH(") + ((this->active_)? "A" : "T") + "): ";
   res += "C=" + std::to_string(this->states_);
@@ -28,7 +54,7 @@ std::string complement_mh::mstate_mh::to_string() const
   return res;
 }
 
-bool complement_mh::mstate_mh::eq(const mstate& rhs) const
+bool mstate_mh::eq(const mstate& rhs) const
 {
   const mstate_mh* rhs_mh = dynamic_cast<const mstate_mh*>(&rhs);
   assert(rhs_mh);
@@ -36,7 +62,7 @@ bool complement_mh::mstate_mh::eq(const mstate& rhs) const
     (this->breakpoint_ == rhs_mh->breakpoint_);
 }
 
-bool complement_mh::mstate_mh::lt(const mstate& rhs) const
+bool mstate_mh::lt(const mstate& rhs) const
 {
   const mstate_mh* rhs_mh = dynamic_cast<const mstate_mh*>(&rhs);
   assert(rhs_mh);
@@ -46,9 +72,6 @@ bool complement_mh::mstate_mh::lt(const mstate& rhs) const
 
   return false;   // if all are equal
 }
-
-complement_mh::mstate_mh::~mstate_mh()
-{ }
 
 complement_mh::complement_mh(const cmpl_info& info, unsigned part_index)
   : abstract_complement_alg(info, part_index)

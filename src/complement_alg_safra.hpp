@@ -16,28 +16,6 @@ namespace kofola { // {{{
 /// condition
 class complement_safra : public abstract_complement_alg
 { // {{{
-public: // TYPES
-
-  /// partial macrostate for the given component
-  class mstate_safra : public abstract_complement_alg::mstate
-  { // {{{
-  private: // DATA MEMBERS
-
-
-  public: // METHODS
-
-    /// constructor
-    mstate_safra();
-
-    virtual std::string to_string() const override;
-    virtual bool is_active() const override { return true; }
-    virtual bool eq(const mstate& rhs) const override;
-    virtual bool lt(const mstate& rhs) const override;
-    virtual ~mstate_safra() override;
-
-    friend class complement_safra;
-  }; // mstate_safra }}}
-
 public: // METHODS
 
   /// constructor
@@ -58,10 +36,8 @@ public: // METHODS
     const bdd&                 symbol) const override;
 
   virtual bool use_round_robin() const override { return false; }
-
   virtual spot::acc_cond get_acc_cond() const override;
 
   virtual ~complement_safra() override;
-
 }; // complement_safra }}}
 } // namespace kofola }}}

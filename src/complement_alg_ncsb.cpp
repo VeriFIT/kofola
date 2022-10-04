@@ -7,43 +7,67 @@ using mstate_set = abstract_complement_alg::mstate_set;
 using mstate_col_set = abstract_complement_alg::mstate_col_set;
 
 
-namespace { // anonymous namespace
+namespace { // anonymous namespace {{{
 
-  /// returns true of there is at least one outgoing accepting transition from
-  /// a set of states over the given symbol in the SCC the source state is in
-  bool contains_accepting_outgoing_transitions_in_scc(
-    const spot::const_twa_graph_ptr&    aut,
-    const kofola::StateToPartitionMap&  st_to_part_map,
-    const spot::scc_info&               scc_info,
-    const std::set<unsigned>&           states,
-    const bdd&                          symbol)
-  { // {{{
-    for (unsigned s : states) {
-      for (const auto &t : aut->out(s)) {
-        if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(symbol, t.cond)) {
-          if (t.acc) { return true; }
-        }
+/// partial macrostate for the given component
+class mstate_ncsb : public abstract_complement_alg::mstate
+{ // {{{
+private: // DATA MEMBERS
+
+  bool active_;                    // true = active ; false = track
+  std::set<unsigned> check_;       // states for runs that need to be checked
+  std::set<unsigned> safe_;        // safe states (cannot see accepting transition)
+  std::set<unsigned> breakpoint_;
+
+public: // METHODS
+
+  /// constructor
+  mstate_ncsb(
+    const std::set<unsigned>&  check,
+    const std::set<unsigned>&  safe,
+    const std::set<unsigned>&  breakpoint,
+    bool                       active
+  ) : check_(check),
+    safe_(safe),
+    breakpoint_(breakpoint),
+    active_(active)
+  { }
+
+  virtual std::string to_string() const override;
+  virtual bool is_active() const override { return this->active_; }
+  virtual bool eq(const mstate& rhs) const override;
+  virtual bool lt(const mstate& rhs) const override;
+  virtual ~mstate_ncsb() override { }
+
+  friend class kofola::complement_ncsb;
+}; // mstate_ncsb }}}
+
+
+/// returns true of there is at least one outgoing accepting transition from
+/// a set of states over the given symbol in the SCC the source state is in
+bool contains_accepting_outgoing_transitions_in_scc(
+  const spot::const_twa_graph_ptr&    aut,
+  const kofola::StateToPartitionMap&  st_to_part_map,
+  const spot::scc_info&               scc_info,
+  const std::set<unsigned>&           states,
+  const bdd&                          symbol)
+{ // {{{
+  for (unsigned s : states) {
+    for (const auto &t : aut->out(s)) {
+      if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(symbol, t.cond)) {
+        if (t.acc) { return true; }
       }
     }
+  }
 
-    return false;
-  } // contains_accepting_outgoing_transitions() }}}
-}
+  return false;
+} // contains_accepting_outgoing_transitions() }}}
+
+} // anonymous namespace }}}
 
 
-complement_ncsb::mstate_ncsb::mstate_ncsb(
-  const std::set<unsigned>&  check,
-  const std::set<unsigned>&  safe,
-  const std::set<unsigned>&  breakpoint,
-  bool                       active
-  ) :
-  check_(check),
-  safe_(safe),
-  breakpoint_(breakpoint),
-  active_(active)
-{ }
 
-std::string complement_ncsb::mstate_ncsb::to_string() const
+std::string mstate_ncsb::to_string() const
 {
   std::string res = std::string("[NCSB(") + ((this->active_)? "A" : "T") + "): ";
   res += "C=" + std::to_string(this->check_);
@@ -55,7 +79,7 @@ std::string complement_ncsb::mstate_ncsb::to_string() const
   return res;
 }
 
-bool complement_ncsb::mstate_ncsb::eq(const mstate& rhs) const
+bool mstate_ncsb::eq(const mstate& rhs) const
 {
   const mstate_ncsb* rhs_ncsb = dynamic_cast<const mstate_ncsb*>(&rhs);
   assert(rhs_ncsb);
@@ -65,7 +89,8 @@ bool complement_ncsb::mstate_ncsb::eq(const mstate& rhs) const
     (this->breakpoint_ == rhs_ncsb->breakpoint_);
 }
 
-bool complement_ncsb::mstate_ncsb::lt(const mstate& rhs) const
+
+bool mstate_ncsb::lt(const mstate& rhs) const
 { // {{{
   const mstate_ncsb* rhs_ncsb = dynamic_cast<const mstate_ncsb*>(&rhs);
   assert(rhs_ncsb);
@@ -78,8 +103,6 @@ bool complement_ncsb::mstate_ncsb::lt(const mstate& rhs) const
   return false;   // if all are equal
 } // lt() }}}
 
-complement_ncsb::mstate_ncsb::~mstate_ncsb()
-{ }
 
 complement_ncsb::complement_ncsb(const cmpl_info& info, unsigned part_index)
   : abstract_complement_alg(info, part_index)
