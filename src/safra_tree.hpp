@@ -127,8 +127,8 @@ public:
   }
 
   std::string to_string() const {
-    std::string res = "[ ";
-    for (auto &pair : labels_) {
+    std::string res = "[";
+    for (const auto& pair : labels_) {
       // first state
       unsigned s = pair.first;
       int brace = pair.second;
@@ -137,13 +137,13 @@ public:
       std::string bstr = "";
       while (brace >= 0) {
         // insert in reverse order
-        bstr = std::to_string(brace) + "," + bstr;
+        bstr = std::to_string(brace) + ((bstr.length() > 0)? "," : "") + bstr;
         // obtain the i-th braces
         brace = braces_[brace];
       }
-      res += std::to_string(s) + "->{" + bstr + "},";
+      res += ((res.length() > 1)? ", " : "") + std::to_string(s) + "->{" + bstr + "}";
     }
-    res += " ]";
+    res += "]";
     return res;
   }
 };

@@ -39,15 +39,19 @@ struct cmpl_info
   /// accepting states
   const std::vector<bool>& state_accepting_;
 
+  /// options
+  const compl_decomp_options& options_;
+
   /// constructor
   cmpl_info(
     const spot::const_twa_graph_ptr&  aut,
-    size_t                      num_partitions,
-    const PartitionToTypeMap&   part_to_type_map,
-    const StateToPartitionMap&  st_to_part_map,
-    const spot::scc_info&       scc_info,
-    const Simulation&           dir_sim,
-    const std::vector<bool>&    state_accepting
+    size_t                            num_partitions,
+    const PartitionToTypeMap&         part_to_type_map,
+    const StateToPartitionMap&        st_to_part_map,
+    const spot::scc_info&             scc_info,
+    const Simulation&                 dir_sim,
+    const std::vector<bool>&          state_accepting,
+    const compl_decomp_options&       options
     ) :
     aut_(aut),
     num_partitions_(num_partitions),
@@ -55,7 +59,8 @@ struct cmpl_info
     st_to_part_map_(st_to_part_map),
     scc_info_(scc_info),
     dir_sim_(dir_sim),
-    state_accepting_(state_accepting)
+    state_accepting_(state_accepting),
+    options_(options)
   { }
 }; // struct cmpl_info }}}
 

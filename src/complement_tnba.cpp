@@ -1837,13 +1837,14 @@ namespace cola
 
       // collect information for complementation
       kofola::cmpl_info info(
-        this->aut_,           // automaton
-        num_partitions,       // number of partitions
-        part_to_type_map,     // partition types
-        st_part_map,          // state to partition map
-        this->si_,            // SCC information
-        this->dir_sim_,       // direct simulation
-        this->is_accepting_); // vector for acceptance of states
+        this->aut_,             // automaton
+        num_partitions,         // number of partitions
+        part_to_type_map,       // partition types
+        st_part_map,            // state to partition map
+        this->si_,              // SCC information
+        this->dir_sim_,         // direct simulation
+        this->is_accepting_,    // vector for acceptance of states
+        this->decomp_options_); // options
 
       DEBUG_PRINT_LN("selecting algorithms");
 
