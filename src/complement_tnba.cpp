@@ -1324,9 +1324,13 @@ namespace cola
 
     /// target of a transition (including colours)
     using state_col = std::pair<unsigned, std::set<unsigned>>;
+    /// target of a transition (including colours tagged by partition index)
+    using state_taggedcol = std::pair<unsigned, std::set<std::pair<unsigned, unsigned>>>;
 
     /// return type of get_succ (set of pairs <state, set of colours>)
     using vec_state_col = std::vector<state_col>;
+    /// vec_state_col where colours are tagged by their partition
+    using vec_state_taggedcol = std::vector<state_taggedcol>;
 
     /// functor for comparison of uberstate pointers
     struct uberstate_ptr_less_ftor
@@ -1472,18 +1476,21 @@ namespace cola
 
     /// gets all successors of an uberstate wrt a vector of algorithms and a
     /// symbol
-    vec_state_col get_succ_uberstates(
+    vec_state_taggedcol get_succ_uberstates(
       const vec_algorithms&  algos,
       const uberstate&       src,
       const bdd&             symbol)
     { // {{{
       DEBUG_PRINT_LN("Processing uberstate " + std::to_string(src) +
         " for symbol " + std::to_string(symbol));
+      using mstate = kofola::abstract_complement_alg::mstate;
       using mstate_set = kofola::abstract_complement_alg::mstate_set;
       using mstate_col = kofola::abstract_complement_alg::mstate_col;
+      using mstate_taggedcol = std::pair<std::shared_ptr<mstate>, std::set<std::pair<unsigned, unsigned>>>;
       using mstate_col_set = kofola::abstract_complement_alg::mstate_col_set;
-      assert(algos.size() == src.get_part_macrostates().size());
+      using mstate_taggedcol_set = std::vector<mstate_taggedcol>;
 
+      assert(algos.size() == src.get_part_macrostates().size());
       const int active_index = src.get_active_scc();
       std::set<unsigned> all_succ = kofola::get_all_successors(
           this->aut_, src.get_reach_set(), symbol);
@@ -1519,7 +1526,7 @@ namespace cola
       const vec_macrostates& prev_part_macro = src.get_part_macrostates();
       // this container collects all sets of pairs of macrostates and colours,
       // later, we will turn it into the Cartesian product
-      std::vector<mstate_col_set> succ_part_macro_col;
+      std::vector<mstate_taggedcol_set> succ_part_macro_col;
       size_t col_offset = RESERVED_COLOURS;   // current offset of colours
       for (size_t i = 0; i < algos.size(); ++i) {
         const kofola::abstract_complement_alg::mstate* ms = prev_part_macro[i].get();
@@ -1534,54 +1541,44 @@ namespace cola
           return {};
         }
 
-        // renumber colours
-        for (auto& mstate_col : mcs) {
-          std::set<unsigned> new_cols;
+        // tagged colours
+        mstate_taggedcol_set tagged_mcs;
+        for (const auto& mstate_col : mcs) {
+          std::set<std::pair<unsigned, unsigned>> new_taggedcols;
           for (const auto& col : mstate_col.second) {
-            if (algos[i]->use_round_robin()) {
-              assert(0 == col);
-              new_cols.insert(RR_COLOUR);
-            } else {
-              new_cols.insert(col + col_offset);
-            }
+            new_taggedcols.insert({i, col});
           }
-          mstate_col.second = new_cols;
+          tagged_mcs.push_back({mstate_col.first, new_taggedcols});
         }
 
-        if (!algos[i]->use_round_robin()) {
-          col_offset += algos[i]->get_acc_cond().num_sets();
-        }
-
-        succ_part_macro_col.emplace_back(std::move(mcs));
+        succ_part_macro_col.emplace_back(std::move(tagged_mcs));
       }
 
       DEBUG_PRINT_LN("generated partial macrostates + colours: " +
         std::to_string(succ_part_macro_col));
 
       // compute the Cartesian product of the partial macrostates (+ colours)
-      std::vector<std::vector<mstate_col>> cp =
+      std::vector<std::vector<mstate_taggedcol>> cp =
         compute_cartesian_prod(succ_part_macro_col);
 
       // generate uberstates
-      vec_state_col result;
+      vec_state_taggedcol result;
       for (const auto& vec : cp) {
         vec_macrostates vm;
-        std::set<unsigned> cols;
+        std::set<std::pair<unsigned, unsigned>> cols;
         for (const auto& ms_col : vec) {
           vm.push_back(ms_col.first);
-          // FIXME: renumber colours
           cols.insert(ms_col.second.begin(), ms_col.second.end());
         }
 
+        unsigned us_num = UINT_MAX;   // canary value
         if (INACTIVE_SCC == active_index) { // no round robin
           DEBUG_PRINT_LN("inserting")
-          unsigned us_num = insert_uberstate(uberstate(all_succ, vm, INACTIVE_SCC));
+          us_num = insert_uberstate(uberstate(all_succ, vm, INACTIVE_SCC));
           DEBUG_PRINT_LN("inserted")
-          result.emplace_back(us_num, std::move(cols));
         } else { // round robin
           if (vm[active_index]->is_active()) { // the same SCC active
-            unsigned us_num = insert_uberstate(uberstate(all_succ, vm, active_index));
-            result.emplace_back(us_num, std::move(cols));
+            us_num = insert_uberstate(uberstate(all_succ, vm, active_index));
           } else { // another SCC active
             int next_active = get_next_active_scc(algos, active_index);
             DEBUG_PRINT_LN("next active index: " + std::to_string(next_active));
@@ -1591,10 +1588,10 @@ namespace cola
             mstate_set active_macros = algos[next_active]->lift_track_to_active(vm[next_active].get());
             assert(active_macros.size() == 1); // FIXME: this should be made proper
             vm[next_active] = active_macros[0];
-            unsigned us_num = insert_uberstate(uberstate(all_succ, vm, next_active));
-            result.emplace_back(us_num, std::move(cols));
+            us_num = insert_uberstate(uberstate(all_succ, vm, next_active));
           }
         }
+        result.emplace_back(us_num, std::move(cols));
       }
 
       DEBUG_PRINT_LN("computed successors: " + std::to_string(result));
@@ -1854,7 +1851,7 @@ namespace cola
       DEBUG_PRINT_LN("algorithms selected");
 
       // our structure for the automaton (TODO: hash table might be better)
-      std::map<unsigned, std::vector<std::pair<bdd, vec_state_col>>> compl_states;
+      std::map<unsigned, std::vector<std::pair<bdd, vec_state_taggedcol>>> compl_states;
 
       // get initial uberstates
       auto init_vec{this->get_initial_uberstates(alg_vec)};
@@ -1878,7 +1875,7 @@ namespace cola
         // get the post of 'us'
         auto it = compl_states.find(us_num);
         assert(compl_states.end() != it);
-        std::vector<std::pair<bdd, vec_state_col>>& us_post = it->second;
+        std::vector<std::pair<bdd, vec_state_taggedcol>>& us_post = it->second;
 
         DEBUG_PRINT_LN("processing " + std::to_string(us_num) + ": " + us.to_string());
 
@@ -1906,9 +1903,10 @@ namespace cola
 
             DEBUG_PRINT_LN("creating a sink state: " + std::to_string(sink_state));
             // create a sink state (its transitions)
-            compl_states.insert({sink_state, {{bddtrue, {{sink_state, {SINK_COLOUR}}}}}});
+            assert(false);   // FIXME: change partition index?
+            compl_states.insert({sink_state, {{bddtrue, {{sink_state, {{UINT_MAX, SINK_COLOUR}}}}}}});
           }
-          vec_state_col succs = {{sink_state, {}}};
+          vec_state_taggedcol succs = {{sink_state, {}}};
           us_post.emplace_back(std::make_pair(!all, std::move(succs)));
         }
 
@@ -1919,7 +1917,7 @@ namespace cola
 
           DEBUG_PRINT_LN("symbol: " + std::to_string(letter));
 
-          vec_state_col succs = this->get_succ_uberstates(alg_vec, us, letter);
+          vec_state_taggedcol succs = this->get_succ_uberstates(alg_vec, us, letter);
           us_post.emplace_back(std::make_pair(letter, succs));
 
           for (const auto& state_cols : succs) {
@@ -1978,6 +1976,8 @@ namespace cola
       result->set_acceptance(result_cond);
       DEBUG_PRINT_LN("Acc = " + std::to_string(result->get_acceptance()));
 
+      // TODO: vector should suffice
+      std::map<unsigned, unsigned> part_col_offset;
 
       std::vector<std::string>* state_names = nullptr;
       if (show_names_) { // show names
@@ -1993,8 +1993,16 @@ namespace cola
           const bdd& symbol = bdd_vec_tgt_pair.first;
           for (const auto& tgt_col_pair : bdd_vec_tgt_pair.second) {
             const unsigned& tgt = tgt_col_pair.first;
-            const std::set<unsigned>& cols = tgt_col_pair.second;
-            spot::acc_cond::mark_t spot_cols(cols.begin(), cols.end());
+            const std::set<std::pair<unsigned, unsigned>>& cols = tgt_col_pair.second;
+            std::vector<unsigned> new_cols;
+            for (const std::pair<unsigned, unsigned>& part_col_pair : cols) {
+              const unsigned part_index = part_col_pair.first;
+              const unsigned colour = part_col_pair.second;
+
+              new_cols.push_back(part_col_offset[part_index] + colour);
+              assert(false); // no computation done
+            }
+            spot::acc_cond::mark_t spot_cols(new_cols.begin(), new_cols.end());
             result->new_edge(src, tgt, symbol, spot_cols);
           }
         }
