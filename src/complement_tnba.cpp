@@ -1903,7 +1903,6 @@ namespace cola
 
             DEBUG_PRINT_LN("creating a sink state: " + std::to_string(sink_state));
             // create a sink state (its transitions)
-            assert(false);   // FIXME: change partition index?
             compl_states.insert({sink_state, {{bddtrue, {{sink_state, {{UINT_MAX, SINK_COLOUR}}}}}}});
           }
           vec_state_taggedcol succs = {{sink_state, {}}};
@@ -1933,12 +1932,14 @@ namespace cola
 
       DEBUG_PRINT_LN(std::to_string(compl_states));
 
+      std::vector<spot::acc_cond> vec_acc_cond;
       size_t num_colours = RESERVED_COLOURS;
       bool at_least_one_rr = false;
       spot::acc_cond::acc_code sink_acc_code = spot::acc_cond::acc_code::inf({SINK_COLOUR});
       spot::acc_cond::acc_code alg_acc_code = spot::acc_cond::acc_code::t();
       for (const auto& alg : alg_vec) { // sum up acceptance conditions
-        spot::acc_cond cond = alg->get_acc_cond();
+        const spot::acc_cond& cond = alg->get_acc_cond();
+        vec_acc_cond.push_back(cond);
         spot::acc_cond::acc_code cond_code = cond.get_acceptance();
         if (alg->use_round_robin()) {
           at_least_one_rr = true;
@@ -2000,7 +2001,7 @@ namespace cola
               const unsigned colour = part_col_pair.second;
 
               new_cols.push_back(part_col_offset[part_index] + colour);
-              assert(false); // no computation done
+              // assert(false); // FIXME: no computation done
             }
             spot::acc_cond::mark_t spot_cols(new_cols.begin(), new_cols.end());
             result->new_edge(src, tgt, symbol, spot_cols);

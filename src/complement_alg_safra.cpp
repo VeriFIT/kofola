@@ -253,6 +253,31 @@ unsigned determine_color (safra_tree& next)
   return parity;
 } // determine_color () }}}
 
+
+spot::acc_cond::acc_code
+get_acc_formula(unsigned base, bool odd, unsigned num_colors) {
+  // should have the minimal and maximal colors
+  // return spot::acc_cond::acc_code::inf({base});
+  // assert((num_colors & 1) == odd);
+  spot::acc_cond::acc_code res = spot::acc_cond::acc_code::f();
+
+  //    acc-name: parity min even 5
+  //    Acceptance: 5 Inf(0) | (Fin(1) & (Inf(2) | (Fin(3) & Inf(4))))
+  // built from right to left
+  int start = num_colors - 1;
+  int inc = -1;
+  int end = -1;
+  for (int i = start; i != end; i += inc)
+  {
+    if ((i & 1) == odd)
+      res |= spot::acc_cond::acc_code::inf({(unsigned)(i + base)});
+    else
+      res &= spot::acc_cond::acc_code::fin({(unsigned)(i + base)});
+  }
+
+  return res;
+}
+
 } // anonymous namespace }}}
 
 
@@ -267,15 +292,18 @@ std::string mstate_safra::to_string() const
 
 bool mstate_safra::lt(const mstate& rhs) const
 { // {{{
-  assert(false);
+  const mstate_safra* rhs_safra = dynamic_cast<const mstate_safra*>(&rhs);
+  assert(rhs_safra);
+  return this->st_ < rhs_safra->st_;
 } // lt() }}}
 
 
 bool mstate_safra::eq(const mstate& rhs) const
 { // {{{
-  assert(false);
+  const mstate_safra* rhs_safra = dynamic_cast<const mstate_safra*>(&rhs);
+  assert(rhs_safra);
+  return this->st_ == rhs_safra->st_;
 } // eq() }}}
-
 
 
 complement_safra::complement_safra(const cmpl_info& info, unsigned part_index) :
@@ -362,6 +390,10 @@ mstate_col_set complement_safra::get_succ_active(
       if (this->part_index_ == succ_part) {
         succs.insert(dst);
 
+        DEBUG_PRINT_LN("tr.acc = " + std::to_string(tr.acc));
+        DEBUG_PRINT_LN("this->info_.st_to_part_map_.at(state) = " +
+          std::to_string(this->info_.st_to_part_map_.at(state)));
+        DEBUG_PRINT_LN("succ_part = " + std::to_string(succ_part));
         if (tr.acc || this->info_.st_to_part_map_.at(state) != succ_part)
         { // accepting edges or leaving the partition (TODO: should be SCC?)
           // Step A1: Accepting edges generate new braces
@@ -370,6 +402,7 @@ mstate_col_set complement_safra::get_succ_active(
           braces.emplace_back(node.second);
         }
         auto i = succ_nodes.emplace(dst, newb);
+        DEBUG_PRINT_LN("succ_nodes: " + std::to_string(succ_nodes));
         if (!i.second) // dst already exists
         {
           // Step A2: Only keep the smallest nesting pattern.
@@ -390,6 +423,7 @@ mstate_col_set complement_safra::get_succ_active(
 
   // newly incoming states
   std::set<unsigned> reach_diff = kofola::get_set_difference(glob_reached, succs);
+  DEBUG_PRINT_LN("newly incoming states: " + std::to_string(reach_diff));
 
   // std::cout << "After computation of nondet inside " << i << " size = " <<
   // next_nondetstates.size() << "\n";
@@ -400,6 +434,7 @@ mstate_col_set complement_safra::get_succ_active(
     int newb = braces.size();
     // Step A1
     auto i = succ_nodes.emplace(dst, newb);
+    DEBUG_PRINT_LN("succ_nodes: " + std::to_string(succ_nodes));
     // If the state has not been added
     // means dst is already existing
     if (i.second || i.first->second == -1) {
@@ -409,6 +444,7 @@ mstate_col_set complement_safra::get_succ_active(
     }
   }
 
+  DEBUG_PRINT_LN("succ_nodes: " + std::to_string(succ_nodes));
   // now store the results to succ
   safra_tree next;
   for (auto &node : succ_nodes) {
@@ -421,25 +457,54 @@ mstate_col_set complement_safra::get_succ_active(
   if (this->info_.options_.dir_sim) {
     simulation_reduce(next, this->info_);
   }
-  // std::cout << "Now compute color" << std::endl;
-  // now we need to compute the color and the adjust the
-  unsigned color = determine_color(next);
-  // std::cout << "Done compute color: " << next.to_string() << std::endl;
-  std::pair<safra_tree, unsigned> pair;
-  pair.first = next;
-  pair.second = color;
-  // pair.first.labels_[0] = std::make_pair(4, 0);
-  // std::cout << "set compute color: " << next.to_string() << " color: " << color << std::endl;
 
   std::shared_ptr<mstate> ms(new mstate_safra(next));
 
-  return {{ms, {color}}};
+  // now compute the colour
+  unsigned colour = determine_color(next);
+  DEBUG_PRINT_LN("Done computing color for trans to " + ms->to_string() + ": " + std::to_string(colour));
+  this->min_colour = std::min(this->min_colour, static_cast<int>(colour));
+  this->max_colour = std::max(this->max_colour, static_cast<int>(colour));
+
+  return {{ms, {colour}}};
 } // get_succ_active() }}}
 
 
 spot::acc_cond complement_safra::get_acc_cond() const
 { // {{{
-  assert(false);
+  if (this->max_colour < 0) { // no colour was generated
+    assert(false);
+  }
+
+  DEBUG_PRINT_LN("max_color = " + std::to_string(this->max_colour) +
+    ", min_color = " + std::to_string(this->min_colour));
+
+  int local_max_colour = (((this->max_colour % 2) == 1)? this->max_colour + 1 : this->max_colour);
+  bool is_min_odd = ((this->min_colour % 2) == 1);
+
+  // TODO: OL: I'm not sure what to do with this
+  // for (auto& pair : trans2colors_) {
+  //   auto& d = res_->edge_data(pair.first);
+  //   auto & vec = pair.second;
+  //   // res_->edge_vector()
+  //   for (unsigned ndx = 0; ndx < vec.size(); ndx ++) {
+  //     // std::cout << ndx << "-th NAC: " << d.acc << std::endl;
+  //     if (vec.at(ndx) < 0)
+  //     {
+  //       // std::cout << "-1 color is " << vec[ndx] << std::endl;
+  //       // maximal color must be even color
+  //       d.acc.set(nac_color_range[ndx].second - nac_color_range[ndx].first);
+  //     }
+  //     else
+  //     {
+  //       d.acc.set(((unsigned)(vec[ndx] - nac_color_range[ndx].first)));
+  //       // std::cout << ">0 color is " << vec[ndx] << std::endl;
+  //     }
+  //     // std::cout << ndx << "-th NAC: " << d.acc << std::endl;
+  //   }
+  // }
+
+  return ::get_acc_formula(0, is_min_odd, local_max_colour - this->min_colour + 1);
 } // get_acc_cond() }}}
 
 

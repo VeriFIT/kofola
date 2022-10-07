@@ -16,6 +16,13 @@ namespace kofola { // {{{
 /// condition
 class complement_safra : public abstract_complement_alg
 { // {{{
+private:// DATA MEMBERS
+
+  // to keep track of minimum/maximum colours (mutable to be usable in const
+  // methods)
+  mutable int min_colour = INT_MAX;
+  mutable int max_colour = -1;
+
 public: // METHODS
 
   /// constructor
@@ -36,6 +43,9 @@ public: // METHODS
     const bdd&                 symbol) const override;
 
   virtual bool use_round_robin() const override { return false; }
+
+  /// note: should be called only after the construction is finished (otherwise
+  /// some colours might be missing
   virtual spot::acc_cond get_acc_cond() const override;
 
   virtual ~complement_safra() override;
