@@ -407,10 +407,16 @@ mstate_col_set complement_safra::get_succ_active(
         {
           // Step A2: Only keep the smallest nesting pattern.
           if (compare_braces(braces, newb, i.first->second)) {
+            DEBUG_PRINT_LN("compare_braces(" + std::to_string(braces) + ", " +
+                std::to_string(newb) + ", " + std::to_string(i.first->second) +
+                ") returned true");
             // newb is smaller
             i.first->second = newb;
             // std::cout << "label of " << dst << " updated to " << newb << std::endl;
           } else {
+            DEBUG_PRINT_LN("compare_braces(" + std::to_string(braces) + ", " +
+                std::to_string(newb) + ", " + std::to_string(i.first->second) +
+                ") returned false");
             // the newb is not smaller than current one
             // new brace was created but is not needed
             if (newb != node.second)
@@ -458,10 +464,10 @@ mstate_col_set complement_safra::get_succ_active(
     simulation_reduce(next, this->info_);
   }
 
-  std::shared_ptr<mstate> ms(new mstate_safra(next));
-
   // now compute the colour
   unsigned colour = determine_color(next);
+  std::shared_ptr<mstate> ms(new mstate_safra(next));
+
   DEBUG_PRINT_LN("Done computing color for trans to " + ms->to_string() + ": " + std::to_string(colour));
   this->min_colour = std::min(this->min_colour, static_cast<int>(colour));
   this->max_colour = std::max(this->max_colour, static_cast<int>(colour));
