@@ -468,7 +468,8 @@ mstate_col_set complement_safra::get_succ_active(
   unsigned colour = determine_color(next);
   std::shared_ptr<mstate> ms(new mstate_safra(next));
 
-  DEBUG_PRINT_LN("Done computing color for trans to " + ms->to_string() + ": " + std::to_string(colour));
+  DEBUG_PRINT_LN("Done computing color for trans to " + ms->to_string() + ": "
+    + std::to_string(colour));
   this->min_colour = std::min(this->min_colour, static_cast<int>(colour));
   this->max_colour = std::max(this->max_colour, static_cast<int>(colour));
 

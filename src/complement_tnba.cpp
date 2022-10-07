@@ -1357,8 +1357,8 @@ namespace cola
 
     // reserved colours
     static const unsigned SINK_COLOUR = 0;
-    static const unsigned RR_COLOUR = 1;      // colour for round robin
-    static const size_t RESERVED_COLOURS = 2; // how many colours are reserved
+    // static const unsigned RR_COLOUR = 1;      // colour for round robin ### we will choose it dynamically
+    static const size_t RESERVED_COLOURS = 1; // how many colours are reserved
 
     /// index of active SCC if no SCC is active
     static const int INACTIVE_SCC = -1;
@@ -1527,7 +1527,6 @@ namespace cola
       // this container collects all sets of pairs of macrostates and colours,
       // later, we will turn it into the Cartesian product
       std::vector<mstate_taggedcol_set> succ_part_macro_col;
-      size_t col_offset = RESERVED_COLOURS;   // current offset of colours
       for (size_t i = 0; i < algos.size(); ++i) {
         const kofola::abstract_complement_alg::mstate* ms = prev_part_macro[i].get();
         mstate_col_set mcs;
@@ -1932,30 +1931,41 @@ namespace cola
 
       DEBUG_PRINT_LN(std::to_string(compl_states));
 
-      std::vector<spot::acc_cond> vec_acc_cond;
+      // TODO: vector should suffice
+      std::map<unsigned, unsigned> part_col_offset;
+      std::vector<spot::acc_cond> vec_acc_code;
       size_t num_colours = RESERVED_COLOURS;
-      bool at_least_one_rr = false;
+      int rr_colour = -1;     // colour for round robin
+
       spot::acc_cond::acc_code sink_acc_code = spot::acc_cond::acc_code::inf({SINK_COLOUR});
       spot::acc_cond::acc_code alg_acc_code = spot::acc_cond::acc_code::t();
-      for (const auto& alg : alg_vec) { // sum up acceptance conditions
+      for (size_t i = 0; i < num_partitions; ++i) { // sum up acceptance conditions
+        const auto& alg = alg_vec[i];
+
         const spot::acc_cond& cond = alg->get_acc_cond();
-        vec_acc_cond.push_back(cond);
+        vec_acc_code.push_back(cond);
         spot::acc_cond::acc_code cond_code = cond.get_acceptance();
         if (alg->use_round_robin()) {
-          at_least_one_rr = true;
+          if (rr_colour < 0) {  // the first round robin
+            rr_colour = num_colours;
+            ++num_colours;
+            alg_acc_code &= spot::acc_cond::acc_code::inf({static_cast<unsigned>(rr_colour)});
+          }
+
+          part_col_offset[i] = rr_colour;
         } else {
           cond_code <<= num_colours;
           alg_acc_code &= cond_code;
+          part_col_offset[i] = num_colours;
           num_colours += cond.num_sets();
         }
       }
 
-      if (at_least_one_rr) { // at least one round-robin algorithm
-        alg_acc_code &= spot::acc_cond::acc_code::inf({RR_COLOUR});
-      }
+      DEBUG_PRINT_LN("colour offsets: " + std::to_string(part_col_offset));
+      DEBUG_PRINT_LN("vec_acc_code: " + std::to_string(vec_acc_code));
 
-      spot::acc_cond::acc_code final_code = alg_acc_code;  // accept in all round-robined
-      if (is_sink_created) {                     // components and everywhere else or stay in sink
+      spot::acc_cond::acc_code final_code = alg_acc_code;
+      if (is_sink_created) {                // accept also in sink, if created
         final_code |= sink_acc_code;
       }
 
@@ -1977,8 +1987,6 @@ namespace cola
       result->set_acceptance(result_cond);
       DEBUG_PRINT_LN("Acc = " + std::to_string(result->get_acceptance()));
 
-      // TODO: vector should suffice
-      std::map<unsigned, unsigned> part_col_offset;
 
       std::vector<std::string>* state_names = nullptr;
       if (show_names_) { // show names
@@ -1997,11 +2005,23 @@ namespace cola
             const std::set<std::pair<unsigned, unsigned>>& cols = tgt_col_pair.second;
             std::vector<unsigned> new_cols;
             for (const std::pair<unsigned, unsigned>& part_col_pair : cols) {
+              DEBUG_PRINT_LN("processing " + std::to_string(part_col_pair));
               const unsigned part_index = part_col_pair.first;
               const unsigned colour = part_col_pair.second;
 
-              new_cols.push_back(part_col_offset[part_index] + colour);
-              // assert(false); // FIXME: no computation done
+              if (src == sink_state) { // sink state
+                new_cols.push_back(SINK_COLOUR);
+                continue;
+              } else if (UINT_MAX == colour) { // FIXME: this is a special way
+                // of dealing with determinization-based (this should set the
+                // colour to the maximum colour) - try to make more uniform
+
+                unsigned max_col = vec_acc_code[part_index].num_sets() - 1;
+                DEBUG_PRINT_LN("max_col = " + std::to_string(max_col));
+                new_cols.push_back(part_col_offset.at(part_index) + max_col);
+              } else { // standard transition
+                new_cols.push_back(part_col_offset.at(part_index) + colour);
+              }
             }
             spot::acc_cond::mark_t spot_cols(new_cols.begin(), new_cols.end());
             result->new_edge(src, tgt, symbol, spot_cols);
