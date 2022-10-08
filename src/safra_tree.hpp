@@ -92,7 +92,11 @@ public:
   }
 
   bool operator<(const safra_tree &other) const {
-    return labels_ < other.labels_ ? true : braces_ < other.braces_;
+    if (this->labels_ == other.labels_) {
+      return this->braces_ < other.braces_;
+    } else {
+      return this->labels_ < other.labels_;
+    }
   }
 
   bool operator==(const safra_tree &other) const {

@@ -1297,6 +1297,7 @@ namespace cola
       bool operator<(const uberstate& rhs) const
       { // {{{
         assert(this->part_macrostates_.size() == rhs.part_macrostates_.size());
+        DEBUG_PRINT_LN("comparing " + std::to_string(*this) + " < " + std::to_string(rhs));
 
         // let's start by comparing active SCC indices
         if (this->active_scc_ != rhs.active_scc_) {
@@ -1321,6 +1322,27 @@ namespace cola
         // they are equal
         return false;
       } // operator< }}}
+
+      bool operator==(const uberstate& rhs) const
+      { // {{{
+        assert(this->part_macrostates_.size() == rhs.part_macrostates_.size());
+
+        if (this->active_scc_ != rhs.active_scc_ ||
+            this->reached_states_ != rhs.reached_states_) {
+          return false;
+        }
+
+        // then, compare the partial macrostates
+        const size_t length = this->part_macrostates_.size();
+        for (size_t i = 0; i < length; ++i) {
+          if (*(this->part_macrostates_[i]) != *(rhs.part_macrostates_[i])) {
+            return false;
+          }
+        }
+
+        return true;
+      } // operator== }}}
+
     }; // uberstate }}}
 
     /// target of a transition (including colours)
@@ -1339,6 +1361,7 @@ namespace cola
       bool operator()(const uberstate* lhs, const uberstate* rhs) const
       {
         assert(lhs && rhs);
+        DEBUG_PRINT_LN("*lhs < *rhs: " + std::to_string(*lhs < *rhs));
         return *lhs < *rhs;
       }
     };
@@ -1395,9 +1418,22 @@ namespace cola
         std::shared_ptr<uberstate> ptr(new uberstate(us));
         this->num_to_uberstate_map_.push_back(ptr);
         assert(this->num_to_uberstate_map_.size() == this->cnt_state_ + 1);  // invariant
+        DEBUG_PRINT_LN("inserting at position " + std::to_string(this->cnt_state_));
         const uberstate* us_new = this->num_to_uberstate_map_[this->cnt_state_].get();
+        assert(*ptr == *us_new);
+        if (this->cnt_state_ == 192) {
+          DEBUG_PRINT_LN("uberstate_to_num_map_: ")
+          for (const auto& elem : this->uberstate_to_num_map_) {
+            DEBUG_PRINT_LN(std::to_string(*elem.first) + " -> " + std::to_string(elem.second));
+          }
+        }
         auto jt_bool_pair = this->uberstate_to_num_map_.insert({us_new, this->cnt_state_});
-        assert(jt_bool_pair.second);    // insertion happened
+        if (!jt_bool_pair.second) {
+          DEBUG_PRINT_LN("jt_bool_pair: " + std::to_string(*jt_bool_pair.first->first));
+          DEBUG_PRINT_LN("previous pos: " + std::to_string(jt_bool_pair.first->second));
+          assert(false);
+          assert(jt_bool_pair.second);    // insertion happened
+        }
         ++this->cnt_state_;
         DEBUG_PRINT_LN("inserted as " + std::to_string(jt_bool_pair.first->second));
         return jt_bool_pair.first->second;

@@ -374,6 +374,8 @@ mstate_col_set complement_safra::get_succ_active(
   for (const auto &node : src_safra->st_.labels_) {
     const unsigned state = node.first;
     for (const auto &tr : this->info_.aut_->out(state)) {
+      if (!bdd_implies(symbol, tr.cond)) { continue; }
+
       const unsigned dst = tr.dst;
       if (!kofola::is_in(dst, glob_reached)) { continue; }
 
