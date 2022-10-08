@@ -250,7 +250,7 @@ unsigned determine_color (safra_tree& next)
     parity = (-1);
   }
   // std::cout << "Color: " << parity << std::endl;
-  return parity;
+  return (parity == -1)? parity : (parity - 1);
 } // determine_color () }}}
 
 
@@ -470,8 +470,10 @@ mstate_col_set complement_safra::get_succ_active(
 
   DEBUG_PRINT_LN("Done computing color for trans to " + ms->to_string() + ": "
     + std::to_string(colour));
-  this->min_colour = std::min(this->min_colour, static_cast<int>(colour));
-  this->max_colour = std::max(this->max_colour, static_cast<int>(colour));
+  if (static_cast<int>(colour) >= 0) {
+    this->min_colour_ = std::min(this->min_colour_, static_cast<int>(colour));
+    this->max_colour_ = std::max(this->max_colour_, static_cast<int>(colour));
+  }
 
   return {{ms, {colour}}};
 } // get_succ_active() }}}
@@ -479,15 +481,15 @@ mstate_col_set complement_safra::get_succ_active(
 
 spot::acc_cond complement_safra::get_acc_cond() const
 { // {{{
-  if (this->max_colour < 0) { // no colour was generated
+  if (this->max_colour_ < 0) { // no colour was generated
     assert(false);
   }
 
-  DEBUG_PRINT_LN("max_color = " + std::to_string(this->max_colour) +
-    ", min_color = " + std::to_string(this->min_colour));
+  DEBUG_PRINT_LN("max_color = " + std::to_string(this->max_colour_) +
+    ", min_color = " + std::to_string(this->min_colour_));
 
-  int local_max_colour = (((this->max_colour % 2) == 1)? this->max_colour + 1 : this->max_colour);
-  bool is_min_odd = ((this->min_colour % 2) == 1);
+  int local_max_colour = (((this->max_colour_ % 2) == 1)? this->max_colour_ + 1 : this->max_colour_);
+  bool is_min_odd = ((this->min_colour_ % 2) == 1);
 
   // TODO: OL: I'm not sure what to do with this
   // for (auto& pair : trans2colors_) {
@@ -511,9 +513,13 @@ spot::acc_cond complement_safra::get_acc_cond() const
   //   }
   // }
 
-  return ::get_acc_formula(0, is_min_odd, local_max_colour - this->min_colour + 1);
+  return ::get_acc_formula(0, is_min_odd, local_max_colour - this->min_colour_ + 1);
 } // get_acc_cond() }}}
 
+unsigned complement_safra::get_min_colour() const
+{
+  return this->min_colour_;
+}
 
 complement_safra::~complement_safra()
 { }

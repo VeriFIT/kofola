@@ -134,11 +134,14 @@ public: // METHODS
   /// in particular:
   ///   true: the algorithm uses get_succ_track(), get_succ_track_to_active(),
   ///         get_succ_active()
-  ///   false: the algorithm only uses get_succ_track()
+  ///   false: the algorithm only uses get_succ_active()
   virtual bool use_round_robin() const = 0;
 
   /// returns the acceptance condition
   virtual spot::acc_cond get_acc_cond() const = 0;
+
+  /// returns the minimum colour used - HACK to allow colour reshuffle for Safra-based algorithm
+  virtual unsigned get_min_colour() const = 0;
 
   /// virtual destructor (to allow deletion via pointer)
   virtual ~abstract_complement_alg() { }

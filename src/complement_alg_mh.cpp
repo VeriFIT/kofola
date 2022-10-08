@@ -40,8 +40,6 @@ public: // METHODS
   friend class kofola::complement_mh;
 }; // mstate_mh }}}
 
-} // anonymous namespace }}}
-
 
 std::string mstate_mh::to_string() const
 {
@@ -72,6 +70,8 @@ bool mstate_mh::lt(const mstate& rhs) const
 
   return false;   // if all are equal
 }
+
+} // anonymous namespace }}}
 
 complement_mh::complement_mh(const cmpl_info& info, unsigned part_index)
   : abstract_complement_alg(info, part_index)

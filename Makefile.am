@@ -36,6 +36,7 @@ src_libkofola_la_SOURCES =			\
   src/complement_alg_mh.cpp     \
   src/complement_alg_ncsb.cpp     \
   src/complement_alg_safra.cpp     \
+  src/complement_alg_rank.cpp     \
   src/complement_mstate.cpp \
   src/complement_class.cpp \
   src/complement_tnba.cpp				\

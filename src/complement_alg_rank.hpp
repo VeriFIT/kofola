@@ -1,4 +1,4 @@
-// implementation of NCSB-based complementation algorithm for deterministic SCCs
+// implementation of rank-based complementation
 
 #pragma once
 
@@ -6,13 +6,14 @@
 
 namespace kofola { // {{{
 
-/// implementation of NCSB-based complementation algorithm for deterministic SCCs
-class complement_ncsb : public abstract_complement_alg
+/// implementation of rank-based complementation algorithm nondeterministic
+/// accepting SCCs
+class complement_rank : public abstract_complement_alg
 { // {{{
 public: // METHODS
 
   /// constructor
-  complement_ncsb(const cmpl_info& info, unsigned part_index);
+  complement_rank(const cmpl_info& info, unsigned part_index);
 
   virtual mstate_set get_init() const override;
 
@@ -30,11 +31,11 @@ public: // METHODS
 
   virtual bool use_round_robin() const override { return false; }
 
+  virtual unsigned get_min_colour() const override { return 0; }
+
   virtual spot::acc_cond get_acc_cond() const override
   { return spot::acc_cond(1, spot::acc_cond::inf({0})); }
 
-  virtual unsigned get_min_colour() const override { return 0; }
-
-  virtual ~complement_ncsb() override;
-}; // complement_ncsb }}}
+  virtual ~complement_rank() override;
+}; // complement_rank }}}
 } // namespace kofola }}}

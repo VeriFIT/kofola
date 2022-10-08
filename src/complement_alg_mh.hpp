@@ -35,6 +35,8 @@ public: // METHODS
   virtual spot::acc_cond get_acc_cond() const override
   { return spot::acc_cond(1, spot::acc_cond::inf({0})); }
 
+  virtual unsigned get_min_colour() const override { return 0; }
+
   virtual ~complement_mh() override;
 }; // complement_mh }}}
 } // namespace kofola }}}

@@ -20,8 +20,8 @@ private:// DATA MEMBERS
 
   // to keep track of minimum/maximum colours (mutable to be usable in const
   // methods)
-  mutable int min_colour = INT_MAX;
-  mutable int max_colour = -1;
+  mutable int min_colour_ = INT_MAX;
+  mutable int max_colour_ = -1;
 
 public: // METHODS
 
@@ -47,6 +47,8 @@ public: // METHODS
   /// note: should be called only after the construction is finished (otherwise
   /// some colours might be missing
   virtual spot::acc_cond get_acc_cond() const override;
+
+  virtual unsigned get_min_colour() const override;
 
   virtual ~complement_safra() override;
 }; // complement_safra }}}

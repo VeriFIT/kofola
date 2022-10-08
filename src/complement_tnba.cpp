@@ -32,6 +32,7 @@
 #include "complement_alg_mh.hpp"
 #include "complement_alg_ncsb.hpp"
 #include "complement_alg_safra.hpp"
+#include "complement_alg_rank.hpp"
 
 #include <deque>
 #include <map>
@@ -1772,6 +1773,7 @@ namespace cola
         }
         else if (PartitionType::NONDETERMINISTIC == compl_info.part_to_type_map_.at(i)) {
           alg = std::make_unique<kofola::complement_safra>(compl_info, i);
+          // alg = std::make_unique<kofola::complement_rank>(compl_info, i);
         }
         else {
           throw std::runtime_error("Strange SCC type found!");
@@ -2020,7 +2022,8 @@ namespace cola
                 DEBUG_PRINT_LN("max_col = " + std::to_string(max_col));
                 new_cols.push_back(part_col_offset.at(part_index) + max_col);
               } else { // standard transition
-                new_cols.push_back(part_col_offset.at(part_index) + colour);
+                unsigned shift = alg_vec[part_index]->get_min_colour(); // how much to decrement the colour
+                new_cols.push_back(part_col_offset.at(part_index) + colour - shift);
               }
             }
             spot::acc_cond::mark_t spot_cols(new_cols.begin(), new_cols.end());
