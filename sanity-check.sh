@@ -2,7 +2,7 @@
 
 HELP_MSG="usage: ${0} [--all] <input-ba> [optional parameters]"
 TIMEOUT=60
-AUTCROSS_CMD="autcross -T ${TIMEOUT}"
+AUTCROSS_CMD="timeout ${TIMEOUT} autcross -T ${TIMEOUT}"
 
 # Check the number of command-line arguments
 if [ \( "$#" -lt 1 \) ] ; then
