@@ -799,7 +799,6 @@ int main(int argc, char *argv[])
       }
       else
       {
-        DEBUG_PRINT_LN("before final print");
         spot::print_hoa(std::cout, aut, opts);
         std::cout << "\n";
       }
