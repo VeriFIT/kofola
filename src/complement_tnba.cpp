@@ -2090,8 +2090,11 @@ namespace cola
     } // run_new() }}}
   };
 
-  spot::twa_graph_ptr
-  complement_tnba(const spot::twa_graph_ptr &aut, spot::option_map &om, compl_decomp_options decomp_options)
+
+  spot::twa_graph_ptr complement_tnba(
+    const spot::twa_graph_ptr& aut,
+    spot::option_map&          om,
+    compl_decomp_options       decomp_options)
   {
     const int trans_pruning = om.get(NUM_TRANS_PRUNING);
     // now we compute the simulator
@@ -2129,9 +2132,13 @@ namespace cola
       {
         std::vector<spot::twa_graph_ptr> part_res;
 
-        spot::postprocessor p;
-        p.set_type(spot::postprocessor::Buchi);
-        p.set_level(spot::postprocessor::High);
+        spot::postprocessor p_pre;
+        p_pre.set_type(spot::postprocessor::Buchi);
+        p_pre.set_level(spot::postprocessor::High);
+
+        spot::postprocessor p_post;
+        p_post.set_type(spot::postprocessor::Generic);
+        p_post.set_level(spot::postprocessor::High);
 
         for (auto aut : decomposed)
         {
@@ -2140,13 +2147,13 @@ namespace cola
           // else
           //   p.set_level(spot::postprocessor::Low);
           // complement each automaton
-          auto aut_preprocessed = p.run(aut);
+          auto aut_preprocessed = p_pre.run(aut);
           spot::scc_info part_scc(aut_preprocessed, spot::scc_info_options::ALL);
 
           auto comp = cola::tnba_complement(aut_preprocessed, part_scc, om, implications, decomp_options);
           auto dec_aut = comp.run_new();
           // postprocessing for each automaton
-          part_res.push_back(p.run(dec_aut));
+          part_res.push_back(p_post.run(dec_aut));
         }
 
         // intersection of all complements
