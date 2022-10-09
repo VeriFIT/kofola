@@ -7,7 +7,7 @@
 
 #include "kofola.hpp"
 
-namespace cola
+namespace kofola
 {
     class ranking : public std::map<int, int>
     {

@@ -104,6 +104,10 @@ namespace kofola
   /// type for mapping states to partitions where they are (-1 represents trivial SCCs)
   /// TODO: a simple vector should suffice (-1 means invalid partition)
   using StateToPartitionMap = std::unordered_map<unsigned, int>;
+  /// similar as above but for mapping SCCs to partitions
+  using SCCToPartitionMap = std::unordered_map<unsigned, int>;
+  /// map of partitions to sets of SCCs they are composed of
+  using PartitionToSCCMap = std::unordered_map<unsigned, std::set<unsigned>>;
 
   /// types of partitions
   enum class PartitionType
@@ -119,6 +123,13 @@ namespace kofola
 
   /// the type for mapping partition numbers to their types
   using PartitionToTypeMap = std::map<size_t, PartitionType>;
+
+  /// the type for representing a set of states reachable from a given state
+  using ReachableVector = std::vector<std::set<unsigned>>;
+
+  /// type for mapping SCCs to a set of SCCs (e.g., representing all
+  /// predecessors of the given SCC)
+  using SCCToSCCSetMap = std::unordered_map<unsigned, std::set<unsigned>>;
 
   /// declaration of printer
   template<class Tuple, size_t N>

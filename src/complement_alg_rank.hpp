@@ -3,6 +3,7 @@
 #pragma once
 
 #include "abstract_complement_alg.hpp"
+#include "dataflow.hpp"
 
 namespace kofola { // {{{
 
@@ -10,6 +11,14 @@ namespace kofola { // {{{
 /// accepting SCCs
 class complement_rank : public abstract_complement_alg
 { // {{{
+private: // DATA MEMBERS
+
+  /// the WAITING part
+  const waiting waiting_;
+
+  /// maximum rank for every macrostate in WAITING
+  std::map<std::set<unsigned>, unsigned> rank_restr_;
+
 public: // METHODS
 
   /// constructor

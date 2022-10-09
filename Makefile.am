@@ -37,34 +37,17 @@ src_libkofola_la_SOURCES =			\
   src/complement_alg_ncsb.cpp     \
   src/complement_alg_safra.cpp     \
   src/complement_alg_rank.cpp     \
-  src/complement_mstate.cpp \
-  src/complement_class.cpp \
   src/complement_tnba.cpp				\
   src/composer.cpp				\
-  src/composer.hpp				\
   src/congr.cpp				\
-  src/congr.hpp				\
-  src/decomposer.hpp			\
   src/decomposer.cpp			\
   src/determinize.cpp			\
-  src/determinize.hpp			\
   src/determinize_teba.cpp			\
   src/determinize_tldba.cpp			\
   src/determinize_tnba.cpp			\
   src/determinize_twba.cpp			\
-  src/optimizer.hpp				\
   src/optimizer.cpp				\
   src/simulation.cpp			\
-  src/simulation.hpp			\
-  src/types.hpp           \
-  src/rankings.hpp        \
-  src/rankings.cpp        \
-  src/dataflow.hpp        \
-  src/complement_mh.hpp   \
-  src/complement_mh.cpp   \
-  src/complement_ncsb.hpp  \
-  src/complement_ncsb.cpp  \
-  src/complement_rank.hpp  \
-  src/complement_rank.cpp
+  src/rankings.cpp        
 
 kofola_SOURCES = src/main.cpp

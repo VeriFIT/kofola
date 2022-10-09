@@ -30,6 +30,15 @@ struct cmpl_info
   /// types of partitions
   const PartitionToTypeMap& part_to_type_map_;
 
+  /// vector of states reachable from given state
+  const ReachableVector& reachable_vector_;
+
+  /// map of partition to the SCCs it contains
+  const PartitionToSCCMap& part_to_scc_map_;
+
+  /// maps SCCs to sets of their predecessors
+  const SCCToSCCSetMap& scc_to_pred_sccs_map_;
+
   /// information about SCCs
   const spot::scc_info& scc_info_;
 
@@ -48,6 +57,9 @@ struct cmpl_info
     size_t                            num_partitions,
     const PartitionToTypeMap&         part_to_type_map,
     const StateToPartitionMap&        st_to_part_map,
+    const ReachableVector&            reachable_vector,
+    const PartitionToSCCMap&          part_to_scc_map,
+    const SCCToSCCSetMap&             scc_to_pred_sccs_map,
     const spot::scc_info&             scc_info,
     const Simulation&                 dir_sim,
     const std::vector<bool>&          state_accepting,
@@ -57,6 +69,9 @@ struct cmpl_info
     num_partitions_(num_partitions),
     part_to_type_map_(part_to_type_map),
     st_to_part_map_(st_to_part_map),
+    reachable_vector_(reachable_vector),
+    part_to_scc_map_(part_to_scc_map),
+    scc_to_pred_sccs_map_(scc_to_pred_sccs_map),
     scc_info_(scc_info),
     dir_sim_(dir_sim),
     state_accepting_(state_accepting),
