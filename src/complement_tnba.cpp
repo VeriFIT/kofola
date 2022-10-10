@@ -1523,12 +1523,26 @@ namespace cola
       const spot::scc_info&           si,
       const kofola::ReachableVector&  reach_vec)
     { // {{{
+      DEBUG_PRINT_LN("in create_scc_to_pred_sccs_map");
+      DEBUG_PRINT_LN("reach_vec = " + std::to_string(reach_vec));
+      for (unsigned state = 0; state < si.get_aut()->num_states(); ++state) {
+        DEBUG_PRINT_LN("SCC of state " + std::to_string(state) + " = " +
+            std::to_string(si.scc_of(state)));
+      }
+
       kofola::SCCToSCCSetMap scc_to_pred_sccs_map;
 
       for (size_t st = 0; st < reach_vec.size(); ++st) {
+        DEBUG_PRINT_LN("st = " + std::to_string(st));
         unsigned st_scc_index = si.scc_of(st);
+        DEBUG_PRINT_LN("st_scc_index = " + std::to_string(st_scc_index));
+        if (static_cast<int>(st_scc_index) < 0) { // SCC unreachable
+          DEBUG_PRINT_LN("wrong scc");
+          continue;
+        }
         for (unsigned dst : reach_vec[st_scc_index]) {
           unsigned dst_scc_index = si.scc_of(dst);
+          DEBUG_PRINT_LN("dst_scc_index = " + std::to_string(dst_scc_index));
           auto it_bool_pair = scc_to_pred_sccs_map.insert(
             {dst_scc_index, {st_scc_index}});
           if (!it_bool_pair.second) { // if no insertion happened
@@ -1537,6 +1551,7 @@ namespace cola
         }
       }
 
+      DEBUG_PRINT_LN("haf");
       DEBUG_PRINT_LN("scc_to_pred_sccs_map: " + std::to_string(scc_to_pred_sccs_map));
       return scc_to_pred_sccs_map;
     } // create_scc_to_pred_sccs_map() }}}
@@ -1768,6 +1783,7 @@ namespace cola
       // decide the partitioning
       for (size_t i = 0; i < scc_inf.scc_count(); ++i) {
         DEBUG_PRINT_LN("Processing SCC " + std::to_string(i));
+        DEBUG_PRINT_LN("scc_partition map: " + std::to_string(scc_to_part_map));
         if (!is_accepting_scc(scc_types, i)) {
           scc_to_part_map[i] = -1;
           continue; // we don't care about nonaccepting SCCs
@@ -1811,9 +1827,12 @@ namespace cola
         }
       }
 
+      DEBUG_PRINT_LN("scc_partition map: " + std::to_string(scc_to_part_map));
       // map states to correct partitions
       for (size_t i = 0; i < scc_inf.get_aut()->num_states(); ++i) {
-        st_to_part_map[i] = scc_to_part_map[scc_inf.scc_of(i)];
+        if (kofola::is_in(scc_inf.scc_of(i), scc_to_part_map)) {
+          st_to_part_map[i] = scc_to_part_map.at((scc_inf.scc_of(i)));
+        }
       }
 
       DEBUG_PRINT_LN("number of partitions: " + std::to_string(part_index));
@@ -1863,9 +1882,11 @@ namespace cola
     run_new()
     { // {{{
       this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
-      if (this->decomp_options_.iw_sim || this->decomp_options_.det_sim) {
+
+      // if (this->decomp_options_.iw_sim || this->decomp_options_.det_sim) {
         this->reduce_and_compute_simulation();
-      }
+      // }
+
       this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
       this->aut_ = saturation(this->aut_, this->si_);
       this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
@@ -1933,6 +1954,7 @@ namespace cola
         create_part_to_scc_map(scc_part_map);
       kofola::SCCToSCCSetMap scc_to_pred_sccs_map =
         create_scc_to_pred_sccs_map(this->si_, this->reachable_vector_);
+
 
       // collect information for complementation
       kofola::cmpl_info info(
