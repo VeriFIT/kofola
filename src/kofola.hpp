@@ -93,6 +93,23 @@ struct compl_decomp_options
 #define DEBUG_PRINT_LN(x) { PRINT_VERBOSE_LVL_LN(2, "debug", x); }
 #define WARN_PRINT(x) { PRINT_VERBOSE_LVL(1, "warning", x); }
 
+namespace std
+{ // {{{
+
+// DECLARATIONS
+template <class A> std::string to_string(const A& value);
+template <class A> std::string to_string(const std::set<A>& st);
+template <class A> std::string to_string(const std::vector<A>& vec);
+template <class A> std::string to_string(const std::list<A>& vec);
+template <class A> std::string to_string(const std::stack<A>& stck);
+template <class A> std::string to_string(const std::function<A>& func);
+template <class A> std::string to_string(const std::shared_ptr<A>& ptr);
+template <class A, class B> std::string to_string(const std::pair<A, B>& p);
+template <class A, class B> std::string to_string(const std::map<A, B>& mp);
+template <class A, class B> std::string to_string(const std::unordered_map<A, B>& unmap);
+template <class A, class B> std::string to_string(const std::unordered_multimap<A, B>& unmmap);
+} // }}}
+
 namespace kofola
 { // {{{
   /// log verbosity
@@ -150,8 +167,12 @@ namespace kofola
       }
     }
 
+    DEBUG_PRINT_LN("all successors of " + std::to_string(current_states) +
+        " over " + std::to_string(symbol) +
+        " = " + std::to_string(successors));
     return successors;
   } // get_all_successors() }}}
+
 
   /// get all successors of a given set over a symbol that are in the partition 'part_num'
   template <class T>
@@ -406,19 +427,6 @@ namespace cola
 // some things are missing in std
 namespace std
 { // {{{
-
-// DECLARATIONS
-template <class A> std::string to_string(const A& value);
-template <class A> std::string to_string(const std::set<A>& st);
-template <class A> std::string to_string(const std::vector<A>& vec);
-template <class A> std::string to_string(const std::list<A>& vec);
-template <class A> std::string to_string(const std::stack<A>& stck);
-template <class A> std::string to_string(const std::function<A>& func);
-template <class A> std::string to_string(const std::shared_ptr<A>& ptr);
-template <class A, class B> std::string to_string(const std::pair<A, B>& p);
-template <class A, class B> std::string to_string(const std::map<A, B>& mp);
-template <class A, class B> std::string to_string(const std::unordered_map<A, B>& unmap);
-template <class A, class B> std::string to_string(const std::unordered_multimap<A, B>& unmmap);
 
 // DEFINITIONS
 /** Character to string */

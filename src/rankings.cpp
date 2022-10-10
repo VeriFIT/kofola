@@ -5,19 +5,12 @@
 namespace kofola
 {
 
-std::string ranking::get_name()
+std::string ranking::to_string() const
 {
-    std::string name;
-
-    for (auto it=this->begin(); it!=this->end(); it++)
-    {
-        name += std::to_string(std::get<0>(*it)) + ":" + std::to_string(std::get<1>(*it)) + ",";
-    }
-
-    return name;
+  return std::to_string(*static_cast<const std::map<int, int>*>(this));
 }
 
-static bool compare_ranks(std::tuple<int, int, bool> first, std::tuple<int, int, bool> second)
+bool compare_ranks(std::tuple<int, int, bool> first, std::tuple<int, int, bool> second)
 {
     return (std::get<1>(first) < std::get<1>(second));
 }

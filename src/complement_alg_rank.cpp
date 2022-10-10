@@ -95,19 +95,71 @@ public: // METHODS
     const cmpl_info&           info);
 }; // mstate_rank }}}
 
+
 std::string mstate_rank::to_string() const
-{
-  assert(false);
-}
+{ // {{{
+  std::string res = std::string("[RANK(") + ((this->active_)? "A" : "T") + "): ";
+  res += "S=";
+  if (this->is_waiting_) { // WAITING
+    res += std::to_string(this->states_);
+  } else { // TIGHT
+    std::set<int> dom_of_f;
+    for (const auto& pair : this->f_) {
+      dom_of_f.insert(pair.first);
+    }
+    res += std::to_string(dom_of_f);
+    if (this->active_) {
+      res += ", O=" + std::to_string(this->breakpoint_);
+    }
+    res += ", f=" + std::to_string(this->f_);
+    if (this->active_) {
+      res += ", i=" + std::to_string(this->i_);
+    }
+  }
+  res += "]";
+  return res;
+} // to_string() }}}
+
 
 bool mstate_rank::eq(const mstate& rhs) const
 {
-  assert(false);
+  const mstate_rank* rhs_rank = dynamic_cast<const mstate_rank*>(&rhs);
+  assert(rhs_rank);
+
+  return this->active_ == rhs_rank->active_ &&
+    this->is_waiting_ == rhs_rank->is_waiting_ &&
+    this->states_ == rhs_rank->states_ &&
+    this->breakpoint_ == rhs_rank->breakpoint_ &&
+    this->f_ == rhs_rank->f_ &&
+    this->i_ == rhs_rank->i_;
 }
 
 bool mstate_rank::lt(const mstate& rhs) const
 {
-  assert(false);
+  const mstate_rank* rhs_rank = dynamic_cast<const mstate_rank*>(&rhs);
+  assert(rhs_rank);
+
+  if (this->active_ == rhs_rank->active_) {
+    if (this->is_waiting_ == rhs_rank->is_waiting_) {
+      if (this->i_ == rhs_rank->i_) {
+        if (this->states_ == rhs_rank->states_) {
+          if (this->breakpoint_ == rhs_rank->breakpoint_) {
+            return this->f_ < rhs_rank->f_;
+          } else {
+            return this->breakpoint_ < rhs_rank->breakpoint_;
+          }
+        } else {
+          return this->states_ < rhs_rank->states_;
+        }
+      } else {
+        return this->i_ < rhs_rank->i_;
+      }
+    } else {
+      return this->is_waiting_ < rhs_rank->is_waiting_;
+    }
+  } else {
+    return this->active_ < rhs_rank->active_;
+  }
 }
 
 
@@ -342,7 +394,8 @@ mstate_set complement_rank::lift_track_to_active(const mstate* src) const
 
   mstate_set result;
   if (src_rank->is_waiting_) { // src is from WAITING
-    std::shared_ptr<mstate> src_cpy(new mstate_rank(*src_rank));
+    std::shared_ptr<mstate_rank> src_cpy(new mstate_rank(*src_rank));
+    src_cpy->active_ = true;
     result.push_back(src_cpy);          // one option is to stay in WAITING
 
     // and let's compute the successors that move to TIGHT

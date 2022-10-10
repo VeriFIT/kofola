@@ -98,6 +98,11 @@ mstate_col_set complement_mh::get_succ_track(
   const mstate*              src,
   const bdd&                 symbol) const
 { // {{{
+  DEBUG_PRINT_LN("Miyano-Hayashi successor");
+  DEBUG_PRINT_LN("glob_reached = " + std::to_string(glob_reached));
+  DEBUG_PRINT_LN("src = " + std::to_string(*src));
+  DEBUG_PRINT_LN("symbol = " + std::to_string(symbol));
+
   const mstate_mh* src_mh = dynamic_cast<const mstate_mh*>(src);
   assert(src_mh);
   assert(!src_mh->active_);

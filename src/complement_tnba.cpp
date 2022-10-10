@@ -15,18 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-//#include "optimizer.hpp"
 #include "kofola.hpp"
-// #include "complement_mstate.hpp"
-// #include "complement_class.hpp"
 #include "simulation.hpp"
 #include "types.hpp"
-//#include "struct.hpp"
 #include "decomposer.hpp"
-// #include "rankings.hpp"
-// #include "complement_mh.hpp"
-// #include "complement_ncsb.hpp"
-// #include "complement_rank.hpp"
 
 #include "abstract_complement_alg.hpp"
 #include "complement_alg_mh.hpp"
@@ -1569,8 +1561,9 @@ namespace cola
       assert(algos.size() == src.get_part_macrostates().size());
       const int active_index = src.get_active_scc();
       std::set<unsigned> all_succ = kofola::get_all_successors(
-          this->aut_, src.get_reach_set(), symbol);
+        this->aut_, src.get_reach_set(), symbol);
 
+      DEBUG_PRINT_LN("all succ over " + std::to_string(symbol) + "= " + std::to_string(all_succ));
       if (this->decomp_options_.iw_sim ||
           this->decomp_options_.det_sim) { // if doing simulation reduction
                                            // TODO: distinguish iw_sim and det_sim
@@ -1596,8 +1589,10 @@ namespace cola
             pruned_succ.erase(smaller);
           }
         }
+        DEBUG_PRINT_LN("pruned succ = " + std::to_string(pruned_succ));
         all_succ = pruned_succ;
       }
+
 
       const vec_macrostates& prev_part_macro = src.get_part_macrostates();
       // this container collects all sets of pairs of macrostates and colours,
@@ -1697,7 +1692,6 @@ namespace cola
           remove_duplicit(new_mstates);
           init_mstates = std::move(new_mstates);
         }
-        assert(1 == init_mstates.size());   // FIXME: we don't support more init states yet!
         if (init_mstates.empty()) { return {};}   // one empty set terminates
         vec_mstate_sets.emplace_back(std::move(init_mstates));
       }
@@ -1868,18 +1862,19 @@ namespace cola
     spot::twa_graph_ptr
     run_new()
     { // {{{
-      if (kofola::LOG_VERBOSITY > 0) {
-        DEBUG_PRINT_LN("Complementing the following aut:");
-        spot::print_hoa(std::cerr, this->aut_);
-        std::cerr << "\n\n\n\n";
-      }
-
       this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
       if (this->decomp_options_.iw_sim || this->decomp_options_.det_sim) {
         this->reduce_and_compute_simulation();
       }
       this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
       this->aut_ = saturation(this->aut_, this->si_);
+      this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
+
+      if (kofola::LOG_VERBOSITY > 0) {
+        DEBUG_PRINT_LN("Complementing the following aut:");
+        spot::print_hoa(std::cerr, this->aut_);
+        std::cerr << "\n\n\n\n";
+      }
 
       this->names_ = new std::vector<std::string>();   // FIXME: allocate at one place
       this->show_names_ = true;     // FIXME: set from parameters
@@ -1889,6 +1884,27 @@ namespace cola
         throw std::runtime_error(
           "complement_tnba(): input is not Buchi! acceptance condition: " +
           std::to_string(this->aut_->get_acceptance()));
+      }
+
+      // compute vector of accepting states, supports, etc.
+      for (unsigned i = 0; i < this->aut_->num_states(); ++i)
+      {
+        bdd res_support = bddtrue;
+        bdd res_compat = bddfalse;
+        bool accepting = true;
+        bool has_transitions = false;
+        for (const auto &out : this->aut_->out(i))
+        {
+          has_transitions = true;
+          res_support &= bdd_support(out.cond);
+          res_compat |= out.cond;
+          if (!out.acc) {
+            accepting = false;
+          }
+        }
+        this->support_[i] = res_support;
+        this->compat_[i] = res_compat;
+        this->is_accepting_[i] = accepting && has_transitions;
       }
 
       // here, we check whether SCC numbering provided by Spot is compatible
