@@ -6,48 +6,12 @@
 using namespace kofola;
 using mstate_set = abstract_complement_alg::mstate_set;
 using mstate_col_set = abstract_complement_alg::mstate_col_set;
+using RankRestriction = complement_rank::RankRestriction;
 
 namespace { // {{{
 
 /// representation of all other runs (outside the partition block)
 const unsigned BOX = UINT_MAX;
-
-// class ranking : public std::map<int, int>
-// {
-// private:
-//   unsigned max_rank = 0;
-//
-// public:
-//   ranking() : std::map<int, int>(){};
-//   std::string get_name();
-//   unsigned get_max_rank(){return max_rank;};
-//   void set_max_rank(unsigned max_rank){this->max_rank = max_rank;};
-//   void check_tight(std::vector<ranking> rankings);
-//   bool is_bigger(ranking other);
-//
-//   bool operator==(const ranking &other) const
-//   {
-//     if (this->max_rank != other.max_rank) { return false; }
-//     for (auto it=this->begin(); it!=this->end(); it++) {
-//       if (it->second != other.at(it->first)) { return false; }
-//     }
-//     return true;
-//   }
-//
-//   bool operator<(const ranking &other) const
-//   {
-//     if (this->max_rank == other.max_rank) {
-//         for (auto it=this->begin(); it!=this->end(); it++) {
-//           if (it->second != other.at(it->first)) {
-//             return it->second < other.at(it->first);
-//           }
-//         }
-//         return false;
-//     } else {
-//       return this->max_rank < other.max_rank;
-//     }
-//   }
-// };
 
 
 /// partial macrostate for the given component
@@ -56,11 +20,11 @@ class mstate_rank : public abstract_complement_alg::mstate
 private: // DATA MEMBERS
 
   bool active_;
-  std::set<unsigned> states_;
+  std::set<unsigned> states_;       // {} when !is_waiting_
   bool is_waiting_;                 // true - waiting, false - tight
-  std::set<unsigned> breakpoint_;
-  ranking f_;
-  int i_;
+  std::set<unsigned> breakpoint_;   // {} when !active_ || is_waiting_
+  ranking f_;                       // {} when is_waiting_
+  int i_;                           // -1 when !active_ || is_waiting_
 
 public: // METHODS
 
@@ -69,7 +33,7 @@ public: // METHODS
     const std::set<unsigned>&  states,
     bool                       is_waiting,
     const std::set<unsigned>&  breakpoint,
-    const ranking&           f,
+    const ranking&             f,
     int                        i,
     bool                       active
   ) : states_(states),
@@ -86,6 +50,8 @@ public: // METHODS
   virtual bool lt(const mstate& rhs) const override;
   virtual ~mstate_rank() override { }
 
+  bool invariants_hold() const;
+
   friend class kofola::complement_rank;
 
   friend std::set<unsigned> get_successors_with_box(
@@ -93,8 +59,33 @@ public: // METHODS
     const mstate_rank&         rank_state,
     unsigned                   part_index,
     const cmpl_info&           info);
+
+  friend std::vector<ranking> get_maxrank(
+    const std::set<unsigned>&  glob_reach,
+    const mstate_rank&         rank_state,
+    const RankRestriction&     rank_restr,
+    unsigned                   part_index,
+    const bdd&                 symbol,
+    const cmpl_info&           info);
 }; // mstate_rank }}}
 
+bool mstate_rank::invariants_hold() const
+{ // {{{
+  if (!this->is_waiting_ && !this->states_.empty()) {
+    return false;
+  }
+  if ((!this->active_ || this->is_waiting_ ) && !this->breakpoint_.empty()) {
+    return false;
+  }
+  if (this->is_waiting_ && !this->f_.empty()) {
+    return false;
+  }
+  if ((!this->active_ || this->is_waiting_ ) && this->i_ != -1) {
+    return false;
+  }
+
+  return true;
+} // invariants_hold() }}}
 
 std::string mstate_rank::to_string() const
 { // {{{
@@ -299,8 +290,8 @@ static waiting get_waiting_part(const spot::const_twa_graph_ptr& aut)
 
 
 /// returns maximum rankings from a set of rankings
-std::vector<ranking> get_max_rankings(const std::vector<ranking>& rankings)
-{
+std::vector<ranking> get_max(const std::vector<ranking>& rankings)
+{ // {{{
   std::vector<ranking> tmp(rankings.begin(), rankings.end());
 
   for (auto r : rankings)
@@ -315,7 +306,249 @@ std::vector<ranking> get_max_rankings(const std::vector<ranking>& rankings)
   }
 
   return tmp;
+} // get_max() }}}
+
+
+bool compare_ranks(
+  const std::tuple<int, int, bool>& first,
+  const std::tuple<int, int, bool>& second)
+{
+  return (std::get<1>(first) < std::get<1>(second));
 }
+
+
+std::vector<ranking> cart_product(
+  std::vector<ranking> rankings,
+  std::tuple<int, int, bool> state)
+{ // {{{
+  int state_name = std::get<0>(state);
+  int max_rank = std::get<1>(state);
+  bool accepting = std::get<2>(state);
+
+  std::vector<ranking> result;
+
+  for (int i=0; i<max_rank; (accepting ? i+=2 : i++)) {
+    std::vector<ranking> new_rankings(rankings.begin(), rankings.end());
+    for (auto r : new_rankings) {
+      r[state_name] = i;
+      if (r.get_max_rank() < i) {
+        r.set_max_rank(i);
+      }
+      result.push_back(r);
+    }
+  }
+
+  return result;
+} // cart_product() }}}
+
+
+std::set<int> get_all_successors_acc(
+  const spot::const_twa_graph_ptr&  aut,
+  const spot::scc_info&             scc_info,
+  const std::set<unsigned>&         current_states,
+  const bdd&                        symbol,
+  unsigned                          part_index)
+{ // {{{
+  std::set<int> successors;
+  spot::acc_cond::mark_t acc = {0};
+
+  for (unsigned s : current_states) {
+    for (const auto &t : aut->out(s)) {
+      if (!bdd_implies(symbol, t.cond)) { continue; }
+
+      if (t.acc == acc && scc_info.scc_of(t.dst) == part_index) {
+        successors.insert((int)t.dst);
+      }
+    }
+  }
+
+  return successors;
+} // get_all_successors_acc() }}}
+
+
+void check_tight(std::vector<ranking>& rankings)
+{ // {{{
+  std::vector<ranking> result;
+  for (auto r : rankings) {
+    bool skip = false;
+    if (r.get_max_rank() % 2 == 1) {
+      // check box
+      int max_rank = -1;
+      if (r.find(BOX) != r.end()) {
+        if (r.get_max_rank() != r[BOX]) {
+          skip = true;
+        }
+        max_rank = r[BOX];
+      }
+
+      if (not skip) {
+        std::set<int> ranks;
+        for (auto pr : r) {
+            if (pr.first != BOX and pr.second == max_rank) {
+              skip = true;
+              break;
+            }
+            ranks.insert(pr.second);
+        }
+
+        if (not skip) {
+          for (int i=1; i<r.get_max_rank(); i+=2) {
+            if (ranks.find(i) == ranks.end()) {
+              skip = true;
+              break;
+            }
+          }
+
+          if (not skip) {
+            result.push_back(r);
+          }
+        }
+      }
+    }
+  }
+
+  rankings = result;
+} // check_tight() }}}
+
+
+std::vector<ranking> get_tight_rankings(
+  const std::vector<std::tuple<int, int, bool>>& mp)
+{ // {{{
+  std::vector<ranking> rankings;
+
+  // get max rank
+  if (mp.size() > 0)
+  {
+    auto max = std::max_element(mp.begin(), mp.end(), compare_ranks);
+    int max_rank = std::get<1>(*max);
+    if (max_rank > 2*mp.size()) {
+      max_rank = 2*mp.size();
+    }
+
+    // odd rank
+    if (max_rank == 0) { return rankings; }
+    if (max_rank % 2 == 0) {
+      max_rank--;
+    }
+
+    for (const auto& state : mp) {
+      if (rankings.size() == 0) {
+        for (int i=0; i<std::get<1>(state); (std::get<2>(state) ? i+=2 : i++)) {
+          ranking r;
+          r[std::get<0>(state)] = i;
+          r.set_max_rank(i);
+          rankings.push_back(r);
+        }
+      } else {
+        rankings = cart_product(rankings, state);
+      }
+    }
+
+    check_tight(rankings);
+  }
+
+  return rankings;
+} // get_tight_rankings() }}}
+
+
+std::vector<ranking> get_succ_rankings(
+  const ranking&                                  r,
+  const std::vector<std::tuple<int, int, bool>>&  restr,
+  const std::set<unsigned>&                       glob_reached,
+  const bdd&                                      symbol,
+  unsigned                                        part_index,
+  const cmpl_info&                                info)
+{ // {{{
+  std::vector<ranking> rankings = get_tight_rankings(restr);
+  std::set<ranking> rankings_set(rankings.begin(), rankings.end());
+
+  DEBUG_PRINT_LN("tight rankings: " + std::to_string(rankings))
+
+  for (ranking r2 : rankings) {
+    if (r2.get_max_rank() != r.get_max_rank()) {
+      rankings_set.erase(r2);
+      continue;
+    }
+
+    bool skip = false;
+    for (auto pr : r) {
+      unsigned state = pr.first;
+
+      mstate_rank tmp(
+        {state},       // reachable states (S)
+        true,          // is it Waiting?
+        {},            // breakpoint (O)
+        {},            // ranking (f)
+        -1,            // index of tracked rank (i)
+        false);        // active
+
+      std::set<unsigned> succ = get_successors_with_box(
+        glob_reached, tmp, part_index, info);
+
+      for (auto s : succ) {
+        if (r2.at(s) > r.at(state)) {
+          skip = true;
+          rankings_set.erase(r2);
+          break;
+        }
+      }
+
+      if (skip) { break; }
+
+      if (state != BOX) {
+        std::set<int> succ = get_all_successors_acc(
+          info.aut_, info.scc_info_, {state}, symbol, part_index);
+
+        unsigned rank = (r.at(state) % 2 == 0 ? r.at(state) : r.at(state) - 1);
+        for (auto s : succ) {
+          if (r2.at(s) > rank) {
+            skip = true;
+            rankings_set.erase(r2);
+            break;
+          }
+        }
+
+        if (skip) { break; }
+      }
+    }
+  }
+
+  return std::vector<ranking>(rankings_set.begin(), rankings_set.end());
+} // get_succ_rankings() }}}
+
+
+std::vector<ranking> get_maxrank(
+  const std::set<unsigned>&  glob_reached,
+  const mstate_rank&         rank_state,
+  const RankRestriction&     rank_restr,
+  unsigned                   part_index,
+  const bdd&                 symbol,
+  const cmpl_info&           info)
+{ // {{{
+  std::vector<std::tuple<int, int, bool>> restr;
+
+  std::set<unsigned> domain;
+  for (auto pr : rank_state.f_) {
+    domain.insert(pr.first);
+  }
+
+  auto succ_domain = get_successors_with_box(
+    glob_reached, rank_state, part_index, info);
+
+  auto bound = rank_restr.at(domain);
+  for (auto s : succ_domain) {
+    restr.push_back({s, bound, (s == BOX) ? false : info.state_accepting_[s]});
+  }
+
+  std::vector<ranking> succ_rankings = get_succ_rankings(
+    rank_state.f_, restr, glob_reached, symbol, part_index, info);
+
+  succ_rankings = get_max(succ_rankings);
+  DEBUG_PRINT_LN("obtained succ rankings = " + std::to_string(succ_rankings));
+
+  return succ_rankings;
+} // get_maxrank() }}}
+
 
 } // anonymous namespace }}}
 
@@ -326,22 +559,22 @@ complement_rank::complement_rank(const cmpl_info& info, unsigned part_index) :
 { // {{{
   // compute rank restrictions
   unsigned states_in_part = 0;
-  for (unsigned scc_index : info.part_to_scc_map_.at(part_index)) {
+  for (unsigned scc_index : this->info_.part_to_scc_map_.at(part_index)) {
     // TODO: maybe we can consider only SCCs?
-    info.scc_info_.states_of(scc_index).size();
+    this->info_.scc_info_.states_of(scc_index).size();
   }
 
   for (const auto& mst : this->waiting_.get_states()) {
     // initialization
     unsigned nonacc = 0;
     for (auto state : mst) {
-      if (!info.state_accepting_[state] &&
-        info_.st_to_part_map_.at(state) == part_index)
+      if (!this->info_.state_accepting_[state] &&
+        this->info_.st_to_part_map_.at(state) == part_index)
       {
         nonacc++;
       }
     }
-    rank_restr_.insert({mst, 2*(nonacc + 1)});
+    this->rank_restr_.insert({mst, 2*(nonacc + 1)});
   }
 
   DEBUG_PRINT_LN("waiting_ for partition " + std::to_string(part_index) + ": " +
@@ -381,9 +614,43 @@ mstate_col_set complement_rank::get_succ_track(
   const std::set<unsigned>&  glob_reached,
   const mstate*              src,
   const bdd&                 symbol) const
-{
-  assert(false);
-}
+{ // {{{
+  const mstate_rank* src_rank = dynamic_cast<const mstate_rank*>(src);
+  assert(src_rank);
+  assert(!src_rank->active_);
+  assert(src_rank->invariants_hold());
+
+  if (src_rank->is_waiting_) { // WAITING
+    std::set<unsigned> succs = get_successors_with_box(glob_reached, *src_rank,
+      this->part_index_, this->info_);
+
+    std::shared_ptr<mstate> ms(new mstate_rank(
+      succs,             // reachable states (S)
+      true,              // is it Waiting?
+      {},                // breakpoint (O)
+      {},                // ranking (f)
+      -1,                // index of tracked rank (i)
+      false));           // active
+    mstate_col_set result = {{ms, {}}};
+    return result;
+  } else { // TIGHT
+    std::vector<ranking> maxrank = get_maxrank(glob_reached, *src_rank,
+       this->rank_restr_, this->part_index_, symbol, this->info_);
+
+    if (maxrank.size() == 0) { return {}; }
+    assert(maxrank.size() == 1);
+
+    std::shared_ptr<mstate> ms(new mstate_rank(
+      {},                // reachable states (S)
+      false,             // is it Waiting?
+      {},                // breakpoint (O)
+      maxrank[0],        // ranking (f)
+      -1,                // index of tracked rank (i)
+      false));           // active
+    mstate_col_set result = {{ms, {}}};
+    return result;
+  }
+} // get_succ_track() }}}
 
 
 mstate_set complement_rank::lift_track_to_active(const mstate* src) const
@@ -391,6 +658,7 @@ mstate_set complement_rank::lift_track_to_active(const mstate* src) const
   const mstate_rank* src_rank = dynamic_cast<const mstate_rank*>(src);
   assert(src_rank);
   assert(!src_rank->active_);
+  assert(src_rank->invariants_hold());
 
   mstate_set result;
   if (src_rank->is_waiting_) { // src is from WAITING
@@ -410,7 +678,7 @@ mstate_set complement_rank::lift_track_to_active(const mstate* src) const
     }
 
     std::vector<ranking> rankings = get_tight_rankings(r);
-    rankings = get_max_rankings(rankings);
+    rankings = get_max(rankings);
     for (auto rnking : rankings)
     {
       std::set<unsigned> breakpoint;
@@ -444,10 +712,32 @@ mstate_col_set complement_rank::get_succ_active(
   const mstate_rank* src_rank = dynamic_cast<const mstate_rank*>(src);
   assert(src_rank);
   assert(src_rank->active_);
+  assert(src_rank->invariants_hold());
+
+  DEBUG_PRINT_LN("tracking successor of: " + std::to_string(*src_rank));
+  mstate_rank tmp(
+    src_rank->states_,       // reachable states (S)
+    src_rank->is_waiting_,   // is it Waiting?
+    {},                      // breakpoint (O)
+    src_rank->f_,            // ranking (f)
+    -1,                      // index of tracked rank (i)
+    false);                  // active
+  mstate_col_set track_succ = this->get_succ_track(glob_reached, &tmp, symbol);
+
+  if (track_succ.size() == 0) { return {};}
+  assert(track_succ.size() == 1);
+
+  const mstate_rank* track_ms = dynamic_cast<const mstate_rank*>(
+    track_succ[0].first.get());
+  assert(track_ms);
+
+  DEBUG_PRINT_LN("obtained track ms: " + std::to_string(*track_ms));
+
+  mstate_col_set result;
+
 
   assert(false);
 #if 0
-  mstate_col_set result;
 
   if (src_rank->is_waiting_)
   { // if the source is from the waiting part

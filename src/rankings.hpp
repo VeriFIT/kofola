@@ -15,10 +15,10 @@ private:
   unsigned max_rank = 0;
 
 public:
-  ranking() : std::map<int, int>(){};
+  ranking() : std::map<int, int>(){ }
   std::string to_string() const;
-  unsigned get_max_rank(){return max_rank;};
-  void set_max_rank(unsigned max_rank){this->max_rank = max_rank;};
+  unsigned get_max_rank() const { return max_rank; }
+  void set_max_rank(unsigned max_rank){this->max_rank = max_rank; }
   void check_tight(std::vector<ranking> rankings);
   bool is_bigger(ranking other);
 
@@ -59,8 +59,8 @@ public:
 };
 
 
-bool compare_ranks(std::tuple<int, int, bool> first, std::tuple<int, int, bool> second);
-std::vector<ranking> get_tight_rankings(std::vector<std::tuple<int, int, bool>> mp);
-std::vector<ranking> cart_product(std::vector<ranking> rankings, std::tuple<int, int, bool> state);
-std::vector<ranking> get_succ_rankings(std::vector<std::tuple<int, int, bool>> restr, std::set<unsigned> reachable, bdd letter);
+// bool compare_ranks(std::tuple<int, int, bool> first, std::tuple<int, int, bool> second);
+// std::vector<ranking> get_tight_rankings(std::vector<std::tuple<int, int, bool>> mp);
+// std::vector<ranking> cart_product(std::vector<ranking> rankings, std::tuple<int, int, bool> state);
+// std::vector<ranking> get_succ_rankings(std::vector<std::tuple<int, int, bool>> restr, std::set<unsigned> reachable, bdd letter);
 }

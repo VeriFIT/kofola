@@ -11,13 +11,18 @@ namespace kofola { // {{{
 /// accepting SCCs
 class complement_rank : public abstract_complement_alg
 { // {{{
+public: // TYPES
+
+  /// rank restriction - for each subset of states the max rank
+  using RankRestriction = std::map<std::set<unsigned>, unsigned>;
+
 private: // DATA MEMBERS
 
   /// the WAITING part
   const waiting waiting_;
 
   /// maximum rank for every macrostate in WAITING
-  std::map<std::set<unsigned>, unsigned> rank_restr_;
+  RankRestriction rank_restr_;
 
 public: // METHODS
 

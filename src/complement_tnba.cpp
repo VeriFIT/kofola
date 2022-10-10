@@ -1533,16 +1533,13 @@ namespace cola
       kofola::SCCToSCCSetMap scc_to_pred_sccs_map;
 
       for (size_t st = 0; st < reach_vec.size(); ++st) {
-        DEBUG_PRINT_LN("st = " + std::to_string(st));
         unsigned st_scc_index = si.scc_of(st);
-        DEBUG_PRINT_LN("st_scc_index = " + std::to_string(st_scc_index));
         if (static_cast<int>(st_scc_index) < 0) { // SCC unreachable
           DEBUG_PRINT_LN("wrong scc");
           continue;
         }
         for (unsigned dst : reach_vec[st_scc_index]) {
           unsigned dst_scc_index = si.scc_of(dst);
-          DEBUG_PRINT_LN("dst_scc_index = " + std::to_string(dst_scc_index));
           auto it_bool_pair = scc_to_pred_sccs_map.insert(
             {dst_scc_index, {st_scc_index}});
           if (!it_bool_pair.second) { // if no insertion happened
@@ -1551,7 +1548,6 @@ namespace cola
         }
       }
 
-      DEBUG_PRINT_LN("haf");
       DEBUG_PRINT_LN("scc_to_pred_sccs_map: " + std::to_string(scc_to_pred_sccs_map));
       return scc_to_pred_sccs_map;
     } // create_scc_to_pred_sccs_map() }}}
@@ -1863,8 +1859,8 @@ namespace cola
           alg = std::make_unique<kofola::complement_ncsb>(compl_info, i);
         }
         else if (PartitionType::NONDETERMINISTIC == compl_info.part_to_type_map_.at(i)) {
-          alg = std::make_unique<kofola::complement_safra>(compl_info, i);
-          // alg = std::make_unique<kofola::complement_rank>(compl_info, i);
+          // alg = std::make_unique<kofola::complement_safra>(compl_info, i);
+          alg = std::make_unique<kofola::complement_rank>(compl_info, i);
         }
         else {
           throw std::runtime_error("Strange SCC type found!");
