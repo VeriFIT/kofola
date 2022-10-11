@@ -68,6 +68,8 @@ struct compl_decomp_options
   bool merge_iwa = false;
   bool merge_det = false;
   bool tgba = false;
+  bool tba = false;
+  bool raw = false;
   bool iw_sim = false;
   bool det_sim = false;
   bool scc_compl = false;
@@ -75,6 +77,7 @@ struct compl_decomp_options
   bool dir_sim = true;
   bool sat = true;
   bool dataflow = false;
+  bool rank_for_nacs = false;
 };
 
 /// macro for debug outputs

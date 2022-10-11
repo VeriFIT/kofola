@@ -1859,8 +1859,11 @@ namespace cola
           alg = std::make_unique<kofola::complement_ncsb>(compl_info, i);
         }
         else if (PartitionType::NONDETERMINISTIC == compl_info.part_to_type_map_.at(i)) {
-          alg = std::make_unique<kofola::complement_safra>(compl_info, i);
-          // alg = std::make_unique<kofola::complement_rank>(compl_info, i);
+          if (compl_info.options_.rank_for_nacs) { // use rank-based for NACs
+            alg = std::make_unique<kofola::complement_rank>(compl_info, i);
+          } else { // use determinization-based
+            alg = std::make_unique<kofola::complement_safra>(compl_info, i);
+          }
         }
         else {
           throw std::runtime_error("Strange SCC type found!");
@@ -2270,10 +2273,17 @@ namespace cola
     DEBUG_PRINT_LN("finished call to run_new()");
 
     // postprocessing
-    spot::postprocessor p_post;
-    p_post.set_type(spot::postprocessor::Generic);
-    p_post.set_level(spot::postprocessor::Low);
-    res = p_post.run(res);
+    if (!decomp_options.raw) {
+      spot::postprocessor p_post;
+      if (decomp_options.tba) {
+        p_post.set_type(spot::postprocessor::Buchi);
+      } else {
+        p_post.set_type(spot::postprocessor::Generic);
+      }
+
+      p_post.set_level(spot::postprocessor::Low);
+      res = p_post.run(res);
+    }
 
     return res;
   }

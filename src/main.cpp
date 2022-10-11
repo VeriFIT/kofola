@@ -107,11 +107,14 @@ Decomposition-based complementation:
     --scc-high            SCC compl with high postprocessing before intersection
     --no-sat              No saturation of accepting states/transitions
     --dataflow            Data flow analysis in rank-based complementation
+    --rank                Use rank-based complementation (default: Determinization-based)
 
 Pre- and Post-processing:
     --preprocess=[0|1|2|3]       Level for simplifying the input automaton (default=1)
     --postprocess-det[=0|1|2|3]  Level for simplifying the output of the determinization (default=1)
     --num-states=[INT]           Simplify the output with number of states less than INT (default=30000)
+    --tba                 Output a TBA
+    --raw                 no postprocessing
 
 Miscellaneous options:
   -h, --help    Print this help
@@ -485,6 +488,18 @@ int main(int argc, char *argv[])
     else if (arg == "--tgba")
     {
       decomp_options.tgba = true;
+    }
+    else if (arg == "--tba")
+    {
+      decomp_options.tba = true;
+    }
+    else if (arg == "--raw")
+    {
+      decomp_options.raw = true;
+    }
+    else if (arg == "--rank")
+    {
+      decomp_options.rank_for_nacs = true;
     }
     else if (arg == "--iw-sim")
     {
