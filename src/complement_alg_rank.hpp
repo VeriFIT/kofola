@@ -43,7 +43,7 @@ public: // METHODS
     const mstate*              src,
     const bdd&                 symbol) const override;
 
-  virtual bool use_round_robin() const override { return false; }
+  virtual bool use_round_robin() const override { return true; }
 
   virtual unsigned get_min_colour() const override { return 0; }
 

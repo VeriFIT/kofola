@@ -733,8 +733,6 @@ mstate_col_set complement_rank::get_succ_active(
 
   DEBUG_PRINT_LN("obtained track ms: " + std::to_string(*track_ms));
 
-  assert(false);
-
   if (src_rank->is_waiting_) { // WAITING
     if (src_rank->states_.size() == 0 ||
         (src_rank->states_.size() == 1 && kofola::is_in(BOX, src_rank->states_))) {
@@ -757,7 +755,9 @@ mstate_col_set complement_rank::get_succ_active(
     std::vector<mstate_rank> eta_4;
 
     // eta 3
-    if (src_rank->breakpoint_.size() > 0) {
+    if (src_rank->breakpoint_.size() > 0) { // breakpoint is nonempty
+      // TODO: would it make sense to detect emptiness of breakpoint after
+      // making the transition?
       mstate_rank tmp(
         src_rank->breakpoint_,   // reachable states (S)
         true,                    // is it Waiting?
@@ -765,8 +765,6 @@ mstate_col_set complement_rank::get_succ_active(
         {},                      // ranking (f)
         -1,                      // index of tracked rank (i)
         false);                  // active
-      // rank_state tmp;
-      // tmp.reachable = src_rank->O;
       std::set<unsigned> O_succ = get_successors_with_box(glob_reached, tmp,
         this->part_index_, this->info_);
       std::set<unsigned> g_rev;
@@ -786,7 +784,7 @@ mstate_col_set complement_rank::get_succ_active(
         true);            // active
 
       eta_3.push_back(new_state);
-    } else {
+    } else { // breakpoint is empty
       int new_i = (src_rank->i_ + 2) % (g.get_max_rank() + 1);
       std::set<unsigned> dom_succ = get_successors_with_box(glob_reached, *src_rank,
         this->part_index_, this->info_);
@@ -811,84 +809,87 @@ mstate_col_set complement_rank::get_succ_active(
       eta_3.push_back(new_state);
     }
 
-#if 0
     // eta 4
     if (src_rank->i_ != src_rank->f_.get_max_rank() - 1) {
-      rank_state new_state;
-
-      std::set<int> M;
-      rank_state tmp;
-      tmp.reachable = src_rank->O;
-      std::set<int> O_succ = get_successors_with_box(glob_reached, tmp, symbol, scc_index_[0]);
-      std::set<int> g_rev;
-      for (auto pr : g)
-      {
-          if (pr.second == src_rank->i)
-              g_rev.insert(pr.first);
+      mstate_rank tmp(
+        src_rank->breakpoint_,   // reachable states (S)
+        true,                    // is it Waiting?
+        {},                      // breakpoint (O)
+        {},                      // ranking (f)
+        -1,                      // index of tracked rank (i)
+        false);                  // active
+      std::set<unsigned> O_succ = get_successors_with_box(glob_reached, tmp,
+        this->part_index_, this->info_);
+      std::set<unsigned> g_rev;
+      for (auto pr : g) {
+        if (pr.second == src_rank->i_) {
+          g_rev.insert(pr.first);
+        }
       }
-      std::set_intersection(O_succ.begin(), O_succ.end(), g_rev.begin(), g_rev.end(), std::inserter(M, M.begin()));
+      std::set<unsigned> M = kofola::get_set_intersection(O_succ, g_rev);
 
-      new_state.is_waiting_ = false;
-      new_state.i = src_rank->i;
-      for (auto s : M)
-      {
-          if (s != BOX and is_accepting_[s])
-              new_state.O.insert(s);
+      std::set<unsigned> new_breakpoint;
+      for (auto s : M) {
+        if (s != BOX && this->info_.state_accepting_[s]) {
+          new_breakpoint.insert(s);
+        }
       }
 
       ranking g_prime = g;
-      for (auto &pr : g_prime)
-      {
-          if (pr.first != BOX and (not is_accepting_[pr.first] and M.find(pr.first) != M.end()))
-              pr.second = pr.second - 1;
+      for (auto &pr : g_prime) {
+        if (pr.first != BOX && !this->info_.state_accepting_[pr.first] &&
+            kofola::is_in(pr.first, M)) {
+          pr.second = pr.second - 1;
+        }
       }
-      new_state.f = g_prime;
 
+      mstate_rank new_state(
+        {},               // reachable states (S)
+        false,            // is it Waiting?
+        new_breakpoint,   // breakpoint (O)
+        g_prime,          // ranking (f)
+        src_rank->i_,     // index of tracked rank (i)
+        true);            // active
       eta_4.push_back(new_state);
     }
 
-    std::vector<rank_state> U;
-    if (eta_3.size() > 0 and eta_3[0].O.size() == 0 and eta_3[0].i == eta_3[0].f.get_max_rank() - 1)
-        U.push_back(eta_3[0]);
-    if (eta_4.size() > 0 and eta_4[0].O.size() == 0 and eta_4[0].i == eta_4[0].f.get_max_rank() - 1)
-        U.push_back(eta_4[0]);
-
-    if (eta_3.size() > 0 and std::find(U.begin(), U.end(), eta_3[0]) == U.end())
-    {
-        complement_mstate tmp_mstate(scc_info_);
-        tmp_mstate.na_sccs_.push_back(eta_3[0]);
-        result.push_back({tmp_mstate, false});
+    std::vector<mstate_rank> U;
+    if (eta_3.size() > 0 and
+        eta_3[0].breakpoint_.size() == 0 and
+        eta_3[0].i_ == eta_3[0].f_.get_max_rank() - 1) {
+      U.push_back(eta_3[0]);
     }
-    if (eta_4.size() > 0 and std::find(U.begin(), U.end(), eta_4[0]) == U.end())
-    {
-        complement_mstate tmp_mstate(scc_info_);
-        tmp_mstate.na_sccs_.push_back(eta_4[0]);
-        result.push_back({tmp_mstate, false});
+    if (eta_4.size() > 0 and
+        eta_4[0].breakpoint_.size() == 0 and
+        eta_4[0].i_ == eta_4[0].f_.get_max_rank() - 1) {
+      U.push_back(eta_4[0]);
     }
 
-    for (rank_state s : U)
-    {
-        if (not one_scc)
-        {
-            rank_state tmp;
-            tmp.is_waiting_ = false;
-            tmp.f = s.f;
-            complement_mstate tmp_mstate(scc_info_);
-            tmp_mstate.na_sccs_.push_back(tmp);
-            result.push_back({tmp_mstate, true});
-        }
-        else
-        {
-            complement_mstate tmp(scc_info_);
-            tmp.na_sccs_.push_back(s);
-            result.push_back({tmp, true});
-        }
+    mstate_col_set result;
+    if (eta_3.size() > 0 and std::find(U.begin(), U.end(), eta_3[0]) == U.end()) {
+      std::shared_ptr<mstate> tmp_mstate(new mstate_rank(eta_3[0]));
+      result.push_back({tmp_mstate, {}});
     }
-#endif
+
+    if (eta_4.size() > 0 and std::find(U.begin(), U.end(), eta_4[0]) == U.end()) {
+      std::shared_ptr<mstate> tmp_mstate(new mstate_rank(eta_4[0]));
+      result.push_back({tmp_mstate, {}});
+    }
+
+    for (const mstate_rank& s : U) { // accepting transitions
+      // switch to track
+      std::shared_ptr<mstate> new_state(new mstate_rank(
+        {},        // reachable states (S)
+        false,     // is it Waiting?
+        {},        // breakpoint (O)
+        s.f_,      // ranking (f)
+        -1,        // index of tracked rank (i)
+        false));   // active
+      result.push_back({new_state, {0}});
+    }
+
+    return result;
   }
-
-  assert(false);
-  // return result;
 } // get_succ_active() }}}
 
 
