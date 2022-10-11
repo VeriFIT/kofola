@@ -695,11 +695,22 @@ mstate_set complement_rank::lift_track_to_active(const mstate* src) const
       result.push_back(ms);
     }
   } else { // src is from TIGHT
-    assert(false);
+    std::set<unsigned> breakpoint;
+    for (auto pr : src_rank->f_) { // construct breakpoint
+      if (pr.second == 0) { breakpoint.insert(pr.first); }
+    }
+
+    std::shared_ptr<mstate> ms(new mstate_rank(
+      {},                // reachable states (S)
+      false,             // is it Waiting?
+      breakpoint,        // breakpoint (O)
+      src_rank->f_,      // ranking (f)
+      0,                 // index of tracked rank (i)
+      true));            // active
+    result.push_back(ms);
   }
 
   DEBUG_PRINT_LN("complement_rank::lift returning " + std::to_string(result));
-
   return result;
 } // lift_track_to_active() }}}
 
