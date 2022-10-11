@@ -2056,6 +2056,28 @@ namespace cola
         }
       }
 
+      bool new_init_created = false;
+      if (init_vec.size() > 1) { // handle multiple initial states
+        new_init_created = true;
+        DEBUG_PRINT_LN("handling multiple initial states: " +
+          std::to_string(init_vec));
+        unsigned new_init = this->cnt_state_;
+        ++this->cnt_state_;
+        DEBUG_PRINT_LN("new init state: " + std::to_string(new_init));
+        auto it_bool_pair = compl_states.insert({new_init, {}});
+        assert(it_bool_pair.second);
+        auto& new_init_trans_vec = it_bool_pair.first->second;
+
+        for (const auto& state : init_vec) {
+          const auto& trans_vec = compl_states.at(state);
+          DEBUG_PRINT_LN("state " + std::to_string(state) +
+            ": " + std::to_string(trans_vec));
+          new_init_trans_vec.insert(new_init_trans_vec.end(),
+            trans_vec.begin(), trans_vec.end());
+        }
+        init_vec = {new_init};
+      }
+
       DEBUG_PRINT_LN(std::to_string(compl_states));
 
       // TODO: vector should suffice
@@ -2154,9 +2176,12 @@ namespace cola
           }
         }
 
-        if (this->show_names_) {
+        if (this->show_names_) { // handle output state names
           if (is_sink_created && sink_state == src) {
             state_names->push_back("SINK");
+          } else if (new_init_created && init_vec[0] == src) {
+            assert(init_vec.size() == 1);
+            state_names->push_back("INIT");
           } else {
             state_names->push_back(num_to_uberstate(src).to_string());
           }
