@@ -733,156 +733,162 @@ mstate_col_set complement_rank::get_succ_active(
 
   DEBUG_PRINT_LN("obtained track ms: " + std::to_string(*track_ms));
 
-  mstate_col_set result;
-
-
   assert(false);
-#if 0
 
-  if (src_rank->is_waiting_)
-  { // if the source is from the waiting part
+  if (src_rank->is_waiting_) { // WAITING
     if (src_rank->states_.size() == 0 ||
         (src_rank->states_.size() == 1 && kofola::is_in(BOX, src_rank->states_))) {
       // in case src does not track any state from the partition block
-      rank_state new_state;
-      new_state.is_waiting_ = true;
-      new_state.reachable = get_successors_with_box(glob_reached, src_rank, symbol, scc_index_[0]);
-      complement_mstate tmp(scc_info_);
-      tmp.na_sccs_.push_back(new_state);
-      result.push_back({tmp, true});
+
+      std::shared_ptr<mstate> ms(new mstate_rank(*track_ms));
+      return {{ms, {0}}};
     } else {
-      result = get_succ_track_to_active(mstate, symbol);
-    }
-  }
-
-  else
-  { // tight part
-      std::vector<std::pair<complement_mstate, bool>> ret = get_succ_track(mstate, symbol);
-      if (ret.size() > 0)
-      {
-          ranking g = ret[0].first.na_sccs_[0].f;
-
-          std::vector<rank_state> eta_3;
-          std::vector<rank_state> eta_4;
-
-          // eta 3
-          if (src_rank->O.size() > 0)
-          {
-              rank_state new_state;
-              new_state.is_waiting_ = false;
-              new_state.f = g;
-              new_state.i = src_rank->i;
-
-              rank_state tmp;
-              tmp.reachable = src_rank->O;
-              std::set<int> O_succ = get_successors_with_box(glob_reached, tmp, symbol, scc_index_[0]);
-              std::set<int> g_rev;
-              for (auto pr : g)
-              {
-                  if (pr.second == src_rank->i)
-                      g_rev.insert(pr.first);
-              }
-              std::set_intersection(O_succ.begin(), O_succ.end(), g_rev.begin(), g_rev.end(), std::inserter(new_state.O, new_state.O.begin()));
-
-              eta_3.push_back(new_state);
-          }
-          else
-          {
-              rank_state new_state;
-              new_state.is_waiting_ = false;
-              new_state.f = g;
-              new_state.i = (src_rank->i + 2) % (g.get_max_rank() + 1);
-
-              std::set<int> dom_succ = get_successors_with_box(glob_reached, src_rank, symbol, scc_index_[0]);
-              std::set<int> g_rev;
-              for (auto pr : g)
-              {
-                  if (pr.second == new_state.i)
-                      g_rev.insert(pr.first);
-              }
-              std::set_intersection(dom_succ.begin(), dom_succ.end(), g_rev.begin(), g_rev.end(), std::inserter(new_state.O, new_state.O.begin()));
-
-              eta_3.push_back(new_state);
-          }
-
-          // eta 4
-          if (src_rank->i != src_rank->f.get_max_rank() - 1)
-          {
-              rank_state new_state;
-
-              std::set<int> M;
-              rank_state tmp;
-              tmp.reachable = src_rank->O;
-              std::set<int> O_succ = get_successors_with_box(glob_reached, tmp, symbol, scc_index_[0]);
-              std::set<int> g_rev;
-              for (auto pr : g)
-              {
-                  if (pr.second == src_rank->i)
-                      g_rev.insert(pr.first);
-              }
-              std::set_intersection(O_succ.begin(), O_succ.end(), g_rev.begin(), g_rev.end(), std::inserter(M, M.begin()));
-
-              new_state.is_waiting_ = false;
-              new_state.i = src_rank->i;
-              for (auto s : M)
-              {
-                  if (s != BOX and is_accepting_[s])
-                      new_state.O.insert(s);
-              }
-
-              ranking g_prime = g;
-              for (auto &pr : g_prime)
-              {
-                  if (pr.first != BOX and (not is_accepting_[pr.first] and M.find(pr.first) != M.end()))
-                      pr.second = pr.second - 1;
-              }
-              new_state.f = g_prime;
-
-              eta_4.push_back(new_state);
-          }
-
-          std::vector<rank_state> U;
-          if (eta_3.size() > 0 and eta_3[0].O.size() == 0 and eta_3[0].i == eta_3[0].f.get_max_rank() - 1)
-              U.push_back(eta_3[0]);
-          if (eta_4.size() > 0 and eta_4[0].O.size() == 0 and eta_4[0].i == eta_4[0].f.get_max_rank() - 1)
-              U.push_back(eta_4[0]);
-
-          if (eta_3.size() > 0 and std::find(U.begin(), U.end(), eta_3[0]) == U.end())
-          {
-              complement_mstate tmp_mstate(scc_info_);
-              tmp_mstate.na_sccs_.push_back(eta_3[0]);
-              result.push_back({tmp_mstate, false});
-          }
-          if (eta_4.size() > 0 and std::find(U.begin(), U.end(), eta_4[0]) == U.end())
-          {
-              complement_mstate tmp_mstate(scc_info_);
-              tmp_mstate.na_sccs_.push_back(eta_4[0]);
-              result.push_back({tmp_mstate, false});
-          }
-
-          for (rank_state s : U)
-          {
-              if (not one_scc)
-              {
-                  rank_state tmp;
-                  tmp.is_waiting_ = false;
-                  tmp.f = s.f;
-                  complement_mstate tmp_mstate(scc_info_);
-                  tmp_mstate.na_sccs_.push_back(tmp);
-                  result.push_back({tmp_mstate, true});
-              }
-              else
-              {
-                  complement_mstate tmp(scc_info_);
-                  tmp.na_sccs_.push_back(s);
-                  result.push_back({tmp, true});
-              }
-          }
+      mstate_set lifted = this->lift_track_to_active(track_ms);
+      mstate_col_set result;
+      for (const auto& ms : lifted) {
+        result.push_back({ms, {}});
       }
+      return result;
+    }
+  } else { // TIGHT
+    ranking g = track_ms->f_;
+
+    std::vector<mstate_rank> eta_3;
+    std::vector<mstate_rank> eta_4;
+
+    // eta 3
+    if (src_rank->breakpoint_.size() > 0) {
+      mstate_rank tmp(
+        src_rank->breakpoint_,   // reachable states (S)
+        true,                    // is it Waiting?
+        {},                      // breakpoint (O)
+        {},                      // ranking (f)
+        -1,                      // index of tracked rank (i)
+        false);                  // active
+      // rank_state tmp;
+      // tmp.reachable = src_rank->O;
+      std::set<unsigned> O_succ = get_successors_with_box(glob_reached, tmp,
+        this->part_index_, this->info_);
+      std::set<unsigned> g_rev;
+      for (auto pr : g) {
+        if (pr.second == src_rank->i_) {
+          g_rev.insert(pr.first);
+        }
+      }
+      std::set<unsigned> new_breakpoint = kofola::get_set_intersection(O_succ, g_rev);
+
+      mstate_rank new_state(
+        {},               // reachable states (S)
+        false,            // is it Waiting?
+        new_breakpoint,   // breakpoint (O)
+        g,                // ranking (f)
+        src_rank->i_,     // index of tracked rank (i)
+        true);            // active
+
+      eta_3.push_back(new_state);
+    } else {
+      int new_i = (src_rank->i_ + 2) % (g.get_max_rank() + 1);
+      std::set<unsigned> dom_succ = get_successors_with_box(glob_reached, *src_rank,
+        this->part_index_, this->info_);
+      std::set<unsigned> g_rev;
+      for (auto pr : g) {
+        if (pr.second == new_i) {
+          g_rev.insert(pr.first);
+        }
+      }
+
+      std::set<unsigned> new_breakpoint =
+        kofola::get_set_intersection(dom_succ, g_rev);
+
+      mstate_rank new_state(
+        {},               // reachable states (S)
+        false,            // is it Waiting?
+        new_breakpoint,   // breakpoint (O)
+        g,                // ranking (f)
+        new_i,            // index of tracked rank (i)
+        true);            // active
+
+      eta_3.push_back(new_state);
+    }
+
+#if 0
+    // eta 4
+    if (src_rank->i_ != src_rank->f_.get_max_rank() - 1) {
+      rank_state new_state;
+
+      std::set<int> M;
+      rank_state tmp;
+      tmp.reachable = src_rank->O;
+      std::set<int> O_succ = get_successors_with_box(glob_reached, tmp, symbol, scc_index_[0]);
+      std::set<int> g_rev;
+      for (auto pr : g)
+      {
+          if (pr.second == src_rank->i)
+              g_rev.insert(pr.first);
+      }
+      std::set_intersection(O_succ.begin(), O_succ.end(), g_rev.begin(), g_rev.end(), std::inserter(M, M.begin()));
+
+      new_state.is_waiting_ = false;
+      new_state.i = src_rank->i;
+      for (auto s : M)
+      {
+          if (s != BOX and is_accepting_[s])
+              new_state.O.insert(s);
+      }
+
+      ranking g_prime = g;
+      for (auto &pr : g_prime)
+      {
+          if (pr.first != BOX and (not is_accepting_[pr.first] and M.find(pr.first) != M.end()))
+              pr.second = pr.second - 1;
+      }
+      new_state.f = g_prime;
+
+      eta_4.push_back(new_state);
+    }
+
+    std::vector<rank_state> U;
+    if (eta_3.size() > 0 and eta_3[0].O.size() == 0 and eta_3[0].i == eta_3[0].f.get_max_rank() - 1)
+        U.push_back(eta_3[0]);
+    if (eta_4.size() > 0 and eta_4[0].O.size() == 0 and eta_4[0].i == eta_4[0].f.get_max_rank() - 1)
+        U.push_back(eta_4[0]);
+
+    if (eta_3.size() > 0 and std::find(U.begin(), U.end(), eta_3[0]) == U.end())
+    {
+        complement_mstate tmp_mstate(scc_info_);
+        tmp_mstate.na_sccs_.push_back(eta_3[0]);
+        result.push_back({tmp_mstate, false});
+    }
+    if (eta_4.size() > 0 and std::find(U.begin(), U.end(), eta_4[0]) == U.end())
+    {
+        complement_mstate tmp_mstate(scc_info_);
+        tmp_mstate.na_sccs_.push_back(eta_4[0]);
+        result.push_back({tmp_mstate, false});
+    }
+
+    for (rank_state s : U)
+    {
+        if (not one_scc)
+        {
+            rank_state tmp;
+            tmp.is_waiting_ = false;
+            tmp.f = s.f;
+            complement_mstate tmp_mstate(scc_info_);
+            tmp_mstate.na_sccs_.push_back(tmp);
+            result.push_back({tmp_mstate, true});
+        }
+        else
+        {
+            complement_mstate tmp(scc_info_);
+            tmp.na_sccs_.push_back(s);
+            result.push_back({tmp, true});
+        }
+    }
+#endif
   }
 
-  return result;
-#endif
+  assert(false);
+  // return result;
 } // get_succ_active() }}}
 
 

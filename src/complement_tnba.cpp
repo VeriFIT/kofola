@@ -1859,8 +1859,8 @@ namespace cola
           alg = std::make_unique<kofola::complement_ncsb>(compl_info, i);
         }
         else if (PartitionType::NONDETERMINISTIC == compl_info.part_to_type_map_.at(i)) {
-          // alg = std::make_unique<kofola::complement_safra>(compl_info, i);
-          alg = std::make_unique<kofola::complement_rank>(compl_info, i);
+          alg = std::make_unique<kofola::complement_safra>(compl_info, i);
+          // alg = std::make_unique<kofola::complement_rank>(compl_info, i);
         }
         else {
           throw std::runtime_error("Strange SCC type found!");
@@ -2268,6 +2268,13 @@ namespace cola
     auto comp = cola::tnba_complement(aut_to_compl, scc, om, implications, decomp_options);
     auto res = comp.run_new();
     DEBUG_PRINT_LN("finished call to run_new()");
+
+    // postprocessing
+    spot::postprocessor p_post;
+    p_post.set_type(spot::postprocessor::Generic);
+    p_post.set_level(spot::postprocessor::Low);
+    res = p_post.run(res);
+
     return res;
   }
 }
