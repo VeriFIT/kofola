@@ -78,6 +78,7 @@ struct compl_decomp_options
   bool sat = true;
   bool dataflow = false;
   bool rank_for_nacs = false;
+  bool low_red_interm = false;
 };
 
 /// macro for debug outputs

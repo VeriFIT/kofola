@@ -2249,7 +2249,11 @@ namespace cola
 
         spot::postprocessor p_post;
         p_post.set_type(spot::postprocessor::Generic);
-        p_post.set_level(spot::postprocessor::High);
+        if (decomp_options.low_red_interm) {
+          p_post.set_level(spot::postprocessor::Low);
+        } else {
+          p_post.set_level(spot::postprocessor::High);
+        }
 
         // comparison for priority queue - smallest automata should be at top
         auto aut_cmp = [](const auto& lhs, const auto& rhs){ return lhs->num_states() > rhs->num_states();};

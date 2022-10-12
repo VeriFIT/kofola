@@ -108,6 +108,7 @@ Decomposition-based complementation:
     --no-sat              No saturation of accepting states/transitions
     --dataflow            Data flow analysis in rank-based complementation
     --rank                Use rank-based complementation (default: Determinization-based)
+    --low-red-interm      Low-only reduction of intermediate results for '--scc-compl'
 
 Pre- and Post-processing:
     --preprocess=[0|1|2|3]       Level for simplifying the input automaton (default=1)
@@ -438,6 +439,9 @@ int main(int argc, char *argv[])
     else if (arg == "--debug") {
       debug = true;
       kofola::LOG_VERBOSITY = 42;
+    }
+    else if (arg == "--low-red-interm") {
+      decomp_options.low_red_interm = true;
     }
     else if (arg == "--type")
       aut_type = true;
