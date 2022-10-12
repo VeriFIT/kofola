@@ -30,6 +30,7 @@
 #include <map>
 #include <set>
 #include <stack>
+#include <queue>
 
 #include <spot/misc/hashfunc.hh>
 #include <spot/twaalgos/dot.hh>
@@ -2250,6 +2251,10 @@ namespace cola
         p_post.set_type(spot::postprocessor::Generic);
         p_post.set_level(spot::postprocessor::High);
 
+        // comparison for priority queue - smallest automata should be at top
+        auto aut_cmp = [](const auto& lhs, const auto& rhs){ return lhs->num_states() > rhs->num_states();};
+        std::priority_queue<spot::twa_graph_ptr,
+          std::vector<spot::twa_graph_ptr>, decltype(aut_cmp)> aut_queue(aut_cmp);
         for (auto aut : decomposed)
         {
           // if (decomp_options.scc_compl_high)
@@ -2263,33 +2268,24 @@ namespace cola
           auto comp = cola::tnba_complement(aut_preprocessed, part_scc, om, implications, decomp_options);
           auto dec_aut = comp.run_new();
           // postprocessing for each automaton
-          part_res.push_back(p_post.run(dec_aut));
+          // part_res.push_back(p_post.run(dec_aut));
+          aut_queue.push(p_post.run(dec_aut));
         }
 
-        // sort by size
-        std::sort(part_res.begin(), part_res.end(), [](const auto& lhs, const auto& rhs){
-          return lhs->num_states() < rhs->num_states();});
-
-        for (size_t i = 0; i < part_res.size(); ++i) {
-          DEBUG_PRINT_LN("partial complement no " + std::to_string(i) +
-            " size: " + std::to_string(part_res[i]->num_states()));
+        assert(!aut_queue.empty());
+        while (aut_queue.size() > 1) { // until single aut remains
+          auto first_aut = aut_queue.top();
+          aut_queue.pop();
+          DEBUG_PRINT_LN("first_aut size = " + std::to_string(first_aut->num_states()));
+          auto second_aut = aut_queue.top();
+          aut_queue.pop();
+          DEBUG_PRINT_LN("second_aut size = " + std::to_string(second_aut->num_states()));
+          auto result = spot::product(first_aut, second_aut);
+          result = p_post.run(result);
+          aut_queue.push(result);
         }
 
-        // intersection of all complements
-        spot::twa_graph_ptr result;
-        bool first = true;
-        for (auto aut : part_res)
-        {
-          if (first)
-          {
-            result = aut;
-            first = false;
-            continue;
-          }
-          result = spot::product(result, aut);
-        }
-
-        return result;
+        return aut_queue.top();
       }
     }
 
