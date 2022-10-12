@@ -2270,6 +2270,11 @@ namespace cola
         std::sort(part_res.begin(), part_res.end(), [](const auto& lhs, const auto& rhs){
           return lhs->num_states() < rhs->num_states();});
 
+        for (size_t i = 0; i < part_res.size(); ++i) {
+          DEBUG_PRINT_LN("partial complement no " + std::to_string(i) +
+            " size: " + std::to_string(part_res[i]->num_states()));
+        }
+
         // intersection of all complements
         spot::twa_graph_ptr result;
         bool first = true;
