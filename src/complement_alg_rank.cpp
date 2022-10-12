@@ -620,6 +620,8 @@ mstate_col_set complement_rank::get_succ_track(
   assert(!src_rank->active_);
   assert(src_rank->invariants_hold());
 
+  DEBUG_PRINT_LN("computing tracking successor of " + std::to_string(src_rank));
+
   if (src_rank->is_waiting_) { // WAITING
     std::set<unsigned> succs = get_successors_with_box(glob_reached, *src_rank,
       this->part_index_, this->info_);

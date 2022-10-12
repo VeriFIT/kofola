@@ -435,8 +435,10 @@ int main(int argc, char *argv[])
       use_acd = true;
     }
     // Prefered output
-    else if (arg == "--d")
+    else if (arg == "--debug") {
       debug = true;
+      kofola::LOG_VERBOSITY = 42;
+    }
     else if (arg == "--type")
       aut_type = true;
     else if (arg == "--unambiguous")

@@ -2188,10 +2188,8 @@ namespace cola
         }
       }
 
-      assert(init_vec.size() == 1);    // FIXME: do it properly
+      assert(init_vec.size() == 1);
       result->set_init_state(init_vec[0]);
-
-      DEBUG_PRINT_LN("FIXME: handle initial states!");
 
       if (kofola::LOG_VERBOSITY > 0) {
         spot::print_hoa(std::cerr, result);
@@ -2267,6 +2265,10 @@ namespace cola
           // postprocessing for each automaton
           part_res.push_back(p_post.run(dec_aut));
         }
+
+        // sort by size
+        std::sort(part_res.begin(), part_res.end(), [](const auto& lhs, const auto& rhs){
+          return lhs->num_states() < rhs->num_states();});
 
         // intersection of all complements
         spot::twa_graph_ptr result;
