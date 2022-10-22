@@ -16,7 +16,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "kofola.hpp"
-#include "simulation.hpp"
+// #include "simulation.hpp"
 #include "types.hpp"
 #include "decomposer.hpp"
 
