@@ -534,6 +534,24 @@ std::vector<ranking> get_succ_rankings(
 } // get_succ_rankings() }}}
 
 
+/// obtains rank bound for a given powerset
+unsigned get_rank_bound(
+  const RankRestriction&     restr,
+  const std::set<unsigned>&  state_set,
+  const cmpl_info&           info)
+{ // {{{
+  if (kofola::is_in(state_set, restr)) {
+    return restr.at(state_set);
+  } else {
+    unsigned nonacc = 0;
+    for (auto state : state_set) {
+      if (info.state_accepting_[state]) { nonacc++; }
+    }
+    return 2*(nonacc + 1);
+  }
+} // }}}
+
+
 std::vector<ranking> get_maxrank(
   const std::set<unsigned>&  glob_reached,
   const mstate_rank&         rank_state,
@@ -544,6 +562,8 @@ std::vector<ranking> get_maxrank(
 { // {{{
   std::vector<std::tuple<int, int, bool>> restr;
 
+  DEBUG_PRINT_LN("computing maxrank");
+
   std::set<unsigned> domain;
   for (auto pr : rank_state.f_) {
     domain.insert(pr.first);
@@ -552,10 +572,22 @@ std::vector<ranking> get_maxrank(
   auto succ_domain = get_successors_with_box(
     glob_reached, rank_state, symbol, part_index, info);
 
-  auto bound = rank_restr.at(domain);
+  std::set<unsigned> domain_no_box;
+  for (unsigned state : domain) {
+    if (BOX != state) {
+      domain_no_box.insert(state);
+    }
+  }
+
+  DEBUG_PRINT_LN("rank_restr = " + std::to_string(rank_restr));
+  DEBUG_PRINT_LN("domain_no_box = " + std::to_string(domain_no_box));
+  unsigned bound = get_rank_bound(rank_restr, domain_no_box, info);
+  DEBUG_PRINT_LN("bound = " + std::to_string(bound));
   for (auto s : succ_domain) {
     restr.push_back({s, bound, (s == BOX) ? false : info.state_accepting_[s]});
   }
+
+  DEBUG_PRINT_LN("haha");
 
   std::vector<ranking> succ_rankings = get_succ_rankings(
     rank_state.f_, restr, glob_reached, symbol, part_index, info);
@@ -575,11 +607,11 @@ complement_rank::complement_rank(const cmpl_info& info, unsigned part_index) :
   waiting_(get_waiting_part(info.aut_))
 { // {{{
   // compute rank restrictions
-  unsigned states_in_part = 0;
-  for (unsigned scc_index : this->info_.part_to_scc_map_.at(part_index)) {
-    // TODO: maybe we can consider only SCCs?
-    this->info_.scc_info_.states_of(scc_index).size();
-  }
+  // unsigned states_in_part = 0;
+  // for (unsigned scc_index : this->info_.part_to_scc_map_.at(part_index)) {
+  //   // TODO: maybe we can consider only SCCs?
+  //   this->info_.scc_info_.states_of(scc_index).size();
+  // }
 
   for (const auto& mst : this->waiting_.get_states()) {
     // initialization
@@ -642,6 +674,7 @@ mstate_col_set complement_rank::get_succ_track(
     " over " + std::to_string(symbol));
 
   if (src_rank->is_waiting_) { // WAITING
+    DEBUG_PRINT_LN("track of WAITING");
     std::set<unsigned> succs = get_successors_with_box(glob_reached, *src_rank,
       symbol, this->part_index_, this->info_);
 
@@ -655,8 +688,11 @@ mstate_col_set complement_rank::get_succ_track(
     mstate_col_set result = {{ms, {}}};
     return result;
   } else { // TIGHT
+    DEBUG_PRINT_LN("track of TIGHT");
     std::vector<ranking> maxrank = get_maxrank(glob_reached, *src_rank,
        this->rank_restr_, this->part_index_, symbol, this->info_);
+
+    DEBUG_PRINT_LN("maxrank = " + std::to_string(maxrank));
 
     if (maxrank.size() == 0) { return {}; }
     assert(maxrank.size() == 1);
@@ -711,7 +747,7 @@ mstate_set complement_rank::lift_track_to_active(const mstate* src) const
 
     DEBUG_PRINT_LN("rank_restr_: " + std::to_string(rank_restr_))
     DEBUG_PRINT_LN("powerset: " + std::to_string(states_no_box))
-    auto bound = rank_restr_.at(states_no_box);
+    auto bound = get_rank_bound(rank_restr_, states_no_box, this->info_);
 
     DEBUG_PRINT_LN("rank bound: " + std::to_string(bound))
 
