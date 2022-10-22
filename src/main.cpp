@@ -17,7 +17,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "config.h"
+//#include "config.h"
 
 #include "kofola.hpp"
 #include "composer.hpp"
@@ -182,28 +182,28 @@ enum output_aut_type
 };
 
 // We may provide multiple algorithms for comparison
-spot::twa_graph_ptr
-to_deterministic(spot::twa_graph_ptr aut, spot::option_map &om, unsigned aut_type, determinize_algo algo)
-{
-  // determinization
-  spot::twa_graph_ptr res;
-  if (algo == DC)
-  {
-    if (aut_type & INHERENTLY_WEAK)
-      res = cola::determinize_twba(aut, om);
-    else
-      res = cola::determinize_tnba(aut, om);
-  }
-  else if (algo == IAR)
-  {
-    res = cola::determinize_tldba(aut, om);
-  }
-  else
-  {
-    res = cola::determinize_tnba(aut, om);
-  }
-  return res;
-}
+// spot::twa_graph_ptr
+// to_deterministic(spot::twa_graph_ptr aut, spot::option_map &om, unsigned aut_type, determinize_algo algo)
+// {
+//   // determinization
+//   spot::twa_graph_ptr res;
+//   if (algo == DC)
+//   {
+//     if (aut_type & INHERENTLY_WEAK)
+//       res = cola::determinize_twba(aut, om);
+//     else
+//       res = cola::determinize_tnba(aut, om);
+//   }
+//   else if (algo == IAR)
+//   {
+//     res = cola::determinize_tldba(aut, om);
+//   }
+//   else
+//   {
+//     res = cola::determinize_tnba(aut, om);
+//   }
+//   return res;
+// }
 
 void output_input_type(spot::twa_graph_ptr aut)
 {
@@ -591,7 +591,7 @@ int main(int argc, char *argv[])
     }
     else if (arg == "--version")
     {
-      std::cout << "cola " PACKAGE_VERSION
+      std::cout << "kofola x.y"
                    " (using Spot "
                 << spot::version() << ")\n\n"
                                       "Copyright (C) 2020  The cola Authors.\n"
@@ -696,14 +696,15 @@ int main(int argc, char *argv[])
         const unsigned num = 200;
         // strengther
         spot::scc_info si(aut, spot::scc_info_options::ALL);
-        cola::edge_strengther e_strengther(aut, si, 200);
-        for (unsigned sc = 0; sc < si.scc_count(); sc++)
-        {
-          if (si.is_accepting_scc(sc))
-          {
-            e_strengther.fix_scc(sc);
-          }
-        }
+        // cola::edge_strengther e_strengther(aut, si, 200);
+        // for (unsigned sc = 0; sc < si.scc_count(); sc++)
+        // {
+        //   if (si.is_accepting_scc(sc))
+        //   {
+        //     e_strengther.fix_scc(sc);
+        //   }
+        // }
+        assert(false);
       }
 
       //1. preprocess
@@ -756,31 +757,32 @@ int main(int argc, char *argv[])
       }
       if (!spot::is_deterministic(aut) && determinize)
       {
-        if (decompose && aut->acc().is_buchi() && !spot::is_deterministic(aut))
-        {
-          cola::decomposer nba_decomposer(aut, om);
-          std::vector<spot::twa_graph_ptr> subnbas = nba_decomposer.run();
-          std::vector<spot::twa_graph_ptr> dpas;
-          for (unsigned i = 0; i < subnbas.size(); i++)
-          {
-            spot::twa_graph_ptr dpa = to_deterministic(subnbas[i], om, aut_type, determinize);
-            dpas.push_back(dpa);
-          }
-          cola::composer dpa_composer(dpas, om);
-          aut = dpa_composer.run();
-        }
-        else if (aut->acc().is_buchi())
-        {
-          spot::twa_graph_ptr res = nullptr;
-          c_start = clock();
-          res = to_deterministic(aut, om, aut_type, determinize);
-          c_end = clock();
-          if (om.get(VERBOSE_LEVEL) > 0)
-          {
-            std::cout << "Done for determinizing the input automaton in " << 1000.0 * (c_end - c_start) / CLOCKS_PER_SEC << " ms..." << std::endl;
-          }
-          aut = res;
-        }
+        assert(false);
+        // if (decompose && aut->acc().is_buchi() && !spot::is_deterministic(aut))
+        // {
+        //   cola::decomposer nba_decomposer(aut, om);
+        //   std::vector<spot::twa_graph_ptr> subnbas = nba_decomposer.run();
+        //   std::vector<spot::twa_graph_ptr> dpas;
+        //   for (unsigned i = 0; i < subnbas.size(); i++)
+        //   {
+        //     spot::twa_graph_ptr dpa = to_deterministic(subnbas[i], om, aut_type, determinize);
+        //     dpas.push_back(dpa);
+        //   }
+        //   cola::composer dpa_composer(dpas, om);
+        //   aut = dpa_composer.run();
+        // }
+        // else if (aut->acc().is_buchi())
+        // {
+        //   spot::twa_graph_ptr res = nullptr;
+        //   c_start = clock();
+        //   res = to_deterministic(aut, om, aut_type, determinize);
+        //   c_end = clock();
+        //   if (om.get(VERBOSE_LEVEL) > 0)
+        //   {
+        //     std::cout << "Done for determinizing the input automaton in " << 1000.0 * (c_end - c_start) / CLOCKS_PER_SEC << " ms..." << std::endl;
+        //   }
+        //   aut = res;
+        // }
       }
       if (complement && !determinize)
       {
@@ -788,7 +790,8 @@ int main(int argc, char *argv[])
         {
           if (!aut_to_contain)
             std::cout << "Contained" << std::endl;
-          cola::congr_contain(aut, aut_to_contain, om);
+          // cola::congr_contain(aut, aut_to_contain, om);
+          assert(false);
         }
         else if (complement == COMP)
         {

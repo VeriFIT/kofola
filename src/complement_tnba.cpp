@@ -138,10 +138,10 @@ namespace cola
     unsigned nb_states_;
 
     // state_simulator
-    state_simulator simulator_;
+    // state_simulator simulator_;
 
     // delayed simulation
-    delayed_simulation delayed_simulator_;
+    // delayed_simulation delayed_simulator_;
 
     // The parity automata being built.
     spot::twa_graph_ptr res_;
@@ -319,15 +319,15 @@ namespace cola
           support_(nb_states_),
           compat_(nb_states_),
           is_accepting_(aut->num_states(), false),
-          simulator_(aut, si, implications, om.get(USE_SIMULATION) > 0),
-          delayed_simulator_(aut, om),
+          // simulator_(aut, si, implications, om.get(USE_SIMULATION) > 0),
+          // delayed_simulator_(aut, om),
           show_names_(om.get(VERBOSE_LEVEL) >= 1)
     {
 
-      if (om.get(VERBOSE_LEVEL) >= 2)
-      {
-        simulator_.output_simulation();
-      }
+      // if (om.get(VERBOSE_LEVEL) >= 2)
+      // {
+      //   simulator_.output_simulation();
+      // }
       res_ = spot::make_twa_graph(aut->get_dict());
       res_->copy_ap_of(aut);
       res_->prop_copy(aut,
