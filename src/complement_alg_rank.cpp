@@ -57,6 +57,7 @@ public: // METHODS
   friend std::set<unsigned> get_successors_with_box(
     const std::set<unsigned>&  glob_reach,
     const mstate_rank&         rank_state,
+    const bdd&                 symbol,
     unsigned                   part_index,
     const cmpl_info&           info);
 
@@ -164,11 +165,10 @@ bool is_predecessor_of(unsigned pred, unsigned state, const cmpl_info& info)
 std::set<unsigned> get_successors_with_box(
   const std::set<unsigned>&  glob_reach,
   const mstate_rank&         rank_state,
+  const bdd&                 symbol,
   unsigned                   part_index,
   const cmpl_info&           info)
 { // {{{
-  std::set<unsigned> succ;
-
   std::set<unsigned> state_set;
   if (rank_state.is_waiting_) {
     state_set = rank_state.states_;
@@ -180,29 +180,31 @@ std::set<unsigned> get_successors_with_box(
 
   if (state_set.empty()) { return {}; }
 
-  for (auto state : glob_reach) { // collect all reached states from part block
-    if (info.st_to_part_map_.at(state) == part_index) {
-      succ.insert(state);
-    }
-
-    if (kofola::is_in(BOX, state_set)) { // BOX is present
-      for (auto state : glob_reach) { // if the reached state not from this
-        // partition can still reach this partition, add BOX
-        if (info.st_to_part_map_.at(state) != part_index) {
-          unsigned state_scc_index = info.scc_info_.scc_of(state);
-          for (unsigned part_scc_index : info.part_to_scc_map_.at(part_index)) {
-            if (kofola::is_in(state_scc_index,
-                info.scc_to_pred_sccs_map_.at(part_scc_index))) {
-              succ.insert(BOX);
-              break;
-            }
+  std::set<unsigned> result;
+  if (kofola::is_in(BOX, state_set)) { // BOX is present
+    DEBUG_PRINT_LN("successors with BOX");
+    for (unsigned state : glob_reach) {
+      if (info.st_to_part_map_.at(state) == part_index) {
+        result.insert(state);
+      } else { // check whether to add BOX
+        unsigned state_scc_index = info.scc_info_.scc_of(state);
+        for (unsigned part_scc_index : info.part_to_scc_map_.at(part_index)) {
+          if (kofola::is_in(state_scc_index,
+              info.scc_to_pred_sccs_map_.at(part_scc_index))) {
+            // it the partition block is reachable from state, add BOX
+            result.insert(BOX);
+            break;
           }
         }
       }
     }
+  } else { // no BOX
+    DEBUG_PRINT_LN("successors without BOX");
+    auto result = get_all_successors_in_part(info.aut_, info.st_to_part_map_,
+      part_index, state_set, symbol);
   }
 
-  return succ;
+  return result;
 } // get_successors_with_box() }}}
 
 
@@ -461,17 +463,24 @@ std::vector<ranking> get_succ_rankings(
 { // {{{
   std::vector<ranking> rankings = get_tight_rankings(restr);
   std::set<ranking> rankings_set(rankings.begin(), rankings.end());
+  DEBUG_PRINT_LN("in get_succ_rankings for ranking r = " + std::to_string(r))
 
   DEBUG_PRINT_LN("tight rankings: " + std::to_string(rankings))
 
   for (ranking r2 : rankings) {
+    DEBUG_PRINT_LN("rankings_set: " + std::to_string(rankings_set))
+    DEBUG_PRINT_LN("checking ranking r2 = " + std::to_string(r2))
+
     if (r2.get_max_rank() != r.get_max_rank()) {
       rankings_set.erase(r2);
       continue;
     }
 
+    DEBUG_PRINT_LN("max ranks match")
+
     bool skip = false;
     for (auto pr : r) {
+      DEBUG_PRINT_LN("checking successors of state " + std::to_string(pr));
       unsigned state = pr.first;
 
       mstate_rank tmp(
@@ -483,7 +492,9 @@ std::vector<ranking> get_succ_rankings(
         false);        // active
 
       std::set<unsigned> succ = get_successors_with_box(
-        glob_reached, tmp, part_index, info);
+        glob_reached, tmp, symbol, part_index, info);
+
+      DEBUG_PRINT_LN("box successors = " + std::to_string(succ))
 
       for (auto s : succ) {
         if (r2.at(s) > r.at(state)) {
@@ -494,6 +505,7 @@ std::vector<ranking> get_succ_rankings(
       }
 
       if (skip) { break; }
+      DEBUG_PRINT_LN("after skip1");
 
       if (state != BOX) {
         std::set<int> succ = get_all_successors_acc(
@@ -509,11 +521,16 @@ std::vector<ranking> get_succ_rankings(
         }
 
         if (skip) { break; }
+        DEBUG_PRINT_LN("after skip2");
       }
     }
   }
 
-  return std::vector<ranking>(rankings_set.begin(), rankings_set.end());
+  std::vector result(rankings_set.begin(), rankings_set.end());
+
+  DEBUG_PRINT_LN("result = " + std::to_string(result));
+
+  return result;
 } // get_succ_rankings() }}}
 
 
@@ -533,7 +550,7 @@ std::vector<ranking> get_maxrank(
   }
 
   auto succ_domain = get_successors_with_box(
-    glob_reached, rank_state, part_index, info);
+    glob_reached, rank_state, symbol, part_index, info);
 
   auto bound = rank_restr.at(domain);
   for (auto s : succ_domain) {
@@ -620,11 +637,12 @@ mstate_col_set complement_rank::get_succ_track(
   assert(!src_rank->active_);
   assert(src_rank->invariants_hold());
 
-  DEBUG_PRINT_LN("computing tracking successor of " + std::to_string(src_rank));
+  DEBUG_PRINT_LN("computing tracking successor of " + std::to_string(*src_rank) +
+    " over " + std::to_string(symbol));
 
   if (src_rank->is_waiting_) { // WAITING
     std::set<unsigned> succs = get_successors_with_box(glob_reached, *src_rank,
-      this->part_index_, this->info_);
+      symbol, this->part_index_, this->info_);
 
     std::shared_ptr<mstate> ms(new mstate_rank(
       succs,             // reachable states (S)
@@ -779,7 +797,7 @@ mstate_col_set complement_rank::get_succ_active(
         -1,                      // index of tracked rank (i)
         false);                  // active
       std::set<unsigned> O_succ = get_successors_with_box(glob_reached, tmp,
-        this->part_index_, this->info_);
+        symbol, this->part_index_, this->info_);
       std::set<unsigned> g_rev;
       for (auto pr : g) {
         if (pr.second == src_rank->i_) {
@@ -800,7 +818,7 @@ mstate_col_set complement_rank::get_succ_active(
     } else { // breakpoint is empty
       int new_i = (src_rank->i_ + 2) % (g.get_max_rank() + 1);
       std::set<unsigned> dom_succ = get_successors_with_box(glob_reached, *src_rank,
-        this->part_index_, this->info_);
+        symbol, this->part_index_, this->info_);
       std::set<unsigned> g_rev;
       for (auto pr : g) {
         if (pr.second == new_i) {
@@ -832,7 +850,7 @@ mstate_col_set complement_rank::get_succ_active(
         -1,                      // index of tracked rank (i)
         false);                  // active
       std::set<unsigned> O_succ = get_successors_with_box(glob_reached, tmp,
-        this->part_index_, this->info_);
+        symbol, this->part_index_, this->info_);
       std::set<unsigned> g_rev;
       for (auto pr : g) {
         if (pr.second == src_rank->i_) {
