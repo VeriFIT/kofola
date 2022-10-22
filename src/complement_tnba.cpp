@@ -1401,7 +1401,7 @@ namespace cola
     /// inserts an uberstate (by moving) and returns its assigned number (if
     /// not present), or just returns the number of an equal uberstate (if
     /// present)
-    unsigned insert_uberstate(uberstate&& us)
+    unsigned insert_uberstate(const uberstate& us)
     { // {{{
       DEBUG_PRINT_LN("inserting uberstate " + us.to_string());
       auto it = this->uberstate_to_num_map_.find(&us);
@@ -1413,19 +1413,8 @@ namespace cola
         DEBUG_PRINT_LN("inserting at position " + std::to_string(this->cnt_state_));
         const uberstate* us_new = this->num_to_uberstate_map_[this->cnt_state_].get();
         assert(*ptr == *us_new);
-        if (this->cnt_state_ == 192) {
-          DEBUG_PRINT_LN("uberstate_to_num_map_: ")
-          for (const auto& elem : this->uberstate_to_num_map_) {
-            DEBUG_PRINT_LN(std::to_string(*elem.first) + " -> " + std::to_string(elem.second));
-          }
-        }
         auto jt_bool_pair = this->uberstate_to_num_map_.insert({us_new, this->cnt_state_});
-        if (!jt_bool_pair.second) {
-          DEBUG_PRINT_LN("jt_bool_pair: " + std::to_string(*jt_bool_pair.first->first));
-          DEBUG_PRINT_LN("previous pos: " + std::to_string(jt_bool_pair.first->second));
-          assert(false);
-          assert(jt_bool_pair.second);    // insertion happened
-        }
+        assert(jt_bool_pair.second);    // insertion happened
         ++this->cnt_state_;
         DEBUG_PRINT_LN("inserted as " + std::to_string(jt_bool_pair.first->second));
         return jt_bool_pair.first->second;
@@ -1657,6 +1646,7 @@ namespace cola
         if (INACTIVE_SCC == active_index) { // no round robin
           DEBUG_PRINT_LN("inserting")
           us_num = insert_uberstate(uberstate(all_succ, vm, INACTIVE_SCC));
+          result.emplace_back(us_num, std::move(cols));
           DEBUG_PRINT_LN("inserted")
         } else { // round robin
           if (vm[active_index]->is_active()) { // the same SCC active
@@ -1668,12 +1658,13 @@ namespace cola
 
             // now we need to lift the macrostate for next_active from track to active
             mstate_set active_macros = algos[next_active]->lift_track_to_active(vm[next_active].get());
-            assert(active_macros.size() == 1); // FIXME: this should be made proper
-            vm[next_active] = active_macros[0];
-            us_num = insert_uberstate(uberstate(all_succ, vm, next_active));
+            for (const auto& am : active_macros) {
+              vm[next_active] = am;
+              us_num = insert_uberstate(uberstate(all_succ, vm, next_active));
+              result.emplace_back(us_num, cols);
+            }
           }
         }
-        result.emplace_back(us_num, std::move(cols));
       }
 
       DEBUG_PRINT_LN("computed successors: " + std::to_string(result));
@@ -1695,6 +1686,8 @@ namespace cola
       std::vector<mstate_set> vec_mstate_sets;
       for (size_t i = 0; i < alg_vec.size(); ++i) { // get outputs of all procedures
         mstate_set init_mstates = alg_vec[i]->get_init();
+        DEBUG_PRINT_LN("obtained initial state for algs " + std::to_string(i) +
+          ": " + std::to_string(init_mstates));
         if (i == init_active || !alg_vec[i]->use_round_robin()) { // make the partial macrostate active
           mstate_set new_mstates;
           for (const auto& st : init_mstates) {

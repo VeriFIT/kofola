@@ -200,7 +200,7 @@ std::set<unsigned> get_successors_with_box(
     }
   } else { // no BOX
     DEBUG_PRINT_LN("successors without BOX");
-    auto result = get_all_successors_in_part(info.aut_, info.st_to_part_map_,
+    result = get_all_successors_in_part(info.aut_, info.st_to_part_map_,
       part_index, state_set, symbol);
   }
 
@@ -623,6 +623,7 @@ mstate_set complement_rank::get_init() const
     -1,                // index of tracked rank (i)
     false));           // active
   mstate_set result = {ms};
+
   return result;
 } // get_init() }}}
 
@@ -680,17 +681,39 @@ mstate_set complement_rank::lift_track_to_active(const mstate* src) const
   assert(!src_rank->active_);
   assert(src_rank->invariants_hold());
 
+  DEBUG_PRINT_LN("lifting " + std::to_string(*src_rank));
+
   mstate_set result;
   if (src_rank->is_waiting_) { // src is from WAITING
+    DEBUG_PRINT_LN("lifting WAITING state");
+
+
     std::shared_ptr<mstate_rank> src_cpy(new mstate_rank(*src_rank));
     src_cpy->active_ = true;
     result.push_back(src_cpy);          // one option is to stay in WAITING
+                                        //
+    if (src_rank->states_.empty() || // no interesting successors
+        (src_rank->states_.size() == 1 && BOX == *src_rank->states_.begin())) {
+      return result;
+    }
 
     // and let's compute the successors that move to TIGHT
     std::vector<std::tuple<int, int, bool>> r;
     // FIXME is this correct? to consider only states from this partition
     // auto bound = rank_restr_[std::set<unsigned>(mstate.curr_reachable_.begin(), mstate.curr_reachable_.end())];
-    auto bound = rank_restr_.at(src_rank->states_);
+
+    std::set<unsigned> states_no_box;
+    for (unsigned state : src_rank->states_) {
+      if (BOX != state) {
+        states_no_box.insert(state);
+      }
+    }
+
+    DEBUG_PRINT_LN("rank_restr_: " + std::to_string(rank_restr_))
+    DEBUG_PRINT_LN("powerset: " + std::to_string(states_no_box))
+    auto bound = rank_restr_.at(states_no_box);
+
+    DEBUG_PRINT_LN("rank bound: " + std::to_string(bound))
 
     for (auto s : src_rank->states_) {
       bool accepting = ((s != BOX)? this->info_.state_accepting_[s] : false);
@@ -715,6 +738,7 @@ mstate_set complement_rank::lift_track_to_active(const mstate* src) const
       result.push_back(ms);
     }
   } else { // src is from TIGHT
+    DEBUG_PRINT_LN("lifting TIGHT state");
     std::set<unsigned> breakpoint;
     for (auto pr : src_rank->f_) { // construct breakpoint
       if (pr.second == 0) { breakpoint.insert(pr.first); }
