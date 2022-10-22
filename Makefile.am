@@ -37,9 +37,7 @@ src_libkofola_la_SOURCES =			\
   src/complement_alg_safra.cpp     \
   src/complement_alg_rank.cpp     \
   src/complement_tnba.cpp				\
-  src/composer.cpp				\
   src/decomposer.cpp			\
-  src/rankings.cpp \
-  # src/simulation.cpp
+  src/rankings.cpp
 
 kofola_SOURCES = src/main.cpp
