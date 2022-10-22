@@ -30,7 +30,6 @@ kofola_LDADD = -L$(SPOTPREFIX)/lib src/libkofola.la -lspot -lbddx
 src_libkofola_la_LIBADD = -L$(SPOTPREFIX)/lib -lspot -lbddx
 
 src_libkofola_la_SOURCES =			\
-  src/kofola.hpp			\
   src/kofola.cpp			\
   src/abstract_complement_alg.cpp     \
   src/complement_alg_mh.cpp     \
@@ -39,15 +38,8 @@ src_libkofola_la_SOURCES =			\
   src/complement_alg_rank.cpp     \
   src/complement_tnba.cpp				\
   src/composer.cpp				\
-  src/congr.cpp				\
   src/decomposer.cpp			\
-  src/determinize.cpp			\
-  src/determinize_teba.cpp			\
-  src/determinize_tldba.cpp			\
-  src/determinize_tnba.cpp			\
-  src/determinize_twba.cpp			\
-  src/optimizer.cpp				\
-  src/simulation.cpp			\
-  src/rankings.cpp        
+  src/rankings.cpp \
+  # src/simulation.cpp
 
 kofola_SOURCES = src/main.cpp

@@ -44,6 +44,7 @@
 #include <spot/twaalgos/parity.hh>
 #include <spot/twaalgos/cleanacc.hh>
 #include <spot/twaalgos/postproc.hh>
+#include <spot/twaalgos/sccfilter.hh>
 #include <spot/misc/bddlt.hh>
 #include <spot/parseaut/public.hh>
 #include <spot/twaalgos/complement.hh>

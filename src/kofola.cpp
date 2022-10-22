@@ -18,7 +18,6 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "kofola.hpp"
-#include "optimizer.hpp"
 
 #include <vector>
 #include <sstream>
@@ -114,27 +113,6 @@ namespace cola
     {
       res.push_back(is_deterministic_scc(scc, si));
     }
-    return res;
-  }
-
-  std::string
-  get_set_string(const state_set &set)
-  {
-    std::string res = "{";
-    bool first = true;
-    for (state_t s : set)
-    {
-      if (first)
-      {
-        first = false;
-      }
-      else
-      {
-        res += ", ";
-      }
-      res += std::to_string(s);
-    }
-    res += "}";
     return res;
   }
 

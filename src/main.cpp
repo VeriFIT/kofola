@@ -21,7 +21,6 @@
 
 #include "kofola.hpp"
 #include "composer.hpp"
-#include "optimizer.hpp"
 #include "decomposer.hpp"
 #include "simulation.hpp"
 // #include "postproc.hpp"
@@ -43,6 +42,7 @@
 #include <spot/twaalgos/minimize.hh>
 #include <spot/twaalgos/totgba.hh>
 #include <spot/twaalgos/determinize.hh>
+#include <spot/twaalgos/postproc.hh>
 #include <spot/twaalgos/zlktree.hh>
 #include <spot/twaalgos/dualize.hh>
 #include <spot/twaalgos/word.hh>

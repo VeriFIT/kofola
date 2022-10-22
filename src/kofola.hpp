@@ -15,8 +15,6 @@
 
 #pragma once
 
-#include "optimizer.hpp"
-
 #include <set>
 #include <map>
 #include <vector>
