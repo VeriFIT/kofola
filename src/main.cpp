@@ -20,10 +20,6 @@
 //#include "config.h"
 
 #include "kofola.hpp"
-#include "composer.hpp"
-#include "decomposer.hpp"
-// #include "simulation.hpp"
-// #include "postproc.hpp"
 
 #include <unistd.h>
 #include <fstream>
