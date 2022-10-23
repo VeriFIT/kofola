@@ -1652,6 +1652,7 @@ namespace cola
         } else { // round robin
           if (vm[active_index]->is_active()) { // the same SCC active
             us_num = insert_uberstate(uberstate(all_succ, vm, active_index));
+	          result.emplace_back(us_num, cols);
           } else { // another SCC active
             int next_active = get_next_active_scc(algos, active_index);
             DEBUG_PRINT_LN("next active index: " + std::to_string(next_active));
@@ -2045,6 +2046,7 @@ namespace cola
 
             auto it_bool_pair = compl_states.insert({succ_state, {}});
             if (it_bool_pair.second) { // the successor state is new
+	            DEBUG_PRINT_LN("inserted " + std::to_string(succ_state) + " into compl_states");
               todo.push(succ_state);
             }
           }
