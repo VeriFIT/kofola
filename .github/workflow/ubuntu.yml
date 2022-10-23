@@ -1,0 +1,25 @@
+# copied from https://github.com/VeriFIT/mata/blob/84590550390b0d4003c83cd618c532b1959c752a/.github/workflows/ubuntu.yml
+
+name: Ubuntu (build-&-test)
+
+on:
+  push:
+    branches: 
+      - master 
+      - devel
+  pull_request:
+    branches: 
+      - master 
+      - devel
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Building Unix dependencies 
+        run: sudo apt-get install -y spot
+      - name: Compile release
+        run: make release
+      - name: Test release
+        run: make test
