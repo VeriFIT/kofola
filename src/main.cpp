@@ -1,8 +1,6 @@
-// Copyright (C) 2019-2020  The Seminator Authors
-// Copyright (C) 2022  The COLA Authors
+// Copyright (C) 2022  The Kofola Authors
 //
-// This file is a part of cola, a tool for complementation and determinization
-// of omega automata.
+// This file is a part of kofola, a tool for complementation of omega automata.
 //
 // cola is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,12 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-//#include "config.h"
-
+#include "../3rdparty/args.hxx"
 #include "kofola.hpp"
 
 #include <unistd.h>
-#include <fstream>
 #include <ctime>
 #include <string>
 #include <sstream>
@@ -142,22 +138,6 @@ parse_int(const std::string &arg)
   return result;
 }
 
-// determinization
-enum determinize_algo
-{
-  NoDeterminize = 0,
-  DC,
-  IAR // induction appearance record
-};
-
-// determinization
-enum complement_algo
-{
-  NoComplement = 0,
-  COMP,
-  NCSB,
-  CONGR
-};
 
 enum postprocess_level
 {
@@ -177,29 +157,6 @@ enum output_aut_type
   GeneralizedBuchi
 };
 
-// We may provide multiple algorithms for comparison
-// spot::twa_graph_ptr
-// to_deterministic(spot::twa_graph_ptr aut, spot::option_map &om, unsigned aut_type, determinize_algo algo)
-// {
-//   // determinization
-//   spot::twa_graph_ptr res;
-//   if (algo == DC)
-//   {
-//     if (aut_type & INHERENTLY_WEAK)
-//       res = cola::determinize_twba(aut, om);
-//     else
-//       res = cola::determinize_tnba(aut, om);
-//   }
-//   else if (algo == IAR)
-//   {
-//     res = cola::determinize_tldba(aut, om);
-//   }
-//   else
-//   {
-//     res = cola::determinize_tnba(aut, om);
-//   }
-//   return res;
-// }
 
 void output_input_type(spot::twa_graph_ptr aut)
 {
@@ -285,8 +242,13 @@ void output_scc_info(spot::twa_graph_ptr aut)
   std::cout << "Number of NACs: " << num_nacs << " with " << num_nacs_states << " states, in which max NAC with " << num_max_nacs_states << " states\n";
 }
 
+
+/// entry point
 int main(int argc, char *argv[])
 {
+	args::ArgumentParser parser("kofola: modular complementation of omega-automata.", "This goes after the options.");
+	args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
+
   // Declaration for input options. The rest is in cola.hpp
   // as they need to be included in other files.
   bool cd_check = false;
@@ -308,30 +270,15 @@ int main(int argc, char *argv[])
   om.set(NUM_SCC_LIMIT_MERGER, 0);
   om.set(MSTATE_REARRANGE, 0);
 
-  determinize_algo determinize = NoDeterminize;
-
-  complement_algo complement = NoComplement;
-
   // options
-  bool use_simulation = false;
-  //bool merge_transitions = false;
-  bool debug = false;
   bool aut_type = false;
-  bool use_unambiguous = false;
-  bool use_stutter = false;
-  bool decompose = false;
-  bool use_acd = false;
   bool print_scc = false;
-  bool comp = false;
-  bool contain = false;
-  bool congr = false;
   std::string file_to_contain;
 
   compl_decomp_options decomp_options;
 
   postprocess_level preprocess = Low;
   postprocess_level post_process = Low;
-  bool use_scc = false;
   unsigned num_post = 30000;
 
   output_aut_type output_type = Generic;
@@ -365,119 +312,14 @@ int main(int argc, char *argv[])
     {
       print_scc = true;
     }
-    else if (arg == "--postprocess-det=0")
-      post_process = None;
-    else if (arg == "--postprocess-det=1")
-      post_process = Low;
-    else if (arg == "--postprocess-det=2")
-      post_process = Medium;
-    else if (arg == "--postprocess-det=3")
-      post_process = High;
-    else if (arg == "--generic")
-    {
-      output_type = Generic;
-    }
-    else if (arg == "--parity")
-    {
-      output_type = Parity;
-    }
-    else if (arg == "--rabin")
-    {
-      output_type = Rabin;
-    }
-    else if (arg == "--complement")
-    {
-      comp = true;
-      output_type = Buchi;
-    }
-    else if (arg == "--simulation")
-    {
-      use_simulation = true;
-      om.set(USE_SIMULATION, 1);
-    }else if (arg == "--rerank")
-    {
-      om.set(MSTATE_REARRANGE, 1);
-    }
-    else if (arg.find("--trans-pruning=") != std::string::npos)
-    {
-      int trans_pruning = parse_int(arg);
-      om.set(NUM_TRANS_PRUNING, trans_pruning);
-    }
-    else if (arg == "--delayed-sim")
-    {
-      om.set(USE_DELAYED_SIMULATION, 1);
-    }
-    else if (arg == "--use-scc")
-    {
-      use_scc = true;
-      om.set(USE_SCC_INFO, 1);
-    }
-    else if (arg == "--more-acc-edges")
-    {
-      om.set(MORE_ACC_EDGES, 1);
-    }
-    else if (arg == "--decompose")
-    {
-      decompose = true;
-      om.set(NUM_NBA_DECOMPOSED, -1);
-    }
-    else if (arg.find("--decompose=") != std::string::npos)
-    {
-      decompose = true;
-      unsigned num_scc = parse_int(arg);
-      om.set(NUM_NBA_DECOMPOSED, num_scc);
-    }
-    else if (arg == "--acd")
-    {
-      use_acd = true;
-    }
-    // Prefered output
     else if (arg == "--debug") {
-      debug = true;
       kofola::LOG_VERBOSITY = 42;
+    }
+    else if (arg == "--type") {
+        aut_type = true;
     }
     else if (arg == "--low-red-interm") {
       decomp_options.low_red_interm = true;
-    }
-    else if (arg == "--type")
-      aut_type = true;
-    else if (arg == "--unambiguous")
-    {
-      use_unambiguous = true;
-      om.set(USE_UNAMBIGUITY, 1);
-    }
-    else if (arg == "--stutter")
-    {
-      use_stutter = true;
-      om.set(USE_STUTTER, 1);
-    }
-    else if (arg == "--algo=dc")
-      determinize = DC;
-    else if (arg == "--algo=iar")
-      determinize = IAR;
-    else if (arg == "--algo=cola")
-    {
-      determinize = DC;
-      // default settings
-      om.set(USE_SIMULATION, 1);
-      om.set(USE_SCC_INFO, 1);
-      om.set(USE_STUTTER, 1);
-      use_acd = true;
-      output_type = Parity;
-    }
-    else if (arg == "--algo=comp")
-    {
-      comp = true;
-      complement = COMP;
-    }
-    else if (arg == "--algo=ncsb")
-    {
-      comp = true;
-      complement = NCSB;
-    }
-    else if (arg == "--algo=congr")
-    {
-      complement = CONGR;
     }
     else if (arg == "--merge-iwa")
     {
@@ -554,31 +396,6 @@ int main(int argc, char *argv[])
         i++;
       }
     }
-    else if (arg.find("--contain=") != std::string::npos)
-    {
-      contain = true;
-      std::size_t idx = arg.find('=');
-      file_to_contain = arg.substr(idx + 1, arg.length());
-    }
-    else if (arg.find("--num-states=") != std::string::npos)
-    {
-      // obtain the substring after '='
-      num_post = parse_int(arg);
-      //std::cout << "Input number : " << num_post << std::endl;
-    }
-    else if (arg.find("--verbose=") != std::string::npos)
-    {
-      om.set(VERBOSE_LEVEL, parse_int(arg));
-      decomp_options.dir_sim = false;
-    }
-    else if (arg.find("--scc-mem-limit=") != std::string::npos)
-    {
-      om.set(SCC_REACH_MEMORY_LIMIT, parse_int(arg));
-    }
-    else if (arg.find("--scc-num-limit=") != std::string::npos)
-    {
-      om.set(NUM_SCC_LIMIT_MERGER, parse_int(arg));
-    }
     else if ((arg == "--help") || (arg == "-h"))
     {
       print_help();
@@ -630,24 +447,9 @@ int main(int argc, char *argv[])
   auto dict = spot::make_bdd_dict();
 
   spot::twa_graph_ptr aut_to_contain = nullptr;
-  // contain
-  if (contain)
-  {
-    spot::automaton_stream_parser parser(file_to_contain);
-    spot::parsed_aut_ptr parsed_aut = parser.parse(dict);
-
-    if (parsed_aut->format_errors(std::cerr))
-    {
-      std::runtime_error("File " + file_to_contain + " is not in valid HOA format");
-      return 1;
-    }
-    aut_to_contain = parsed_aut->aut;
-  }
 
   for (std::string &path_to_file : path_to_files)
   {
-    if (om.get(VERBOSE_LEVEL))
-      std::cout << "File: " << path_to_file << " Algo: " << determinize << std::endl;
     spot::automaton_stream_parser parser(path_to_file);
 
     for (;;)
@@ -687,37 +489,8 @@ int main(int argc, char *argv[])
         break;
       }
 
-      if (om.get(MORE_ACC_EDGES) > 0)
-      {
-        const unsigned num = 200;
-        // strengther
-        spot::scc_info si(aut, spot::scc_info_options::ALL);
-        // cola::edge_strengther e_strengther(aut, si, 200);
-        // for (unsigned sc = 0; sc < si.scc_count(); sc++)
-        // {
-        //   if (si.is_accepting_scc(sc))
-        //   {
-        //     e_strengther.fix_scc(sc);
-        //   }
-        // }
-        assert(false);
-      }
-
       //1. preprocess
       clock_t c_start = clock();
-      unsigned aut_type = NONDETERMINISTIC;
-      if (cola::is_weak_automaton(aut))
-      {
-        aut_type |= INHERENTLY_WEAK;
-      }
-      if (spot::is_semi_deterministic(aut))
-      {
-        aut_type |= LIMIT_DETERMINISTIC;
-      }
-      if (cola::is_elevator_automaton(aut))
-      {
-        aut_type |= ELEVATOR;
-      }
 
       // preprocessing for the input.
       if (preprocess)
@@ -746,63 +519,10 @@ int main(int argc, char *argv[])
       {
         std::cout << "Done for preprocessing the input automaton in " << 1000.0 * (c_end - c_start) / CLOCKS_PER_SEC << " ms..." << std::endl;
       }
-      if (aut->acc().is_all())
-      {
-        // trivial acceptance condition
-        aut = spot::minimize_monitor(aut);
-      }
-      if (!spot::is_deterministic(aut) && determinize)
-      {
-        assert(false);
-        // if (decompose && aut->acc().is_buchi() && !spot::is_deterministic(aut))
-        // {
-        //   cola::decomposer nba_decomposer(aut, om);
-        //   std::vector<spot::twa_graph_ptr> subnbas = nba_decomposer.run();
-        //   std::vector<spot::twa_graph_ptr> dpas;
-        //   for (unsigned i = 0; i < subnbas.size(); i++)
-        //   {
-        //     spot::twa_graph_ptr dpa = to_deterministic(subnbas[i], om, aut_type, determinize);
-        //     dpas.push_back(dpa);
-        //   }
-        //   cola::composer dpa_composer(dpas, om);
-        //   aut = dpa_composer.run();
-        // }
-        // else if (aut->acc().is_buchi())
-        // {
-        //   spot::twa_graph_ptr res = nullptr;
-        //   c_start = clock();
-        //   res = to_deterministic(aut, om, aut_type, determinize);
-        //   c_end = clock();
-        //   if (om.get(VERBOSE_LEVEL) > 0)
-        //   {
-        //     std::cout << "Done for determinizing the input automaton in " << 1000.0 * (c_end - c_start) / CLOCKS_PER_SEC << " ms..." << std::endl;
-        //   }
-        //   aut = res;
-        // }
-      }
-      if (complement && !determinize)
-      {
-        if (complement == CONGR && contain)
-        {
-          if (!aut_to_contain)
-            std::cout << "Contained" << std::endl;
-          // cola::congr_contain(aut, aut_to_contain, om);
-          assert(false);
-        }
-        else if (complement == COMP)
-        {
-          aut = cola::complement_tnba(aut, om, decomp_options);
-          output_type = Generic;
-        }
-        else
-        {
-          // set NCSB algorithm later
-          assert(false);
-        }
-      }else if (comp && determinize)
-      {
-        aut = spot::dualize(aut);
-      }
+
+      aut = cola::complement_tnba(aut, om, decomp_options);
+      output_type = Generic;
+
       const char *opts = nullptr;
       aut->merge_edges();
       if (om.get(VERBOSE_LEVEL) > 0)
