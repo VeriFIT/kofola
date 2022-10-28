@@ -68,6 +68,15 @@ public: // METHODS
     unsigned                   part_index,
     const bdd&                 symbol,
     const cmpl_info&           info);
+
+	/// Ondra's attempt to reimplement get_maxrank
+	friend std::vector<ranking> get_maxrank2(
+			const std::set<unsigned>&  glob_reach,
+			const mstate_rank&         rank_state,
+			const RankRestriction&     rank_restr,
+			unsigned                   part_index,
+			const bdd&                 symbol,
+			const cmpl_info&           info);
 }; // mstate_rank }}}
 
 bool mstate_rank::invariants_hold() const
@@ -599,6 +608,65 @@ std::vector<ranking> get_maxrank(
 } // get_maxrank() }}}
 
 
+std::vector<ranking> get_maxrank2(
+	const std::set<unsigned>&  glob_reached,
+	const mstate_rank&         rank_state,
+	const RankRestriction&     rank_restr,
+	unsigned                   part_index,
+	const bdd&                 symbol,
+	const cmpl_info&           info)
+{ // {{{
+	DEBUG_PRINT_LN("computing maxrank successor of " +
+		std::to_string(rank_state) + " over " + std::to_string(symbol));
+
+	std::set<unsigned> even_rank_states;    // marks states that should have even rank (due to acceptance)
+	std::map<unsigned, std::vector<unsigned>> state_to_ranks_map;  // collection of possible ranks for states
+
+	for (const auto& st_rank_pair : rank_state.f_) {
+		unsigned src_state = st_rank_pair.first;
+		unsigned src_rank = st_rank_pair.second;
+
+		for (const auto& trans : info.aut_->out(src_state)) {
+			if (info.scc_info_.scc_of(src_state) == info.scc_info_.scc_of(trans.dst) &&
+					bdd_implies(symbol, trans.cond)) {
+				DEBUG_PRINT_LN("successor of " + std::to_string(st_rank_pair) + ": " + std::to_string(trans.dst));
+				auto it_bool_pair = state_to_ranks_map.insert({trans.dst, {src_rank}});
+				if (!it_bool_pair.second) { // if already exists
+					it_bool_pair.first->second.push_back(src_rank);
+				}
+
+				if (trans.acc || info.state_accepting_[trans.dst]) { // accepting
+					even_rank_states.insert(trans.dst);
+				}
+			}
+		}
+	}
+
+	DEBUG_PRINT_LN("state_to_ranks_map: " + std::to_string(state_to_ranks_map));
+	DEBUG_PRINT_LN("even ranked: " + std::to_string(even_rank_states));
+
+	ranking succ_rank;
+	for (const auto& st_ranks_pair : state_to_ranks_map) {
+		unsigned state = st_ranks_pair.first;
+		const auto& ranks = st_ranks_pair.second;
+
+		auto it_min_rank = std::min_element(ranks.begin(), ranks.end());
+		assert(ranks.end() != it_min_rank);
+		unsigned min_rank = *it_min_rank;
+		if (min_rank % 2 == 1 && kofola::is_in(state, even_rank_states)) {
+			--min_rank;   // we need to make it even
+		}
+
+		succ_rank.insert({state, min_rank});
+	}
+
+	DEBUG_PRINT_LN("max rank: " + std::to_string(succ_rank));
+
+	DEBUG_PRINT_LN("NEED TO CHECK IT IS TIGHT");   // FIXME!!!
+	DEBUG_PRINT_LN("NEED TO CHECK IT HAS THE SAME RANK");   // FIXME!!!
+	return {succ_rank};
+} // get_maxrank2() }}}
+
 } // anonymous namespace }}}
 
 
@@ -689,7 +757,7 @@ mstate_col_set complement_rank::get_succ_track(
     return result;
   } else { // TIGHT
     DEBUG_PRINT_LN("track of TIGHT");
-    std::vector<ranking> maxrank = get_maxrank(glob_reached, *src_rank,
+    std::vector<ranking> maxrank = get_maxrank2(glob_reached, *src_rank,
        this->rank_restr_, this->part_index_, symbol, this->info_);
 
     DEBUG_PRINT_LN("maxrank = " + std::to_string(maxrank));

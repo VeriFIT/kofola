@@ -266,83 +266,12 @@ namespace kofola
 namespace cola
 {
 
-  spot::twa_graph_ptr
-  complement_semidet_opt(const spot::const_twa_graph_ptr &aut, bool show_names = false);
-
-  spot::twa_graph_ptr
-  complement_semidet_onthefly(const spot::const_twa_graph_ptr &aut, bool show_names = false);
-
-  spot::twa_graph_ptr
-  complement_semidet_opt_onthefly(const spot::const_twa_graph_ptr &aut, bool show_names = false);
-
-  /// \brief Complement a unambiguous TωA
-  ///
-  /// The automaton \a aut should be unambiguous.
-  ///
-  /// Uses the NCSB algorithm described by Y. Li, M.Y. Vardi, and L. Zhang (GandALF'20)
-  spot::twa_graph_ptr
-  complement_unambiguous(const spot::const_twa_graph_ptr &aut, bool show_names = false);
-
-  /// \brief Complement a semideterministic TωA
-  ///
-  /// The automaton \a aut should be semideterministic.
-  ///
-  /// Uses the NCB algorithm described by Y. Li
-  spot::twa_graph_ptr
-  new_complement_semidet(const spot::const_twa_graph_ptr &aut, bool show_names = false);
-
   /// \brief Complementation
   ///
   /// The automaton \a aut should be an elevator automaton for now.
   /// Output a generalized Buchi automaton
   spot::twa_graph_ptr
   complement_tnba(const spot::twa_graph_ptr &aut, spot::option_map &om, compl_decomp_options decomp_options);
-
-
-  spot::twa_graph_ptr
-  determinize_twba(const spot::const_twa_graph_ptr &aut, spot::option_map &om);
-
-  /// \brief Determinizing semi-deterministic or limit deterministic or elevator Buchi automaton
-  ///
-  /// The automaton \a aut should be a semideterminisitc.
-  /// Output a deterministic parity automaton
-  spot::twa_graph_ptr
-  determinize_tldba(const spot::const_twa_graph_ptr &aut, spot::option_map &om);
-
-  /// \brief Determinizing TBA by combining the semi-determinization of TBA
-  /// and the determinization of TLDBA
-  ///
-  /// The automaton \a aut should have Buchi condition.
-  /// Output a deterministic parity automaton
-  // spot::twa_graph_ptr
-  // determinize_tba(const spot::const_twa_graph_ptr &aut, spot::option_map &om);
-
-  /// \brief Determinizing TNBA by independently determinizing different SCCs
-  ///
-  /// The automaton \a aut should have Buchi condition.
-  /// Output a deterministic Emenson-Lei automaton
-  spot::twa_graph_ptr
-  determinize_tnba(const spot::const_twa_graph_ptr &aut, spot::option_map &om);
-
-  // more modular implementation
-  spot::twa_graph_ptr
-  determinize_tba(const spot::const_twa_graph_ptr &aut, spot::option_map &om);
-
-
-  /// \brief Determinizing elevator Buchi automaton that has either deterministic or weak SCCs
-  ///
-  /// The automaton \a aut should be an elevator automaton.
-  /// Output a deterministic automaton
-  spot::twa_graph_ptr
-  determinize_televator(const spot::const_twa_graph_ptr &aut, spot::option_map &om);
-
-  /// \brief Containment checking between Buchi automata based on congruence relations and SCC decomposition
-  ///
-  /// The automata \a A and \a B should be Buchi automata.
-  /// Output a counterexample if the language of A is not contained in that of B
-  void
-  congr_contain(spot::twa_graph_ptr B, spot::twa_graph_ptr A, spot::option_map& om);
-
 
   // ============================ helper functions ===================================
 
