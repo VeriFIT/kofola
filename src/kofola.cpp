@@ -37,8 +37,10 @@
 using namespace kofola;
 
 // verbosity of logging
-// unsigned kofola::LOG_VERBOSITY = 42;
 unsigned kofola::LOG_VERBOSITY = 0;
+
+// program options
+options kofola::OPTIONS;
 
 namespace cola
 {

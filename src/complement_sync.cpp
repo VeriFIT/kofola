@@ -80,9 +80,6 @@ namespace cola
     // SCCs information of the source automaton.
     spot::scc_info si_;
 
-    // options
-		const kofola::options& options_;
-
     // Number of states in the input automaton.
     unsigned nb_states_;
 
@@ -152,9 +149,8 @@ namespace cola
 
 
   public:
-    tnba_complement(const spot::twa_graph_ptr &aut, spot::scc_info& si, const kofola::options& options)
+    tnba_complement(const spot::twa_graph_ptr &aut, spot::scc_info& si)
         : aut_(aut),
-          options_(options),
           si_(si),
           nb_states_(aut->num_states()),
           support_(nb_states_),
@@ -1399,7 +1395,7 @@ namespace cola
         this->aut_, src.get_reach_set(), symbol);
 
       DEBUG_PRINT_LN("all succ over " + std::to_string(symbol) + "= " + std::to_string(all_succ));
-      if (kofola::has_value("sim-ms-prune", "yes", this->options_.params)) { // if doing simulation pruning
+      if (kofola::has_value("sim-ms-prune", "yes", kofola::OPTIONS.params)) { // if doing simulation pruning
         std::set<unsigned> pruned_succ = all_succ;
 
         std::set<unsigned> to_remove;
@@ -1689,7 +1685,7 @@ namespace cola
           alg = std::make_unique<kofola::complement_ncsb>(compl_info, i);
         }
         else if (PartitionType::NONDETERMINISTIC == compl_info.part_to_type_map_.at(i)) {
-          if (kofola::has_value("nac-alg", "rank", compl_info.options_.params)) { // use rank-based for NACs
+          if (kofola::has_value("nac-alg", "rank", kofola::OPTIONS.params)) { // use rank-based for NACs
             alg = std::make_unique<kofola::complement_rank>(compl_info, i);
           } else { // use determinization-based
             alg = std::make_unique<kofola::complement_safra>(compl_info, i);
@@ -1773,7 +1769,7 @@ namespace cola
       }
 
 
-      auto partitions = create_partitions(this->si_, this->options_);
+      auto partitions = create_partitions(this->si_, kofola::OPTIONS);
       const size_t num_partitions = std::get<0>(partitions);
       kofola::PartitionToTypeMap part_to_type_map = std::get<1>(partitions);
       kofola::StateToPartitionMap st_part_map = std::get<2>(partitions);
@@ -1796,8 +1792,7 @@ namespace cola
         scc_to_pred_sccs_map,   // maps SCCs to the sets of their predecessors
         this->si_,              // SCC information
         this->dir_sim_,         // direct simulation
-        this->is_accepting_,    // vector for acceptance of states
-        this->options_);        // options
+        this->is_accepting_);   // vector for acceptance of states
 
       DEBUG_PRINT_LN("selecting algorithms");
 
@@ -2033,13 +2028,11 @@ namespace cola
 }
 
 
-spot::twa_graph_ptr kofola::complement_sync(
-	const spot::twa_graph_ptr&  aut,
-	const kofola::options&      options)
+spot::twa_graph_ptr kofola::complement_sync(const spot::twa_graph_ptr& aut)
 {
 	spot::scc_info si(aut, spot::scc_info_options::ALL);
 
-	auto comp = cola::tnba_complement(aut, si, options);
+	auto comp = cola::tnba_complement(aut, si);
 	auto res = comp.run_new();
 
 	return res;

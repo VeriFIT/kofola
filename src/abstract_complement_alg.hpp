@@ -48,9 +48,6 @@ struct cmpl_info
   /// accepting states
   const std::vector<bool>& state_accepting_;
 
-  /// options
-  const kofola::options& options_;
-
   /// constructor
   cmpl_info(
     const spot::const_twa_graph_ptr&  aut,
@@ -62,8 +59,7 @@ struct cmpl_info
     const SCCToSCCSetMap&             scc_to_pred_sccs_map,
     const spot::scc_info&             scc_info,
     const Simulation&                 dir_sim,
-    const std::vector<bool>&          state_accepting,
-    const kofola::options&            options
+    const std::vector<bool>&          state_accepting
     ) :
     aut_(aut),
     num_partitions_(num_partitions),
@@ -74,8 +70,7 @@ struct cmpl_info
     scc_to_pred_sccs_map_(scc_to_pred_sccs_map),
     scc_info_(scc_info),
     dir_sim_(dir_sim),
-    state_accepting_(state_accepting),
-    options_(options)
+    state_accepting_(state_accepting)
   { }
 }; // struct cmpl_info }}}
 

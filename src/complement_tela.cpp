@@ -24,9 +24,7 @@
 // standard library
 #include <queue>
 
-spot::twa_graph_ptr kofola::complement_tela(
-	const spot::twa_graph_ptr&  aut,
-	const kofola::options&      options)
+spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 {
 	spot::twa_graph_ptr aut_reduced;
 	std::vector<bdd> implications;
@@ -38,9 +36,9 @@ spot::twa_graph_ptr kofola::complement_tela(
 
 	spot::scc_info scc(aut_reduced, spot::scc_info_options::ALL);
 
-	if (kofola::has_value("postponed", "yes", options.params)) { // postponed procedure
+	if (kofola::has_value("postponed", "yes", kofola::OPTIONS.params)) { // postponed procedure
 		// saturation
-		if (kofola::has_value("saturate", "yes", options.params)) {
+		if (kofola::has_value("saturate", "yes", kofola::OPTIONS.params)) {
 			aut_reduced = kofola::saturate(aut_reduced, scc);
 			spot::scc_info scc_sat(aut_reduced, spot::scc_info_options::ALL);
 			scc = scc_sat;
@@ -50,8 +48,8 @@ spot::twa_graph_ptr kofola::complement_tela(
 		cola::decomposer decomp(aut_reduced);
 		auto decomposed = decomp.run(
 			true,
-			kofola::has_value("merge_iwa", "yes", options.params),
-			kofola::has_value("merge_det", "yes", options.params));
+			kofola::has_value("merge_iwa", "yes", kofola::OPTIONS.params),
+			kofola::has_value("merge_det", "yes", kofola::OPTIONS.params));
 
 		if (decomposed.size() > 0) {
 			std::vector<spot::twa_graph_ptr> part_res;
@@ -62,7 +60,7 @@ spot::twa_graph_ptr kofola::complement_tela(
 
 			spot::postprocessor p_post;
 			p_post.set_type(spot::postprocessor::Generic);
-			if (kofola::has_value("low_red_interm", "yes", options.params)) {
+			if (kofola::has_value("low_red_interm", "yes", kofola::OPTIONS.params)) {
 				p_post.set_level(spot::postprocessor::Low);
 			} else {
 				p_post.set_level(spot::postprocessor::High);
@@ -82,7 +80,7 @@ spot::twa_graph_ptr kofola::complement_tela(
 				auto aut_preprocessed = p_pre.run(aut);
 				spot::scc_info part_scc(aut_preprocessed, spot::scc_info_options::ALL);
 
-				auto res = kofola::complement_sync(aut_preprocessed, options);
+				auto res = kofola::complement_sync(aut_preprocessed);
 				// postprocessing for each automaton
 				// part_res.push_back(p_post.run(dec_aut));
 				aut_queue.push(p_post.run(res));
@@ -114,13 +112,13 @@ spot::twa_graph_ptr kofola::complement_tela(
 	spot::twa_graph_ptr aut_to_compl;
 	aut_to_compl = p.run(aut_reduced);
 
-	auto res = kofola::complement_sync(aut_to_compl, options);
+	auto res = kofola::complement_sync(aut_to_compl);
 	DEBUG_PRINT_LN("finished call to run_new()");
 
 	// postprocessing  TODO: should also consider other options
-	if (!kofola::has_value("raw", "yes", options.params)) {
+	if (!kofola::has_value("raw", "yes", kofola::OPTIONS.params)) {
 		spot::postprocessor p_post;
-		if ("buchi" == options.output_type) {
+		if ("buchi" == kofola::OPTIONS.output_type) {
 			p_post.set_type(spot::postprocessor::Buchi);
 		} else {
 			p_post.set_type(spot::postprocessor::Generic);

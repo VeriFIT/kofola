@@ -45,6 +45,8 @@ struct options
 	string_to_string_dict params;         ///< generic parameters
 }; // options }}}
 
+extern options OPTIONS;
+
 } // kofola }}}
 
 

@@ -152,14 +152,21 @@ kofola::string_to_string_dict parse_params(const std::string& str)
 
 		DEBUG_PRINT_LN("parameter: " + one_param);
 
+		std::string key;
+		std::string value;
 		auto eq_pos = one_param.find("=");
 		if (std::string::npos == eq_pos) {
-			res.insert({one_param, {}});
+			key = one_param;
+			value = "";
 		} else {
-			std::string key = kofola::str_trim(one_param.substr(0, eq_pos));
-			std::string value = kofola::str_trim(one_param.substr(eq_pos + 1));
-			DEBUG_PRINT_LN("parameter key = " + key + ", value = " + value);
-			res.insert({key, value});
+			key = kofola::str_trim(one_param.substr(0, eq_pos));
+			value = kofola::str_trim(one_param.substr(eq_pos + 1));
+		}
+
+		DEBUG_PRINT_LN("parameter key = " + key + ", value = " + value);
+		auto it_bool_pair = res.insert({key, value});
+		if (!it_bool_pair.second) {
+			throw std::runtime_error("an attempt to redefine parameter " + key + " with " + value);
 		}
 	}
 
@@ -282,6 +289,7 @@ int main(int argc, char *argv[])
 	kofola::options options;
 	int rv = process_args(argc, argv, &options);
 	if (EXIT_SUCCESS != rv) { return EXIT_FAILURE; }
+	kofola::OPTIONS = options;   // set the global variable
 
 	DEBUG_PRINT_LN("filenames: " + std::to_string(options.filenames));
 	DEBUG_PRINT_LN("operation: " + std::to_string(options.operation));
@@ -304,7 +312,7 @@ int main(int argc, char *argv[])
 
 				if (options.operation == "complement") {
 					//clock_t c_start = clock();
-					spot::twa_graph_ptr result = kofola::complement_tela(aut, options);
+					spot::twa_graph_ptr result = kofola::complement_tela(aut);
 					//clock_t c_end = clock();
 					//auto duration = (c_end - c_start) / CLOCKS_PER_SEC;
 

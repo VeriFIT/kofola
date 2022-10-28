@@ -26,13 +26,9 @@ namespace kofola
 { // {{{
 
 /// complements a transition-based Emerson-Lei automaton (TELA)
-spot::twa_graph_ptr complement_tela(
-	const spot::twa_graph_ptr&  aut,
-	const kofola::options&      options);
+spot::twa_graph_ptr complement_tela(const spot::twa_graph_ptr& aut);
 
 /// complements a TELA using the synchronous algorithm (cf. paper)
-spot::twa_graph_ptr complement_sync(
-	const spot::twa_graph_ptr&  aut,
-	const kofola::options&      options);
+spot::twa_graph_ptr complement_sync(const spot::twa_graph_ptr& aut);
 
 } // kofola }}}
