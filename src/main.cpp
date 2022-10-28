@@ -15,8 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "../3rdparty/args.hxx"
+// kofola
 #include "kofola.hpp"
+#include "complement_tela.hpp"
+#include "util.hpp"
 
 // standard library headers
 #include <unistd.h>
@@ -27,6 +29,8 @@
 #include <spot/parseaut/public.hh>
 #include <spot/misc/version.hh>
 
+// Args.hxx
+#include "../3rdparty/args.hxx"
 
 
 //void output_input_type(spot::twa_graph_ptr aut)
@@ -113,6 +117,9 @@ void output_scc_info(spot::twa_graph_ptr aut)
   std::cout << "Number of NACs: " << num_nacs << " with " << num_nacs_states << " states, in which max NAC with " << num_max_nacs_states << " states\n";
 }
 
+namespace
+{ // {{{
+
 void print_version()
 {
 	std::cout << "VERSION\n";
@@ -126,13 +133,39 @@ void print_version_long()
 	exit(EXIT_SUCCESS);
 }
 
-/// structure for command line arguments
-struct CLIParams
+
+/// parse string with parameters of the form "key=value;flag;..."
+kofola::string_to_string_dict parse_params(const std::string& str)
 { // {{{
-	std::vector<std::string> filenames;   ///< input files
-	std::string operation;                ///< operation to perform with the inputs
-	std::string output_type;              ///< desired automaton on the output
-}; // CLIParams }}}
+	DEBUG_PRINT_LN("parameter string: " + str);
+
+	kofola::string_to_string_dict res;
+	std::string tmp_str = kofola::str_trim(str);
+	while (!tmp_str.empty()) {
+		auto delim_pos = tmp_str.find(";");
+		std::string one_param = kofola::str_trim(tmp_str.substr(0, delim_pos));
+		if (std::string::npos == delim_pos) {
+			tmp_str = "";
+		} else {
+			tmp_str = kofola::str_trim(tmp_str.substr(delim_pos + 1));
+		}
+
+		DEBUG_PRINT_LN("parameter: " + one_param);
+
+		auto eq_pos = one_param.find("=");
+		if (std::string::npos == eq_pos) {
+			res.insert({one_param, {}});
+		} else {
+			std::string key = kofola::str_trim(one_param.substr(0, eq_pos));
+			std::string value = kofola::str_trim(one_param.substr(eq_pos + 1));
+			DEBUG_PRINT_LN("parameter key = " + key + ", value = " + value);
+			res.insert({key, value});
+		}
+	}
+
+	return res;
+} // parse_params() }}}
+
 
 /**
  * process command line arguments
@@ -140,7 +173,7 @@ struct CLIParams
  * @param[in]  argv  Array of arguments
  * @param[out] params  Output structure with arguments
  * @returns  EXIT_SUCCESS  iff successful  */
-int process_args(int argc, char *argv[], CLIParams* params)
+int process_args(int argc, char *argv[], kofola::options* params)
 { // {{{
 	assert(nullptr !=params);
 
@@ -208,7 +241,7 @@ int process_args(int argc, char *argv[], CLIParams* params)
 			params->filenames.emplace_back("-");  // "-" denotes stdin
 		}
 	} else {
-		params->filenames = args::get(filenames);
+		params->filenames = filenames.Get();
 	}
 
 	if (type_flag) {
@@ -234,26 +267,29 @@ int process_args(int argc, char *argv[], CLIParams* params)
 	}
 
 	if (params_flag) {
-		assert(false);
+		params->params = parse_params(params_flag.Get());
 	}
 
 	return EXIT_SUCCESS;
 } // process_args() }}}
 
+} // anonymous namespace }}}
+
 
 /// entry point
 int main(int argc, char *argv[])
 { // {{{
-	CLIParams params;
-	int rv = process_args(argc, argv, &params);
+	kofola::options options;
+	int rv = process_args(argc, argv, &options);
 	if (EXIT_SUCCESS != rv) { return EXIT_FAILURE; }
 
-	DEBUG_PRINT_LN("filenames: " + std::to_string(params.filenames));
-	DEBUG_PRINT_LN("operation: " + std::to_string(params.operation));
+	DEBUG_PRINT_LN("filenames: " + std::to_string(options.filenames));
+	DEBUG_PRINT_LN("operation: " + std::to_string(options.operation));
+	DEBUG_PRINT_LN("params: " + std::to_string(options.params));
 
 	auto dict = spot::make_bdd_dict();
 
-	for (const std::string& input_filename : params.filenames) {
+	for (const std::string& input_filename : options.filenames) {
 		spot::parsed_aut_ptr parsed_aut = nullptr;
 		try {
 			spot::automaton_stream_parser parser(input_filename);
@@ -266,22 +302,20 @@ int main(int argc, char *argv[])
 				spot::twa_graph_ptr aut = parsed_aut->aut;
 				if (!aut) { break; }
 
-				if (params.operation == "complement") {
-	//			clock_t c_start = clock();
-				spot::option_map om;
-				compl_decomp_options decomp_options;
-				spot::twa_graph_ptr result = cola::complement_tnba(aut, om, decomp_options);
-	//			clock_t c_end = clock();
-	//			auto duration = (c_end - c_start) / CLOCKS_PER_SEC;
+				if (options.operation == "complement") {
+					//clock_t c_start = clock();
+					spot::twa_graph_ptr result = kofola::complement_tela(aut, options);
+					//clock_t c_end = clock();
+					//auto duration = (c_end - c_start) / CLOCKS_PER_SEC;
 
-					spot::print_hoa(std::cout, aut);
+					spot::print_hoa(std::cout, result);
 					std::cout << "\n";
-				} else if (params.operation == "type") {
+				} else if (options.operation == "type") {
 					assert(false);
-				} else if (params.operation == "scc-types") {
+				} else if (options.operation == "scc-types") {
 					assert(false);
 				} else {
-					throw std::runtime_error("invalid operation: " + params.operation);
+					throw std::runtime_error("invalid operation: " + options.operation);
 				}
 			}
 		}

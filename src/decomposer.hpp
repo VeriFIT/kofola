@@ -28,8 +28,6 @@ namespace cola
         private:
         // the NBA to be decomposed
         spot::twa_graph_ptr &nba_;
-        // mstates that are identified with the same language
-        spot::option_map& om_;
 
         int num_nbas_;
 
@@ -37,10 +35,10 @@ namespace cola
         make_twa_with_scc(spot::scc_info& si, std::set<unsigned> sccs, std::vector<bool>& reach_sccs, bool nonacc_pred = false, bool merge_iwa = false, bool merge_det = false);
 
         public:
-        decomposer(spot::twa_graph_ptr &nba, spot::option_map& om)
-        : nba_(nba), om_(om)
+        decomposer(spot::twa_graph_ptr &nba)
+        : nba_(nba)
         {
-            num_nbas_ = om.get(NUM_NBA_DECOMPOSED);
+            // num_nbas_ = om.get(NUM_NBA_DECOMPOSED);
         }
 
         std::vector<spot::twa_graph_ptr>

@@ -49,7 +49,7 @@ struct cmpl_info
   const std::vector<bool>& state_accepting_;
 
   /// options
-  const compl_decomp_options& options_;
+  const kofola::options& options_;
 
   /// constructor
   cmpl_info(
@@ -63,7 +63,7 @@ struct cmpl_info
     const spot::scc_info&             scc_info,
     const Simulation&                 dir_sim,
     const std::vector<bool>&          state_accepting,
-    const compl_decomp_options&       options
+    const kofola::options&            options
     ) :
     aut_(aut),
     num_partitions_(num_partitions),

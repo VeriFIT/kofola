@@ -4,7 +4,7 @@ HELP_MSG="usage: ${0} <input-ba> [optional parameters]"
 TIMEOUT=60
 AUTCROSS_CMD="timeout ${TIMEOUT} autcross -T ${TIMEOUT}"
 BINDIR=$(dirname $(readlink -f $0))
-KOFOLA="${BINDIR}/cmake-build-debug/src/kofola"
+KOFOLA="${BINDIR}/build/src/kofola"
 
 # Check the number of command-line arguments
 if [ \( "$#" -lt 1 \) ] ; then

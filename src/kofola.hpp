@@ -1,15 +1,15 @@
-// Copyright (C) 2021  The COLA Authors
-
-// COLA is free software: you can redistribute it and/or modify
+// Copyright (C) 2022  The Kofola Authors
+//
+// Kofola is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-
-// COLA is distributed in the hope that it will be useful,
+//
+// Kofola is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-
+//
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -26,26 +26,28 @@
 #include <spot/misc/optionmap.hh>
 #include <spot/twaalgos/sccinfo.hh>
 
-// options for the determinization constructions
-static const char *USE_SIMULATION = "use-simulation";
-static const char *USE_DELAYED_SIMULATION = "use-delayed-simulation";
-static const char *USE_STUTTER = "use-stutter";
-static const char *USE_SCC_INFO = "use-scc";
-static const char *USE_UNAMBIGUITY = "use-unambiguity";
-static const char *MORE_ACC_EDGES = "more-acc-edges";
-static const char *VERBOSE_LEVEL = "verbose-level";
-static const char *NUM_NBA_DECOMPOSED = "num-nba-decomposed";
-static const char *NUM_SCC_LIMIT_MERGER = "num-scc-limit-merger";
-static const char *SCC_REACH_MEMORY_LIMIT = "scc-reach-memory-limit";
-static const char *REQUIRE_PARITY = "require-parity";
-static const char *NUM_TRANS_PRUNING = "num-trans-pruning";
-static const char *MSTATE_REARRANGE = "mstate-rearrange";
-
-
 static const char SCC_WEAK_TYPE = 1;
 static const char SCC_INSIDE_DET_TYPE = 2;
 static const char SCC_DET_TYPE = 4;
 static const char SCC_ACC = 8;
+
+namespace kofola
+{ // {{{
+
+using string_to_string_dict = std::map<std::string, std::string>;
+
+/// structure for command line options
+struct options
+{ // {{{
+	std::vector<std::string> filenames;   ///< input files
+	std::string operation;                ///< operation to perform with the inputs
+	std::string output_type;              ///< desired automaton on the output
+	string_to_string_dict params;         ///< generic parameters
+}; // options }}}
+
+} // kofola }}}
+
+
 
 
 // for states ranking/labelling
@@ -217,6 +219,14 @@ namespace kofola
   template <class T, class C>
   inline bool is_in(const T& elem, const C& container)
   { return container.find(elem) != container.end(); }
+
+  /// checks whether an element in a map-container has given value
+  template <class T, class V, class C>
+  inline bool has_value(const T& elem, const V& value, const C& container)
+  {
+		auto it = container.find(elem);
+		return it != container.end() && it->second == value;
+	}
 
 
   /// computes the difference of two sets

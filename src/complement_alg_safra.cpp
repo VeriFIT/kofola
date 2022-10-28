@@ -462,9 +462,9 @@ mstate_col_set complement_safra::get_succ_active(
   // replace the braces
   next.braces_ = braces;
   // use simulation relation to delete states
-  if (this->info_.options_.dir_sim) {
-    simulation_reduce(next, this->info_);
-  }
+  // if (this->info_.options_.dir_sim) {     // TODO: check whether this is subsumed by our simulation-based pruning
+  //   simulation_reduce(next, this->info_);
+  // }
 
   // now compute the colour
   unsigned colour = determine_color(next);

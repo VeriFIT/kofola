@@ -15,10 +15,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// kofola
 #include "kofola.hpp"
-// #include "simulation.hpp"
 #include "types.hpp"
+#include "complement_tela.hpp"
 #include "decomposer.hpp"
+#include "util.hpp"
 
 #include "abstract_complement_alg.hpp"
 #include "complement_alg_mh.hpp"
@@ -60,60 +62,6 @@
 
 namespace cola
 {
-  bool all_trans_acc(
-    const spot::const_twa_graph_ptr&  aut,
-    unsigned                          current_state,
-    unsigned                          scc,
-    const spot::scc_info&             si)
-  {
-    auto current_scc = si.scc_of(current_state);
-
-    for (auto &t : aut->out(current_state))
-    {
-      if (si.scc_of(t.dst) == current_scc)
-      {
-        if (not t.acc)
-          return false;
-      }
-    }
-
-    return true;
-  }
-
-  spot::twa_graph_ptr
-  saturation(const spot::const_twa_graph_ptr& aut, const spot::scc_info& si)
-  {
-    spot::twa_graph_ptr aut_new = spot::make_twa_graph(aut, spot::twa::prop_set::all());
-    bool change;
-    for (unsigned i = 0; i < si.scc_count(); i++)
-    {
-      do
-      {
-        change = false;
-        for (auto state : si.states_of(i))
-        {
-          if (all_trans_acc(aut_new, state, i, si))
-          {
-            for (auto s : si.states_of(i))
-            {
-              for (auto &t : aut_new->out(s))
-              {
-                if (t.dst == state)
-                {
-                  if (not t.acc)
-                  {
-                    t.acc = spot::acc_cond::mark_t{0};
-                    change = true;
-                  }
-                }
-              }
-            }
-          }
-        }
-      } while (change);
-    }
-    return aut_new;
-  }
 
 
   // complementation Buchi automata
@@ -130,10 +78,10 @@ namespace cola
     kofola::ReachableVector reachable_vector_;
 
     // SCCs information of the source automaton.
-    spot::scc_info &si_;
+    spot::scc_info si_;
 
-    // Complement decomposition options
-    compl_decomp_options decomp_options_;
+    // options
+		const kofola::options& options_;
 
     // Number of states in the input automaton.
     unsigned nb_states_;
@@ -151,18 +99,6 @@ namespace cola
     unsigned sets_ = 0;
 
     unsigned num_colors_;
-
-    spot::option_map &om_;
-
-    // use ambiguous
-    bool use_unambiguous_;
-
-    bool use_scc_;
-
-    // use stutter
-    bool use_stutter_;
-
-    bool use_simulation_;
 
     // Association between labelling states and state numbers of the
     // DPA.
@@ -214,121 +150,18 @@ namespace cola
       return res;
     }
 
-    // std::string
-    // get_name(const complement_mstate &ms)
-    // {
-    //   std::string name;
-    //   name += "(";
-    //   name += get_set_string(std::set<unsigned>(ms.curr_reachable_.begin(), ms.curr_reachable_.end()));
-    //   name += "),(";
-    //   for (auto partial : ms.iw_sccs_)
-    //   {
-    //     const std::set<unsigned> tmp(partial.begin(), partial.end());
-    //     name += get_set_string(tmp);
-    //   }
-    //   name += ",";
-    //   const std::set<unsigned> breakset(ms.iw_break_set_.begin(), ms.iw_break_set_.end());
-    //   name += get_set_string(breakset);
-    //   name += "),(";
-    //   for (auto partial : ms.acc_detsccs_)
-    //   {
-    //     const std::set<unsigned> tmp(partial.first.begin(), partial.first.end());
-    //     name += get_set_string(tmp);
-    //     name += "+";
-    //     const std::set<unsigned> aux(partial.second.begin(), partial.second.end());
-    //     name += get_set_string(aux);
-    //   }
-    //   name += ",";
-    //   const std::set<unsigned> det_breakset(ms.det_break_set_.begin(), ms.det_break_set_.end());
-    //   name += get_set_string(det_breakset);
-    //   name += "),(";
-    //   for (auto partial : ms.na_sccs_)
-    //   {
-    //     name += get_set_string_box(partial.reachable);
-    //     name += "+";
-    //     name += partial.f.get_name();
-    //     name += "+";
-    //     name += get_set_string_box(partial.O);
-    //     name += "+";
-    //     name += std::to_string(partial.i);
-    //     name += ",";
-    //   }
-    //   name += "),(";
-    //   name += std::to_string(ms.active_index_);
-    //   name += ")";
-    //   return name;
-    // }
-
-    // // From a Rank state, looks for a duplicate in the map before
-    // // creating a new state if needed.
-    // unsigned
-    // new_state(complement_mstate &s)
-    // {
-    //   complement_mstate dup(s);
-    //   auto p = rank2n_.emplace(dup, 0);
-    //   if (p.second) // This is a new state
-    //   {
-    //     p.first->second = res_->new_state();
-    //     if (show_names_)
-    //     {
-    //       names_->push_back(get_name(p.first->first));
-    //     }
-    //     todo_.emplace_back(dup, p.first->second);
-    //   }
-    //   return p.first->second;
-    // }
-    //
-    // bool exists(complement_mstate &s)
-    // {
-    //   return rank2n_.end() != rank2n_.find(s);
-    // }
-    //
-    // spot::twa_graph_ptr
-    // postprocess(spot::twa_graph_ptr aut)
-    // {
-    //   spot::scc_info da(aut, spot::scc_info_options::ALL);
-    //   // set of states -> the forest of reachability in the states.
-    //   mstate_equiv_map set2scc;
-    //   // record the representative of every SCC
-    //   for (auto p = rank2n_.begin(); p != rank2n_.end(); p++)
-    //   {
-    //     const state_set set = p->first.get_reach_set();
-    //     // first the set of reached states
-    //     auto val = set2scc.emplace(set, state_set());
-    //     val.first->second.insert(p->second);
-    //   }
-    //   mstate_merger merger(aut, set2scc, da, om_);
-    //   spot::twa_graph_ptr res = merger.run();
-    //   if (om_.get(VERBOSE_LEVEL) >= 1)
-    //     std::cout << "The number of states reduced by mstate_merger: "
-    //               << (aut->num_states() - res->num_states()) << " {out of "
-    //               << aut->num_states() << "}" << std::endl;
-    //   return res;
-    // }
 
   public:
-    tnba_complement(const spot::const_twa_graph_ptr &aut, spot::scc_info &si, spot::option_map &om, std::vector<bdd> &implications, compl_decomp_options &decomp_options)
+    tnba_complement(const spot::twa_graph_ptr &aut, spot::scc_info& si, const kofola::options& options)
         : aut_(aut),
-          om_(om),
-          decomp_options_(decomp_options),
-          use_simulation_(om.get(USE_SIMULATION) > 0),
-          use_scc_(om.get(USE_SCC_INFO) > 0),
-          use_stutter_(om.get(USE_STUTTER) > 0),
-          use_unambiguous_(om.get(USE_UNAMBIGUITY) > 0),
+          options_(options),
           si_(si),
           nb_states_(aut->num_states()),
           support_(nb_states_),
           compat_(nb_states_),
           is_accepting_(aut->num_states(), false),
-          // simulator_(aut, si, implications, om.get(USE_SIMULATION) > 0),
-          // delayed_simulator_(aut, om),
-          show_names_(om.get(VERBOSE_LEVEL) >= 1)
+          show_names_()
     {
-
-      // if (om.get(VERBOSE_LEVEL) >= 2)
-      // {
-      //   simulator_.output_simulation();
-      // }
       res_ = spot::make_twa_graph(aut->get_dict());
       res_->copy_ap_of(aut);
       res_->prop_copy(aut,
@@ -1566,9 +1399,7 @@ namespace cola
         this->aut_, src.get_reach_set(), symbol);
 
       DEBUG_PRINT_LN("all succ over " + std::to_string(symbol) + "= " + std::to_string(all_succ));
-      if (this->decomp_options_.iw_sim ||
-          this->decomp_options_.det_sim) { // if doing simulation reduction
-                                           // TODO: distinguish iw_sim and det_sim
+      if (kofola::has_value("sim-ms-prune", "yes", this->options_.params)) { // if doing simulation pruning
         std::set<unsigned> pruned_succ = all_succ;
 
         std::set<unsigned> to_remove;
@@ -1732,8 +1563,8 @@ namespace cola
                       kofola::SCCToPartitionMap
                       >
     create_partitions(
-      const spot::scc_info&        scc_inf,
-      const compl_decomp_options&  opt)
+      const spot::scc_info&   scc_inf,
+      const kofola::options&  options)
     { // {{{
       using kofola::PartitionType;
 
@@ -1747,9 +1578,12 @@ namespace cola
       int iwa_index = -1;
       int dac_index = -1;
 
+			bool merge_iwa = kofola::has_value("merge_iwa", "yes", options.params);
+			bool merge_det = kofola::has_value("merge_det", "yes", options.params);
+
       // When merging IWAs, move the IWA partition to the front.  This makes it
       // be active first, and may avoid larger state space generation.
-      if (opt.merge_iwa) {
+      if (merge_iwa) {
         for (size_t i = 0; i < scc_inf.scc_count(); ++i) {
           if (is_accepting_weakscc(scc_types, i)) { // if there is some IWA
             iwa_index = part_index;
@@ -1761,7 +1595,7 @@ namespace cola
       }
 
       // similar thing as above for DACs
-      if (opt.merge_det) {
+      if (merge_det) {
         for (size_t i = 0; i < scc_inf.scc_count(); ++i) {
           if (is_accepting_detscc(scc_types, i)) { // if there is some DAC
             dac_index = part_index;
@@ -1784,7 +1618,7 @@ namespace cola
         scc_to_part_map[i] = part_index;
         if (is_accepting_weakscc(scc_types, i)) {
           DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is IWA");
-          if (opt.merge_iwa) { // merging IWAs
+          if (merge_iwa) { // merging IWAs
             if (-1 == iwa_index) {
               iwa_index = part_index;
               part_to_type_map[iwa_index] = PartitionType::INHERENTLY_WEAK;
@@ -1798,7 +1632,7 @@ namespace cola
           }
         } else if (is_accepting_detscc(scc_types, i)) {
           DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is DAC");
-          if (opt.merge_det) { // merging DACs
+          if (merge_det) { // merging DACs
             if (-1 == dac_index) {
               dac_index = part_index;
               part_to_type_map[dac_index] = PartitionType::DETERMINISTIC;
@@ -1855,7 +1689,7 @@ namespace cola
           alg = std::make_unique<kofola::complement_ncsb>(compl_info, i);
         }
         else if (PartitionType::NONDETERMINISTIC == compl_info.part_to_type_map_.at(i)) {
-          if (compl_info.options_.rank_for_nacs) { // use rank-based for NACs
+          if (kofola::has_value("nac-alg", "rank", compl_info.options_.params)) { // use rank-based for NACs
             alg = std::make_unique<kofola::complement_rank>(compl_info, i);
           } else { // use determinization-based
             alg = std::make_unique<kofola::complement_safra>(compl_info, i);
@@ -1883,7 +1717,7 @@ namespace cola
       // }
 
       this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
-      this->aut_ = saturation(this->aut_, this->si_);
+      this->aut_ = kofola::saturate(this->aut_, this->si_);
       this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
 
       if (kofola::LOG_VERBOSITY > 0) {
@@ -1939,7 +1773,7 @@ namespace cola
       }
 
 
-      auto partitions = create_partitions(this->si_, this->decomp_options_);
+      auto partitions = create_partitions(this->si_, this->options_);
       const size_t num_partitions = std::get<0>(partitions);
       kofola::PartitionToTypeMap part_to_type_map = std::get<1>(partitions);
       kofola::StateToPartitionMap st_part_map = std::get<2>(partitions);
@@ -1963,7 +1797,7 @@ namespace cola
         this->si_,              // SCC information
         this->dir_sim_,         // direct simulation
         this->is_accepting_,    // vector for acceptance of states
-        this->decomp_options_); // options
+        this->options_);        // options
 
       DEBUG_PRINT_LN("selecting algorithms");
 
@@ -2196,123 +2030,17 @@ namespace cola
       return result;
     } // run_new() }}}
   };
+}
 
 
-  spot::twa_graph_ptr complement_tnba(
-    const spot::twa_graph_ptr& aut,
-    spot::option_map&          om,
-    compl_decomp_options       decomp_options)
-  {
-    const int trans_pruning = om.get(NUM_TRANS_PRUNING);
-    // now we compute the simulator
-    spot::twa_graph_ptr aut_reduced;
-    std::vector<bdd> implications;
-    spot::twa_graph_ptr aut_tmp = nullptr;
-    if (om.get(USE_SIMULATION) > 0)
-    {
-      aut_tmp = spot::scc_filter(aut);
-      auto aut2 = spot::simulation(aut_tmp, &implications, trans_pruning);
-      aut_tmp = aut2;
-    }
-    if (aut_tmp)
-      aut_reduced = aut_tmp;
-    else
-      aut_reduced = aut;
+spot::twa_graph_ptr kofola::complement_sync(
+	const spot::twa_graph_ptr&  aut,
+	const kofola::options&      options)
+{
+	spot::scc_info si(aut, spot::scc_info_options::ALL);
 
-    spot::scc_info scc(aut_reduced, spot::scc_info_options::ALL);
+	auto comp = cola::tnba_complement(aut, si, options);
+	auto res = comp.run_new();
 
-    if (decomp_options.scc_compl)
-    {
-      // saturation
-      if (decomp_options.sat)
-      {
-        aut_reduced = saturation(aut_reduced, scc);
-        spot::scc_info scc_sat(aut_reduced, spot::scc_info_options::ALL);
-        scc = scc_sat;
-      }
-
-      // decompose source automaton
-      cola::decomposer decomp(aut_reduced, om);
-      auto decomposed = decomp.run(true, decomp_options.merge_iwa, decomp_options.merge_det);
-
-      if (decomposed.size() > 0)
-      {
-        std::vector<spot::twa_graph_ptr> part_res;
-
-        spot::postprocessor p_pre;
-        p_pre.set_type(spot::postprocessor::Buchi);
-        p_pre.set_level(spot::postprocessor::High);
-
-        spot::postprocessor p_post;
-        p_post.set_type(spot::postprocessor::Generic);
-        if (decomp_options.low_red_interm) {
-          p_post.set_level(spot::postprocessor::Low);
-        } else {
-          p_post.set_level(spot::postprocessor::High);
-        }
-
-        // comparison for priority queue - smallest automata should be at top
-        auto aut_cmp = [](const auto& lhs, const auto& rhs){ return lhs->num_states() > rhs->num_states();};
-        std::priority_queue<spot::twa_graph_ptr,
-          std::vector<spot::twa_graph_ptr>, decltype(aut_cmp)> aut_queue(aut_cmp);
-        for (auto aut : decomposed)
-        {
-          // if (decomp_options.scc_compl_high)
-          //   p.set_level(spot::postprocessor::High);
-          // else
-          //   p.set_level(spot::postprocessor::Low);
-          // complement each automaton
-          auto aut_preprocessed = p_pre.run(aut);
-          spot::scc_info part_scc(aut_preprocessed, spot::scc_info_options::ALL);
-
-          auto comp = cola::tnba_complement(aut_preprocessed, part_scc, om, implications, decomp_options);
-          auto dec_aut = comp.run_new();
-          // postprocessing for each automaton
-          // part_res.push_back(p_post.run(dec_aut));
-          aut_queue.push(p_post.run(dec_aut));
-        }
-
-        assert(!aut_queue.empty());
-        while (aut_queue.size() > 1) { // until single aut remains
-          auto first_aut = aut_queue.top();
-          aut_queue.pop();
-          DEBUG_PRINT_LN("first_aut size = " + std::to_string(first_aut->num_states()));
-          auto second_aut = aut_queue.top();
-          aut_queue.pop();
-          DEBUG_PRINT_LN("second_aut size = " + std::to_string(second_aut->num_states()));
-          auto result = spot::product(first_aut, second_aut);
-          result = p_post.run(result);
-          aut_queue.push(result);
-        }
-
-        return aut_queue.top();
-      }
-    }
-
-    // make sure the input is a BA
-    spot::postprocessor p;
-    p.set_type(spot::postprocessor::Buchi);
-    p.set_level(spot::postprocessor::High);
-    spot::const_twa_graph_ptr aut_to_compl;
-    aut_to_compl = p.run(aut_reduced);
-
-    auto comp = cola::tnba_complement(aut_to_compl, scc, om, implications, decomp_options);
-    auto res = comp.run_new();
-    DEBUG_PRINT_LN("finished call to run_new()");
-
-    // postprocessing
-    if (!decomp_options.raw) {
-      spot::postprocessor p_post;
-      if (decomp_options.tba) {
-        p_post.set_type(spot::postprocessor::Buchi);
-      } else {
-        p_post.set_type(spot::postprocessor::Generic);
-      }
-
-      p_post.set_level(spot::postprocessor::Low);
-      res = p_post.run(res);
-    }
-
-    return res;
-  }
+	return res;
 }
