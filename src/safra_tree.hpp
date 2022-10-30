@@ -10,8 +10,8 @@ public:
   mstate() {}
   virtual ~mstate() {}
   virtual size_t hash() const { return 0; };
-  virtual bool less_than(const mstate *other) const { return false; }
-  virtual bool eq(const mstate *other) const { return false; }
+  virtual bool less_than(const mstate*) const { return false; }
+  virtual bool eq(const mstate*) const { return false; }
   // bool operator != (const mstate& other) {
   //   return ! (*this == &other);
   // }

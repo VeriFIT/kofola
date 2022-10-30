@@ -89,49 +89,49 @@ bool compare_braces(const std::vector<int>& braces, int a, int b)
 } // compare_braces }}}
 
 
-bool is_simulation_bigger(unsigned j, unsigned i, const Simulation& sim)
-{ // {{{
-  for (const auto& st_st_pair : sim) {
-    if (st_st_pair.first == i && st_st_pair.second == j) { return true; }
-  }
-  return false;
-} // is_simulation_bigger() }}}
+// bool is_simulation_bigger(unsigned j, unsigned i, const Simulation& sim)
+// { // {{{
+//   for (const auto& st_st_pair : sim) {
+//     if (st_st_pair.first == i && st_st_pair.second == j) { return true; }
+//   }
+//   return false;
+// } // is_simulation_bigger() }}}
 
 
-void simulation_reduce(safra_tree& next, const cmpl_info& info)
-{ // {{{
-  auto it1 = next.labels_.begin();
-  while (it1 != next.labels_.end()) {
-    auto old_it1 = it1++;
-    for (auto it2 = next.labels_.begin(); it2 != next.labels_.end(); ++it2) {
-      if (old_it1 == it2)
-        continue;
-      unsigned i = old_it1->first;
-      unsigned j = it2->first;
-      // j simulates i?
-      if (!is_simulation_bigger(j, i, info.dir_sim_)) {
-        continue;
-      }
-      int brace_i = old_it1->second;
-      int brace_j = it2->second;
-      bool remove = false;
-      // need to compare there nesting pattern
-      // TODO: should we check partition instead?
-      unsigned scc_i = info.scc_info_.scc_of(i);
-      // std::cout << "State " << i << " brace: " << brace_i <<
-      // std::endl; std::cout << "State " << j << " brace: " <<
-      // brace_j << std::endl;
-      // print_pattern_vec(braces, braces.size());
-      if (compare_braces(next.braces_, brace_j, brace_i)) {
-        remove = true;
-      }
-      if (remove) {
-        it1 = next.labels_.erase(old_it1);
-        break;
-      }
-    }
-  }
-} // simulation_reduce() }}}
+// void simulation_reduce(safra_tree& next, const cmpl_info& info)
+// { // {{{
+//   auto it1 = next.labels_.begin();
+//   while (it1 != next.labels_.end()) {
+//     auto old_it1 = it1++;
+//     for (auto it2 = next.labels_.begin(); it2 != next.labels_.end(); ++it2) {
+//       if (old_it1 == it2)
+//         continue;
+//       unsigned i = old_it1->first;
+//       unsigned j = it2->first;
+//       // j simulates i?
+//       if (!is_simulation_bigger(j, i, info.dir_sim_)) {
+//         continue;
+//       }
+//       int brace_i = old_it1->second;
+//       int brace_j = it2->second;
+//       bool remove = false;
+//       // need to compare there nesting pattern
+//       // TODO: should we check partition instead?
+//       // unsigned scc_i = info.scc_info_.scc_of(i);
+//       // std::cout << "State " << i << " brace: " << brace_i <<
+//       // std::endl; std::cout << "State " << j << " brace: " <<
+//       // brace_j << std::endl;
+//       // print_pattern_vec(braces, braces.size());
+//       if (compare_braces(next.braces_, brace_j, brace_i)) {
+//         remove = true;
+//       }
+//       if (remove) {
+//         it1 = next.labels_.erase(old_it1);
+//         break;
+//       }
+//     }
+//   }
+// } // simulation_reduce() }}}
 
 
 unsigned determine_color (safra_tree& next)
@@ -311,7 +311,7 @@ complement_safra::complement_safra(const cmpl_info& info, unsigned part_index) :
 { }
 
 
-mstate_set complement_safra::get_init() const
+mstate_set complement_safra::get_init()
 { // {{{
   std::set<unsigned> init_states;
   unsigned orig_init = this->info_.aut_->get_init_state_number();
@@ -333,15 +333,15 @@ mstate_set complement_safra::get_init() const
 
 
 mstate_col_set complement_safra::get_succ_track(
-  const std::set<unsigned>&  glob_reached,
-  const mstate*              src,
-  const bdd&                 symbol) const
+  const std::set<unsigned>&  /*glob_reached*/,
+  const mstate*              /*src*/,
+  const bdd&                 /*symbol*/)
 { // {{{
   assert(false);
 } // get_succ_track() }}}
 
 
-mstate_set complement_safra::lift_track_to_active(const mstate* src) const
+mstate_set complement_safra::lift_track_to_active(const mstate* src)
 { // {{{
   const mstate_safra* src_safra = dynamic_cast<const mstate_safra*>(src);
   assert(src_safra);
@@ -354,7 +354,7 @@ mstate_set complement_safra::lift_track_to_active(const mstate* src) const
 mstate_col_set complement_safra::get_succ_active(
   const std::set<unsigned>&  glob_reached,
   const mstate*              src,
-  const bdd&                 symbol) const
+  const bdd&                 symbol)
 { // {{{
   const mstate_safra* src_safra = dynamic_cast<const mstate_safra*>(src);
   assert(src_safra);
@@ -481,7 +481,7 @@ mstate_col_set complement_safra::get_succ_active(
 } // get_succ_active() }}}
 
 
-spot::acc_cond complement_safra::get_acc_cond() const
+spot::acc_cond complement_safra::get_acc_cond()
 { // {{{
   if (this->max_colour_ < 0) { // no colour was generated
     assert(false);

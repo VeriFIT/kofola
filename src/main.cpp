@@ -166,7 +166,8 @@ kofola::string_to_string_dict parse_params(const std::string& str)
 		DEBUG_PRINT_LN("parameter key = " + key + ", value = " + value);
 		auto it_bool_pair = res.insert({key, value});
 		if (!it_bool_pair.second) {
-			throw std::runtime_error("an attempt to redefine parameter " + key + " with " + value);
+			throw std::runtime_error("an attempt to redefine parameter \'" + key +
+				"\' with \'" + value + "\'");
 		}
 	}
 

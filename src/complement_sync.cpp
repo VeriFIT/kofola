@@ -26,7 +26,8 @@
 #include "complement_alg_mh.hpp"
 #include "complement_alg_ncsb.hpp"
 #include "complement_alg_safra.hpp"
-#include "complement_alg_rank.hpp"
+// #include "complement_alg_rank.hpp"
+#include "complement_alg_rank2.hpp"
 
 #include <deque>
 #include <map>
@@ -1686,7 +1687,7 @@ namespace cola
         }
         else if (PartitionType::NONDETERMINISTIC == compl_info.part_to_type_map_.at(i)) {
           if (kofola::has_value("nac-alg", "rank", kofola::OPTIONS.params)) { // use rank-based for NACs
-            alg = std::make_unique<kofola::complement_rank>(compl_info, i);
+            alg = std::make_unique<kofola::complement_rank2>(compl_info, i);
           } else { // use determinization-based
             alg = std::make_unique<kofola::complement_safra>(compl_info, i);
           }

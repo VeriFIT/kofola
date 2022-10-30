@@ -14,10 +14,10 @@ class mstate_ncsb : public abstract_complement_alg::mstate
 { // {{{
 private: // DATA MEMBERS
 
-  bool active_;                    // true = active ; false = track
   std::set<unsigned> check_;       // states for runs that need to be checked
   std::set<unsigned> safe_;        // safe states (cannot see accepting transition)
   std::set<unsigned> breakpoint_;
+  bool active_;                    // true = active ; false = track
 
 public: // METHODS
 
@@ -108,7 +108,7 @@ complement_ncsb::complement_ncsb(const cmpl_info& info, unsigned part_index)
   : abstract_complement_alg(info, part_index)
 { }
 
-mstate_set complement_ncsb::get_init() const
+mstate_set complement_ncsb::get_init()
 { // {{{
   DEBUG_PRINT_LN("init NCSB for partition " + std::to_string(this->part_index_));
   std::set<unsigned> init_state;
@@ -126,7 +126,7 @@ mstate_set complement_ncsb::get_init() const
 mstate_col_set complement_ncsb::get_succ_track(
   const std::set<unsigned>&  glob_reached,
   const mstate*              src,
-  const bdd&                 symbol) const
+  const bdd&                 symbol)
 {
   const mstate_ncsb* src_ncsb = dynamic_cast<const mstate_ncsb*>(src);
   assert(src_ncsb);
@@ -160,7 +160,7 @@ mstate_col_set complement_ncsb::get_succ_track(
   mstate_col_set result = {{ms, {}}}; return result;
 } // get_succ_track() }}}
 
-mstate_set complement_ncsb::lift_track_to_active(const mstate* src) const
+mstate_set complement_ncsb::lift_track_to_active(const mstate* src)
 { // {{{
   const mstate_ncsb* src_ncsb = dynamic_cast<const mstate_ncsb*>(src);
   assert(src_ncsb);
@@ -173,7 +173,7 @@ mstate_set complement_ncsb::lift_track_to_active(const mstate* src) const
 mstate_col_set complement_ncsb::get_succ_active(
   const std::set<unsigned>&  glob_reached,
   const mstate*              src,
-  const bdd&                 symbol) const
+  const bdd&                 symbol)
 {
   DEBUG_PRINT_LN("computing successor for glob_reached = " + std::to_string(glob_reached) +
     ", " + std::to_string(*src) + " over " + std::to_string(symbol));

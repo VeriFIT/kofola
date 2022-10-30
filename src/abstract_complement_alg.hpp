@@ -24,11 +24,11 @@ struct cmpl_info
   /// number of partitions
   const size_t num_partitions_;
 
-  /// a map of states to partitions
-  const StateToPartitionMap& st_to_part_map_;
-
   /// types of partitions
   const PartitionToTypeMap& part_to_type_map_;
+
+  /// a map of states to partitions
+  const StateToPartitionMap& st_to_part_map_;
 
   /// vector of states reachable from given state
   const ReachableVector& reachable_vector_;
@@ -123,22 +123,22 @@ public: // METHODS
   { }
 
   /// returns initial partial macrostate
-  virtual mstate_set get_init() const = 0;
+  virtual mstate_set get_init() = 0;
 
   /// tracking successors
   virtual mstate_col_set get_succ_track(
-    const std::set<unsigned>&  glob_reached,      // all states reached over symbol
-    const mstate*              src,               // partial macrostate
-    const bdd&                 symbol) const = 0; // symbol
+    const std::set<unsigned>&  glob_reached,  // all states reached over symbol
+    const mstate*              src,           // partial macrostate
+    const bdd&                 symbol) = 0;   // symbol
 
   /// lifts tracking state to active state
-  virtual mstate_set lift_track_to_active(const mstate* src) const = 0;
+  virtual mstate_set lift_track_to_active(const mstate* src) = 0;
 
   /// active successors
   virtual mstate_col_set get_succ_active(
-    const std::set<unsigned>&  glob_reached,      // all states reached over symbol
-    const mstate*              src,               // partial macrostate
-    const bdd&                 symbol) const = 0; // symbol
+    const std::set<unsigned>&  glob_reached,  // all states reached over symbol
+    const mstate*              src,           // partial macrostate
+    const bdd&                 symbol) = 0;   // symbol
 
   /// determines whether the algorithm should be use in round-robin scheme;
   /// in particular:
@@ -148,7 +148,7 @@ public: // METHODS
   virtual bool use_round_robin() const = 0;
 
   /// returns the acceptance condition
-  virtual spot::acc_cond get_acc_cond() const = 0;
+  virtual spot::acc_cond get_acc_cond() = 0;
 
   /// returns the minimum colour used - HACK to allow colour reshuffle for Safra-based algorithm
   virtual unsigned get_min_colour() const = 0;

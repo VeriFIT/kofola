@@ -15,9 +15,9 @@ class mstate_mh : public abstract_complement_alg::mstate
 { // {{{
 private: // DATA MEMBERS
 
-  bool active_;
   std::set<unsigned> states_;
   std::set<unsigned> breakpoint_;
+  bool active_;
 
 public: // METHODS
 
@@ -77,7 +77,7 @@ complement_mh::complement_mh(const cmpl_info& info, unsigned part_index)
   : abstract_complement_alg(info, part_index)
 { }
 
-mstate_set complement_mh::get_init() const
+mstate_set complement_mh::get_init()
 { // {{{
   std::set<unsigned> init_state;
 
@@ -96,7 +96,7 @@ mstate_set complement_mh::get_init() const
 mstate_col_set complement_mh::get_succ_track(
   const std::set<unsigned>&  glob_reached,
   const mstate*              src,
-  const bdd&                 symbol) const
+  const bdd&                 symbol)
 { // {{{
   DEBUG_PRINT_LN("Miyano-Hayashi successor");
   DEBUG_PRINT_LN("glob_reached = " + std::to_string(glob_reached));
@@ -118,7 +118,7 @@ mstate_col_set complement_mh::get_succ_track(
   return {{ms, {}}};
 } // get_succ_track() }}}
 
-mstate_set complement_mh::lift_track_to_active(const mstate* src) const
+mstate_set complement_mh::lift_track_to_active(const mstate* src)
 { // {{{
   const mstate_mh* src_mh = dynamic_cast<const mstate_mh*>(src);
   assert(src_mh);
@@ -131,7 +131,7 @@ mstate_set complement_mh::lift_track_to_active(const mstate* src) const
 mstate_col_set complement_mh::get_succ_active(
   const std::set<unsigned>&  glob_reached,
   const mstate*              src,
-  const bdd&                 symbol) const
+  const bdd&                 symbol)
 {
   const mstate_mh* src_mh = dynamic_cast<const mstate_mh*>(src);
   assert(src_mh);
