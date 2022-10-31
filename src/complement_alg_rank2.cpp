@@ -214,6 +214,14 @@ private:  // DATA MEMBERS
 
 	// TODO
 
+private: // METHODS
+
+	/// gets a vector of order-maximal tight rankings for a given macrostate
+	std::vector<ranking> get_max_tight_rankings(const std::set<unsigned>& states);
+
+	/// gets the rank bounds for each state in a macrostate
+	ranking get_rank_bounds(const std::set<unsigned>& states);
+
 public:  // METHODS
 
 	/// constructor
@@ -270,13 +278,55 @@ mstate_set complement_rank2::impl::get_init()
   return result;
 } // get_init() }}}
 
+
 mstate_col_set complement_rank2::impl::get_succ_track(
 	const std::set<unsigned>&  glob_reached,
 	const mstate*              src,
 	const bdd&                 symbol)
-{
+{ // {{{
 	assert(false);
-}
+	assert(&glob_reached);
+	assert(src);
+	assert(&symbol);
+} // get_succ_track() }}}
+
+
+ranking complement_rank2::impl::get_rank_bounds(const std::set<unsigned>& states)
+{ // {{{
+	assert(states.size() > 0);
+	assert(states.size() != 1 || *states.begin() != BOX);   // BOX is not the only element
+
+	unsigned max_rank = 2* states.size() - 1;    // TODO: refine
+
+	ranking bounds;
+
+	DEBUG_PRINT_LN("FIXME: get tighter bounds!");
+
+	if (kofola::is_in(BOX, states)) {
+		auto it_bool_pair = bounds.emplace(BOX, max_rank);
+		assert(it_bool_pair.second);
+		max_rank -= 2;
+	}
+
+	for (unsigned st : states) {
+		if (BOX != st) {
+			auto it_bool_pair = bounds.emplace(st, max_rank);
+			assert(it_bool_pair.second);
+		}
+	}
+
+	return bounds;
+} // get_rank_bounds() }}}
+
+
+std::vector<ranking> complement_rank2::impl::get_max_tight_rankings(
+	const std::set<unsigned>& states)
+{ // {{{
+	// get the upper bound on the ranks of each state
+	ranking rank_bounds = this->get_rank_bounds(states);
+
+	assert(false);
+} // get_max_tight_rankings() }}}
 
 
 mstate_set complement_rank2::impl::lift_track_to_active(const mstate* src)
@@ -300,6 +350,8 @@ mstate_set complement_rank2::impl::lift_track_to_active(const mstate* src)
 				(src_rank->states_.size() == 1 && BOX == *src_rank->states_.begin())) {
 			return result;
 		}
+
+		std::vector<ranking> max_rankings = this->get_max_tight_rankings(src_rank->states_);
 
 		assert(false);
 
@@ -371,8 +423,13 @@ mstate_col_set complement_rank2::impl::get_succ_active(
 	const bdd&                 symbol)
 {
 	assert(false);
+	assert(&glob_reached);
+	assert(src);
+	assert(&symbol);
 }
 
+
+//  ********************* complement_rank2 **************************
 
 complement_rank2::complement_rank2(const cmpl_info& info, unsigned part_index) :
 	abstract_complement_alg(info, part_index),
@@ -387,13 +444,12 @@ mstate_col_set complement_rank2::get_succ_track(
 	const std::set<unsigned>&  glob_reached,
 	const mstate*              src,
 	const bdd&                 symbol)
-{
-	assert(false);
-}
+{ return this->pimpl_->get_succ_track(glob_reached, src, symbol); }
 
 
 mstate_set complement_rank2::lift_track_to_active(const mstate* src)
 { return this->pimpl_->lift_track_to_active(src); }
+
 
 mstate_col_set complement_rank2::get_succ_active(
 	const std::set<unsigned>&  glob_reached,
