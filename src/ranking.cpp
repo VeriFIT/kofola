@@ -28,6 +28,18 @@ std::string ranking::to_string() const
 }
 
 
+std::set<unsigned> ranking::with_rank(unsigned rank) const
+{
+	std::set<unsigned> res;
+	for (const auto& elem_rank_pair : *this) {
+		if (elem_rank_pair.second == rank) {
+			res.emplace(elem_rank_pair.first);
+		}
+	}
+	return res;
+}
+
+
 bool ranking::operator==(const ranking& rhs) const
 { // {{{
 	if (this->get_max_rank() != rhs.get_max_rank() ||

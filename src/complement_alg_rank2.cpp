@@ -16,6 +16,7 @@
 // kofola
 #include "complement_alg_rank2.hpp"
 #include "ranking.hpp"
+#include "util.hpp"
 
 using namespace kofola;
 using mstate_set = abstract_complement_alg::mstate_set;
@@ -219,6 +220,13 @@ private: // METHODS
 	/// gets a vector of order-maximal tight rankings for a given macrostate
 	std::vector<ranking> get_max_tight_rankings(const std::set<unsigned>& states);
 
+	/// gets a vector of order-maximal tight rankings with the given rank (i.e.,
+	/// the maximum rank of a state) for a given macrostate
+	std::vector<ranking> get_max_tight_rankings_with_rank(
+		const std::set<unsigned>&  states,
+		unsigned                   rank,
+		const ranking&             bounds);
+
 	/// gets the rank bounds for each state in a macrostate
 	ranking get_rank_bounds(const std::set<unsigned>& states);
 
@@ -319,13 +327,76 @@ ranking complement_rank2::impl::get_rank_bounds(const std::set<unsigned>& states
 } // get_rank_bounds() }}}
 
 
+std::vector<ranking> complement_rank2::impl::get_max_tight_rankings_with_rank(
+	const std::set<unsigned>&  states,
+	unsigned                   rank,
+	const ranking&             bounds)
+{ // {{{
+	assert(rank % 2 == 1);               // rank should be odd
+
+	// here, CORE will be the states that keep the tight ranking of a run, cf.
+	// our CONCUR'21 paper; RANKED CORE are states of a CORE with assigned ranks
+	// (possibly implicitly, e.g., by order in a vector)
+	unsigned core_size = (rank+1) / 2;
+	assert(core_size <= states.size());  // core_size should be reasonable
+
+	std::vector<unsigned> vec_states(states.begin(), states.end());
+
+	std::vector<std::pair<std::vector<unsigned>, std::vector<unsigned>>>
+		ranked_cores = kofola::partial_permutations_ext(vec_states, core_size);
+
+	DEBUG_PRINT_LN("ranked cores: " + std::to_string(ranked_cores));
+
+	std::vector<ranking> vec_rankings;
+	for (const auto& core_rest_pair : ranked_cores) {
+		const std::vector<unsigned>& r_core = core_rest_pair.first;
+		const std::vector<unsigned>& rest = core_rest_pair.second;
+		ranking core_ranking;
+		for (size_t i = 0; i < r_core.size(); ++i) {
+			core_ranking.insert({r_core[i], 2 * i + 1});
+		}
+
+		DEBUG_PRINT_LN("core ranking: " + std::to_string(core_ranking));
+		if (!rest.empty())
+		{
+			assert(false);
+		}
+
+		vec_rankings.emplace_back(core_ranking);
+	}
+
+	return vec_rankings;
+} // get_max_tight_rankings_with_rank() }}}
+
+
 std::vector<ranking> complement_rank2::impl::get_max_tight_rankings(
 	const std::set<unsigned>& states)
 { // {{{
 	// get the upper bound on the ranks of each state
-	ranking rank_bounds = this->get_rank_bounds(states);
+	ranking bounds = this->get_rank_bounds(states);
+	assert(!bounds.empty());
+	DEBUG_PRINT_LN("rank bounds: " + std::to_string(bounds));
 
-	assert(false);
+	// get maximum possible rank
+	auto it_max = std::max_element(bounds.begin(), bounds.end(),
+		[](const auto& lhs, const auto& rhs){ return lhs.second < rhs.second; });
+	assert(it_max != bounds.end());
+	int max_rank = static_cast<int>(it_max->second);
+	if (max_rank % 2 == 0) { --max_rank; }    // make max_rank odd (danger: can become negative)
+	DEBUG_PRINT_LN("max rank: " + std::to_string(max_rank));
+
+	std::vector<ranking> vec_rankings;
+	for (; max_rank > 0; --max_rank) {
+		std::vector<ranking> rankings_for_rank =
+			this->get_max_tight_rankings_with_rank(states, max_rank, bounds);
+		DEBUG_PRINT_LN("max tight rankings for rank " + std::to_string(max_rank) +
+			": " + std::to_string(rankings_for_rank));
+		vec_rankings.insert(vec_rankings.end(),
+			rankings_for_rank.begin(), rankings_for_rank.end());
+	}
+
+	DEBUG_PRINT_LN("max tight rankings: " + std::to_string(vec_rankings));
+	return vec_rankings;
 } // get_max_tight_rankings() }}}
 
 
@@ -353,7 +424,17 @@ mstate_set complement_rank2::impl::lift_track_to_active(const mstate* src)
 
 		std::vector<ranking> max_rankings = this->get_max_tight_rankings(src_rank->states_);
 
-		assert(false);
+		DEBUG_PRINT_LN("max tight rankings: " + std::to_string(max_rankings));
+
+		for (const auto& f : max_rankings) {
+			std::set<unsigned> breakpoint = f.with_rank(0);
+
+			std::shared_ptr<mstate> ms(new mstate_rank(mstate_rank::create_tight_active_ms(
+				breakpoint,     // breakpoint (O)
+				f,              // ranking (f)
+				0)));           // index of tracked rank (i)
+			result.push_back(ms);
+		}
 
 		// // and let's compute the successors that move to TIGHT
 		// std::vector<std::tuple<int, int, bool>> r;
@@ -400,10 +481,7 @@ mstate_set complement_rank2::impl::lift_track_to_active(const mstate* src)
 	} else { // src is from TIGHT
 		DEBUG_PRINT_LN("lifting TIGHT state");
 		int new_i = 0;
-		std::set<unsigned> breakpoint;
-		for (auto pr : src_rank->f_) { // construct breakpoint
-			if (pr.second == new_i) { breakpoint.insert(pr.first); }
-		}
+		std::set<unsigned> breakpoint = src_rank->f_.with_rank(new_i);
 
 		std::shared_ptr<mstate> ms(new mstate_rank(mstate_rank::create_tight_active_ms(
 			breakpoint,        // breakpoint (O)
@@ -421,12 +499,17 @@ mstate_col_set complement_rank2::impl::get_succ_active(
 	const std::set<unsigned>&  glob_reached,
 	const mstate*              src,
 	const bdd&                 symbol)
-{
+{ // {{{
+	const mstate_rank* src_rank = dynamic_cast<const mstate_rank*>(src);
+	assert(src_rank);
+	assert(src_rank->active_);
+	assert(src_rank->invariants_hold());
+
+	DEBUG_PRINT_LN("getting active successor for " + std::to_string(*src) +
+		" over symbol " + std::to_string(symbol));
+
 	assert(false);
-	assert(&glob_reached);
-	assert(src);
-	assert(&symbol);
-}
+} // get_succ_active() }}}
 
 
 //  ********************* complement_rank2 **************************

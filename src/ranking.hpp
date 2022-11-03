@@ -42,6 +42,9 @@ public:  // METHODS
 	bool is_bigger(ranking other);
 	std::string to_string() const;
 
+	/// returns all elements with the given rank (i.e., the pre-image of 'rank')
+	std::set<unsigned> with_rank(unsigned rank) const;
+
 	bool operator==(const ranking& rhs) const;
 
 	bool operator<(const ranking& rhs) const;
