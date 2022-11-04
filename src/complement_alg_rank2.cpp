@@ -362,7 +362,7 @@ std::vector<ranking> complement_rank2::impl::get_max_tight_rankings_with_rank(
 			assert(false);
 		}
 
-		vec_rankings.emplace_back(core_ranking);
+		vec_rankings.push_back(core_ranking);
 	}
 
 	return vec_rankings;

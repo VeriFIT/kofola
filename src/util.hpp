@@ -82,7 +82,7 @@ std::vector<std::pair<std::vector<T>, std::vector<T>>>
 	TmpStateType tmp_set{{{}, vec}};
 	for (unsigned i = 0; i < num; ++i) {
 		TmpStateType next_tmp_set;
-		for (const auto pair_of_vec : tmp_set) {
+		for (const auto& pair_of_vec : tmp_set) {
 			const std::vector<T>& perm = pair_of_vec.first;
 			const std::vector<T>& rest = pair_of_vec.second;
 			assert(!rest.empty());
@@ -92,9 +92,8 @@ std::vector<std::pair<std::vector<T>, std::vector<T>>>
 				std::vector<T> perm_cpy = perm;
 				std::vector<T> rest_cpy = rest;
 				perm_cpy.push_back(rest[k]);
-				rest_cpy.erase(rest.begin() + k);
-				std::pair<std::vector<T>, std::vector<T>> new_pair{perm_cpy, rest_cpy};
-				next_tmp_set.emplace_back(std::move(new_pair));
+				rest_cpy.erase(rest_cpy.begin() + k);
+				next_tmp_set.push_back({perm_cpy, rest_cpy});
 			}
 		}
 		tmp_set = std::move(next_tmp_set);
@@ -112,7 +111,7 @@ std::vector<std::vector<T>> partial_permutations(const std::vector<T>& vec, unsi
 	auto perms = partial_permutations_ext(vec, num);
 	std::vector<std::vector<T>> res;
 	for (auto& pair_of_vec : perms) {
-		res.emplace_back(std::move(pair_of_vec.first));
+		res.push_back(std::move(pair_of_vec.first));
 	}
 
 	return res;
