@@ -11,6 +11,9 @@ on:
     branches: 
       - master 
       - devel
+  # allows to run the action from GitHub UI
+  workflow_dispatch:
+
 
 jobs:
   setup:
