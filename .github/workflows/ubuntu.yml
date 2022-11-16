@@ -19,9 +19,10 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Building Unix dependencies 
-      - run: sudo wget -O /etc/apt/trusted.gpg.d/lrde.gpg https://www.lrde.epita.fr/repo/debian.gpg
+      - name: Check out repository code
+        uses: actions/checkout@v3
+      - name: Install dependencies 
+        run: sudo wget -O /etc/apt/trusted.gpg.d/lrde.gpg https://www.lrde.epita.fr/repo/debian.gpg
       - run: sudo echo 'deb http://www.lrde.epita.fr/repo/debian/ unstable/' >> /etc/apt/sources.list
       - run: sudo apt-get update
       - run: sudo apt-get install -y spot libspot-dev python3-spot
