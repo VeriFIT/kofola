@@ -1056,15 +1056,20 @@ namespace cola
       /// index of the active component for round robin
       int active_scc_;
 
+      /// shared breakpoint
+      std::set<unsigned> shared_breakpoint_;
+
     public:  // METHODS
 
       /// constructor
       uberstate(const std::set<unsigned>& reached_states,
                 const vec_macrostates& part_macrostates,
-                int active_scc) :
+                int active_scc,
+                const std::set<unsigned>& shared_breakpoint) :
         reached_states_(reached_states),
         part_macrostates_(part_macrostates),
-        active_scc_(active_scc)
+        active_scc_(active_scc),
+        shared_breakpoint_(shared_breakpoint)
       { }
 
       /// move constructor
@@ -1074,7 +1079,8 @@ namespace cola
       uberstate(const uberstate& us) :
         reached_states_(us.reached_states_),
         part_macrostates_(us.part_macrostates_),
-        active_scc_(us.active_scc_)
+        active_scc_(us.active_scc_),
+        shared_breakpoint_(us.shared_breakpoint_)
       { }
 
       uberstate& operator=(const uberstate& us) = delete;
@@ -1085,6 +1091,7 @@ namespace cola
         std::string result;
         result += "<" + std::to_string(this->reached_states_);
         result += " |" + std::to_string(this->active_scc_) + "| ";
+        result += std::to_string(this->shared_breakpoint_) + "| ";
 
         for (size_t i = 0; i < this->part_macrostates_.size(); ++i) {
           result += "c" + std::to_string(i) + ": " +
@@ -1117,6 +1124,10 @@ namespace cola
       const int get_active_scc() const
       { return this->active_scc_; }
 
+      /// get shared breakpoint
+      const std::set<unsigned>& get_shared_breakpoint() const
+      { return this->shared_breakpoint_; }
+
       /// total ordering operator to allow use in std::set and std::map
       bool operator<(const uberstate& rhs) const
       { // {{{
@@ -1142,6 +1153,11 @@ namespace cola
           }
         }
 
+        // compare according to shared breakpoint
+        if(this->shared_breakpoint_ != rhs.shared_breakpoint_) {
+          return this->shared_breakpoint_ < rhs.shared_breakpoint_;
+        }
+
         // they are equal
         return false;
       } // operator< }}}
@@ -1161,6 +1177,11 @@ namespace cola
           if (*(this->part_macrostates_[i]) != *(rhs.part_macrostates_[i])) {
             return false;
           }
+        }
+
+        // compare according to shared breakpoint
+        if(this->shared_breakpoint_ != rhs.shared_breakpoint_) {
+          return false;
         }
 
         return true;
@@ -1428,10 +1449,20 @@ namespace cola
       // this container collects all sets of pairs of macrostates and colours,
       // later, we will turn it into the Cartesian product
       std::vector<mstate_taggedcol_set> succ_part_macro_col;
+      const std::set<unsigned>& sh_break = src.get_shared_breakpoint();
+      DEBUG_PRINT_LN("Shared breakpoint " + std::to_string(sh_break));
       for (size_t i = 0; i < algos.size(); ++i) {
         const kofola::abstract_complement_alg::mstate* ms = prev_part_macro[i].get();
         mstate_col_set mcs;
-        if (active_index == i || !algos[i]->use_round_robin()) {
+
+        // for shared breakpoint we need to propagete the breakpoint to each partial macrostate
+        if(algos[i]->use_shared_breakpoint()) {
+          const_cast<mstate*>(ms)->set_breakpoint(sh_break);
+        }
+
+        if(algos[i]->use_shared_breakpoint()) {
+          mcs = algos[i]->get_succ_active(all_succ, ms, symbol, sh_break.empty());
+        } else if (active_index == i || !algos[i]->use_round_robin()) {
           mcs = algos[i]->get_succ_active(all_succ, ms, symbol);
         } else {
           mcs = algos[i]->get_succ_track(all_succ, ms, symbol);
@@ -1439,6 +1470,10 @@ namespace cola
 
         if (mcs.empty()) { // one empty set of successor macrostates
           return {};
+        }
+
+        if(algos[i]->use_shared_breakpoint()) {
+          const_cast<mstate*>(ms)->clear_breakpoint();
         }
 
         // tagged colours
@@ -1465,21 +1500,38 @@ namespace cola
       vec_state_taggedcol result;
       for (const auto& vec : cp) {
         vec_macrostates vm;
+        bool found = false;
+        std::set<unsigned> breakpoint;
         std::set<std::pair<unsigned, unsigned>> cols;
-        for (const auto& ms_col : vec) {
-          vm.push_back(ms_col.first);
-          cols.insert(ms_col.second.begin(), ms_col.second.end());
+
+        assert(algos.size() == vec.size());
+        for(int i = 0; i < vec.size(); i++) {
+          if(algos[i]->use_shared_breakpoint()) {
+            const std::set<unsigned>& vb = vec[i].first->get_breakpoint();
+            breakpoint.insert(vb.begin(), vb.end());
+            vec[i].first->clear_breakpoint();
+            assert(vec[i].first->get_breakpoint().size() == 0);
+
+            // We generate colors only if we go from the macrostate with empty shared breakpoint
+            if(sh_break.empty()) {
+              cols.insert(vec[i].second.begin(), vec[i].second.end());
+            }
+          } else {
+            cols.insert(vec[i].second.begin(), vec[i].second.end());
+          }
+          vm.push_back(vec[i].first);
         }
 
+        // TODO: so far behaves fishy when both round robing and shared breakpoint is active for an algorithm
         unsigned us_num = UINT_MAX;   // canary value
         if (INACTIVE_SCC == active_index) { // no round robin
           DEBUG_PRINT_LN("inserting")
-          us_num = insert_uberstate(uberstate(all_succ, vm, INACTIVE_SCC));
+          us_num = insert_uberstate(uberstate(all_succ, vm, INACTIVE_SCC, breakpoint));
           result.emplace_back(us_num, std::move(cols));
           DEBUG_PRINT_LN("inserted")
         } else { // round robin
           if (vm[active_index]->is_active()) { // the same SCC active
-            us_num = insert_uberstate(uberstate(all_succ, vm, active_index));
+            us_num = insert_uberstate(uberstate(all_succ, vm, active_index, breakpoint));
 	          result.emplace_back(us_num, cols);
           } else { // another SCC active
             int next_active = get_next_active_scc(algos, active_index);
@@ -1490,7 +1542,7 @@ namespace cola
             mstate_set active_macros = algos[next_active]->lift_track_to_active(vm[next_active].get());
             for (const auto& am : active_macros) {
               vm[next_active] = am;
-              us_num = insert_uberstate(uberstate(all_succ, vm, next_active));
+              us_num = insert_uberstate(uberstate(all_succ, vm, next_active, breakpoint));
               result.emplace_back(us_num, cols);
             }
           }
@@ -1540,7 +1592,17 @@ namespace cola
 
       std::vector<unsigned> result;
       for (const auto& vec : cp) {
-        unsigned us_num = insert_uberstate(uberstate(initial_states, vec, init_active));
+        // collect shared breakpoint from partial algorithms supporting it
+        std::set<unsigned> sh_break;
+        for(size_t i = 0; i < vec.size(); i++) {
+          if(alg_vec[i]->use_shared_breakpoint()) {
+            const std::set<unsigned>& vb = vec[i]->get_breakpoint();
+            sh_break.insert(vb.begin(), vb.end());
+            vec[i]->clear_breakpoint();
+          }
+        }
+
+        unsigned us_num = insert_uberstate(uberstate(initial_states, vec, init_active, sh_break));
         result.push_back(us_num);
       }
 
@@ -1581,6 +1643,7 @@ namespace cola
       // When merging IWAs, move the IWA partition to the front.  This makes it
       // be active first, and may avoid larger state space generation.
       if (merge_iwa) {
+        DEBUG_PRINT_LN("Merge IWA");
         for (size_t i = 0; i < scc_inf.scc_count(); ++i) {
           if (is_accepting_weakscc(scc_types, i)) { // if there is some IWA
             iwa_index = part_index;
@@ -1593,6 +1656,7 @@ namespace cola
 
       // similar thing as above for DACs
       if (merge_det) {
+        DEBUG_PRINT_LN("Merge DET");
         for (size_t i = 0; i < scc_inf.scc_count(); ++i) {
           if (is_accepting_detscc(scc_types, i)) { // if there is some DAC
             dac_index = part_index;
@@ -1912,6 +1976,7 @@ namespace cola
       std::vector<spot::acc_cond> vec_acc_code;
       size_t num_colours = RESERVED_COLOURS;
       int rr_colour = -1;     // colour for round robin
+      int sh_br_colour = -2;  // colour for shared breakpoint
 
       spot::acc_cond::acc_code sink_acc_code = spot::acc_cond::acc_code::inf({SINK_COLOUR});
       spot::acc_cond::acc_code alg_acc_code = spot::acc_cond::acc_code::t();
@@ -1921,7 +1986,15 @@ namespace cola
         const spot::acc_cond& cond = alg->get_acc_cond();
         vec_acc_code.push_back(cond);
         spot::acc_cond::acc_code cond_code = cond.get_acceptance();
-        if (alg->use_round_robin()) {
+        if (alg->use_shared_breakpoint()) {
+          if (sh_br_colour < 0) {
+            sh_br_colour = num_colours;
+            ++num_colours;
+            alg_acc_code &= spot::acc_cond::acc_code::inf({static_cast<unsigned>(sh_br_colour)});
+          }
+
+          part_col_offset[i] = sh_br_colour;
+        } else if (alg->use_round_robin()) {
           if (rr_colour < 0) {  // the first round robin
             rr_colour = num_colours;
             ++num_colours;

@@ -34,6 +34,9 @@ public: // METHODS
   virtual bool lt(const mstate& rhs) const override;
   virtual ~mstate_safra() override { };
 
+  virtual const std::set<unsigned>& get_breakpoint() const override { return std::set<unsigned>(); }
+  virtual void set_breakpoint(const std::set<unsigned>& breakpoint) override { }
+
   friend class kofola::complement_safra;
 }; // mstate_safra }}}
 
@@ -354,7 +357,8 @@ mstate_set complement_safra::lift_track_to_active(const mstate* src)
 mstate_col_set complement_safra::get_succ_active(
   const std::set<unsigned>&  glob_reached,
   const mstate*              src,
-  const bdd&                 symbol)
+  const bdd&                 symbol,
+  bool resample)
 { // {{{
   const mstate_safra* src_safra = dynamic_cast<const mstate_safra*>(src);
   assert(src_safra);

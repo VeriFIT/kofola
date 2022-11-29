@@ -40,9 +40,12 @@ public: // METHODS
   virtual mstate_col_set get_succ_active(
     const std::set<unsigned>&  glob_reached,
     const mstate*              src,
-    const bdd&                 symbol) override;
+    const bdd&                 symbol,
+    bool resample = true) override;
 
   virtual bool use_round_robin() const override { return false; }
+
+  virtual bool use_shared_breakpoint() const override { return false; }
 
   /// note: should be called only after the construction is finished (otherwise
   /// some colours might be missing)

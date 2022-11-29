@@ -97,6 +97,15 @@ public: // TYPES
     /// less-than relation
     virtual bool lt(const mstate& rhs) const = 0;
 
+    /// get breakpoint
+    virtual const std::set<unsigned>& get_breakpoint() const = 0;
+
+    /// set breakpoint
+    virtual void set_breakpoint(const std::set<unsigned>& breakpoint) = 0;
+
+    /// clear breakpoint
+    virtual void clear_breakpoint() { this->set_breakpoint(std::set<unsigned>()); };
+
     /// virtual destructor (to allow deletion via pointer)
     virtual ~mstate() { }
   }; // mstate }}}
@@ -138,7 +147,8 @@ public: // METHODS
   virtual mstate_col_set get_succ_active(
     const std::set<unsigned>&  glob_reached,  // all states reached over symbol
     const mstate*              src,           // partial macrostate
-    const bdd&                 symbol) = 0;   // symbol
+    const bdd&                 symbol,        // symbol
+    bool resample = true) = 0;                // resample breakpoint
 
   /// determines whether the algorithm should be use in round-robin scheme;
   /// in particular:
@@ -149,6 +159,9 @@ public: // METHODS
 
   /// returns the acceptance condition
   virtual spot::acc_cond get_acc_cond() = 0;
+
+  /// determines whether the algorithm should use shared breakpoint
+  virtual bool use_shared_breakpoint() const = 0;
 
   /// returns the minimum colour used - HACK to allow colour reshuffle for Safra-based algorithm
   virtual unsigned get_min_colour() const = 0;
