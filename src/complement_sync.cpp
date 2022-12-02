@@ -1857,7 +1857,8 @@ namespace cola
         scc_to_pred_sccs_map,   // maps SCCs to the sets of their predecessors
         this->si_,              // SCC information
         this->dir_sim_,         // direct simulation
-        this->is_accepting_);   // vector for acceptance of states
+        this->is_accepting_,    // vector for acceptance of states
+        kofola::has_value("sh-break", "yes", kofola::OPTIONS.params)); // shared breakpoint
 
       DEBUG_PRINT_LN("selecting algorithms");
 
