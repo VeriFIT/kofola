@@ -48,6 +48,9 @@ struct cmpl_info
   /// accepting states
   const std::vector<bool>& state_accepting_;
 
+  /// use shared breakpoint
+  const bool shared_breakpoint_;
+
   /// constructor
   cmpl_info(
     const spot::const_twa_graph_ptr&  aut,
@@ -59,8 +62,8 @@ struct cmpl_info
     const SCCToSCCSetMap&             scc_to_pred_sccs_map,
     const spot::scc_info&             scc_info,
     const Simulation&                 dir_sim,
-    const std::vector<bool>&          state_accepting
-    ) :
+    const std::vector<bool>&          state_accepting,
+    const bool&                       shared_breakpoint) :
     aut_(aut),
     num_partitions_(num_partitions),
     part_to_type_map_(part_to_type_map),
@@ -70,7 +73,8 @@ struct cmpl_info
     scc_to_pred_sccs_map_(scc_to_pred_sccs_map),
     scc_info_(scc_info),
     dir_sim_(dir_sim),
-    state_accepting_(state_accepting)
+    state_accepting_(state_accepting),
+    shared_breakpoint_(shared_breakpoint)
   { }
 }; // struct cmpl_info }}}
 
@@ -96,6 +100,15 @@ public: // TYPES
 
     /// less-than relation
     virtual bool lt(const mstate& rhs) const = 0;
+
+    /// get breakpoint
+    virtual const std::set<unsigned>& get_breakpoint() const = 0;
+
+    /// set breakpoint
+    virtual void set_breakpoint(const std::set<unsigned>& breakpoint) = 0;
+
+    /// clear breakpoint
+    virtual void clear_breakpoint() { this->set_breakpoint(std::set<unsigned>()); };
 
     /// virtual destructor (to allow deletion via pointer)
     virtual ~mstate() { }
@@ -138,7 +151,8 @@ public: // METHODS
   virtual mstate_col_set get_succ_active(
     const std::set<unsigned>&  glob_reached,  // all states reached over symbol
     const mstate*              src,           // partial macrostate
-    const bdd&                 symbol) = 0;   // symbol
+    const bdd&                 symbol,        // symbol
+    bool resample = true) = 0;                // resample breakpoint
 
   /// determines whether the algorithm should be use in round-robin scheme;
   /// in particular:
@@ -149,6 +163,9 @@ public: // METHODS
 
   /// returns the acceptance condition
   virtual spot::acc_cond get_acc_cond() = 0;
+
+  /// determines whether the algorithm should use shared breakpoint
+  virtual bool use_shared_breakpoint() const = 0;
 
   /// returns the minimum colour used - HACK to allow colour reshuffle for Safra-based algorithm
   virtual unsigned get_min_colour() const = 0;

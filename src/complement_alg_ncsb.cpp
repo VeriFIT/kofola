@@ -39,6 +39,9 @@ public: // METHODS
   virtual bool lt(const mstate& rhs) const override;
   virtual ~mstate_ncsb() override { }
 
+  virtual const std::set<unsigned>& get_breakpoint() const override { return this->breakpoint_; }
+  virtual void set_breakpoint(const std::set<unsigned>& breakpoint) override { this->breakpoint_ = get_set_intersection(breakpoint, this->check_); }
+
   friend class kofola::complement_ncsb;
 }; // mstate_ncsb }}}
 
@@ -173,7 +176,8 @@ mstate_set complement_ncsb::lift_track_to_active(const mstate* src)
 mstate_col_set complement_ncsb::get_succ_active(
   const std::set<unsigned>&  glob_reached,
   const mstate*              src,
-  const bdd&                 symbol)
+  const bdd&                 symbol,
+  bool resample)
 {
   DEBUG_PRINT_LN("computing successor for glob_reached = " + std::to_string(glob_reached) +
     ", " + std::to_string(*src) + " over " + std::to_string(symbol));
@@ -195,11 +199,12 @@ mstate_col_set complement_ncsb::get_succ_active(
 
   std::set<unsigned> tmp_break = kofola::get_all_successors_in_scc(
     this->info_.aut_, this->info_.scc_info_, src_ncsb->breakpoint_, symbol);
+  tmp_break = get_set_intersection(tmp_break, glob_reached);
 
   DEBUG_PRINT_LN("tmp_break = " + std::to_string(tmp_break));
 
   std::set<unsigned> succ_break = get_set_difference(tmp_break, track_ms->safe_);
-  if (succ_break.empty()) { // if we hit breakpoint
+  if (succ_break.empty() && resample) { // if we hit breakpoint
     mstate_col_set result;
     if (this->use_round_robin()) {
       std::shared_ptr<mstate> ms(new mstate_ncsb(track_ms->check_, track_ms->safe_, {}, false));
@@ -221,7 +226,7 @@ mstate_col_set complement_ncsb::get_succ_active(
     //   3) delta(src_ncsb->breakpoint_, symbol) contains no accepting condition
 
     // 1) check src_ncsb->breakpoint_ is not accepting
-    if (kofola::set_contains_accepting_state(src_ncsb->breakpoint_,
+    if (succ_break.empty() || kofola::set_contains_accepting_state(src_ncsb->breakpoint_,
       this->info_.state_accepting_)) {
       return result;
     }
@@ -244,8 +249,15 @@ mstate_col_set complement_ncsb::get_succ_active(
     // add the decreasing successor
     std::set<unsigned> decr_safe = get_set_union(track_ms->safe_, succ_break);
     std::set<unsigned> decr_check = get_set_difference(track_ms->check_, decr_safe);
-    std::shared_ptr<mstate> decr_ms(new mstate_ncsb(decr_check, decr_safe, decr_check, true));
-    DEBUG_PRINT_LN("decreasing successor: " + decr_ms->to_string());
+    std::shared_ptr<mstate> decr_ms;
+    if(this->use_shared_breakpoint()) {
+      decr_ms = std::shared_ptr<mstate>(new mstate_ncsb(decr_check, decr_safe, std::set<unsigned>(), true));
+      DEBUG_PRINT_LN("SB decreasing successor: " + decr_ms->to_string());
+    }
+    else {
+      decr_ms = std::shared_ptr<mstate>(new mstate_ncsb(decr_check, decr_safe, decr_check, true));
+      DEBUG_PRINT_LN("decreasing successor: " + decr_ms->to_string());
+    }
     result.push_back({decr_ms, {0}});
 
     return result;

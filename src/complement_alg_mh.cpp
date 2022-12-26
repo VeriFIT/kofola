@@ -37,6 +37,9 @@ public: // METHODS
   virtual bool lt(const mstate& rhs) const override;
   virtual ~mstate_mh() override { }
 
+  virtual const std::set<unsigned>& get_breakpoint() const override { return this->breakpoint_; }
+  virtual void set_breakpoint(const std::set<unsigned>& breakpoint) override { this->breakpoint_ = get_set_intersection(breakpoint, this->states_); }
+
   friend class kofola::complement_mh;
 }; // mstate_mh }}}
 
@@ -131,7 +134,8 @@ mstate_set complement_mh::lift_track_to_active(const mstate* src)
 mstate_col_set complement_mh::get_succ_active(
   const std::set<unsigned>&  glob_reached,
   const mstate*              src,
-  const bdd&                 symbol)
+  const bdd&                 symbol,
+  bool resample)
 {
   const mstate_mh* src_mh = dynamic_cast<const mstate_mh*>(src);
   assert(src_mh);
@@ -156,7 +160,7 @@ mstate_col_set complement_mh::get_succ_active(
   succ_break = kofola::get_set_intersection(succ_break, glob_reached);
 
   mstate_col_set result;
-  if (succ_break.empty()) { // hit breakpoint
+  if (succ_break.empty() && resample) { // hit breakpoint
     if (this->use_round_robin()) {
       std::shared_ptr<mstate> ms(new mstate_mh(track_ms->states_, {}, false));
       result.push_back({ms, {0}});
