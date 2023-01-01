@@ -29,6 +29,7 @@
 #include "complement_alg_safra.hpp"
 // #include "complement_alg_rank.hpp"
 #include "complement_alg_rank2.hpp"
+#include "complement_alg_init_det.hpp" 
 
 #include <deque>
 #include <map>
@@ -1762,10 +1763,10 @@ namespace cola
             alg = std::make_unique<kofola::complement_safra>(compl_info, i);
           }
         }
-        // else if (PartitionType::INITIAL_DETERMINISTIC == compl_info.part_to_type_map_.at(i)) {
-        //   // initial deterministic component
-        //   alg = std::make_unique<kofola::complement_init_det>(compl_info, i);
-        // }
+        else if (PartitionType::INITIAL_DETERMINISTIC == compl_info.part_to_type_map_.at(i)) {
+          // initial deterministic component
+          alg = std::make_unique<kofola::complement_init_det>(compl_info, i);
+        }
         else {
           throw std::runtime_error("Strange SCC type found!");
         }

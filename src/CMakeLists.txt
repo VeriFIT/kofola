@@ -29,6 +29,7 @@ add_executable(kofola
 	complement_alg_ncsb_delay.cpp
 	# complement_alg_rank.cpp
 	complement_alg_rank2.cpp
+	complement_alg_init_det.cpp
 	ranking.cpp
 	util.cpp
 )
