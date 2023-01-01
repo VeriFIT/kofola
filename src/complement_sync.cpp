@@ -25,6 +25,7 @@
 #include "abstract_complement_alg.hpp"
 #include "complement_alg_mh.hpp"
 #include "complement_alg_ncsb.hpp"
+#include "complement_alg_ncsb_delay.hpp"
 #include "complement_alg_safra.hpp"
 // #include "complement_alg_rank.hpp"
 #include "complement_alg_rank2.hpp"
@@ -1744,7 +1745,12 @@ namespace cola
           alg = std::make_unique<kofola::complement_mh>(compl_info, i);
         }
         else if (PartitionType::DETERMINISTIC == compl_info.part_to_type_map_.at(i)) {
-          alg = std::make_unique<kofola::complement_ncsb>(compl_info, i);
+          if (kofola::has_value("ncsb-delay", "yes", kofola::OPTIONS.params)) {
+            alg = std::make_unique<kofola::complement_ncsb_delay>(compl_info, i);
+          }
+          else {
+            alg = std::make_unique<kofola::complement_ncsb>(compl_info, i);
+          }
         }
         else if (PartitionType::STRONGLY_DETERMINISTIC == compl_info.part_to_type_map_.at(i)) {
           alg = std::make_unique<kofola::complement_ncsb>(compl_info, i);
@@ -1756,6 +1762,10 @@ namespace cola
             alg = std::make_unique<kofola::complement_safra>(compl_info, i);
           }
         }
+        // else if (PartitionType::INITIAL_DETERMINISTIC == compl_info.part_to_type_map_.at(i)) {
+        //   // initial deterministic component
+        //   alg = std::make_unique<kofola::complement_init_det>(compl_info, i);
+        // }
         else {
           throw std::runtime_error("Strange SCC type found!");
         }
