@@ -230,6 +230,15 @@ private: // METHODS
 	/// gets the rank bounds for each state in a macrostate
 	ranking get_rank_bounds(const std::set<unsigned>& states);
 
+	/// restricts states in a set ot the current partition
+	std::set<unsigned> restr_states_to_part(const std::set<unsigned>& states) const;
+
+	/// returns the maxrank successor (see the paper) if it exists or nothing
+	std::optional<ranking> maxrank(
+		const std::set<unsigned>&  glob_reached,
+		const ranking&             f,
+		const bdd&                 symbol);
+
 public:  // METHODS
 
 	/// constructor
@@ -260,9 +269,8 @@ public:  // METHODS
 }; // complement_rank2::impl }}}
 
 
-complement_rank2::impl::impl(
-	const cmpl_info& info, unsigned part_index)
-		: abstract_complement_alg(info, part_index)
+complement_rank2::impl::impl(const cmpl_info& info, unsigned part_index)
+	: abstract_complement_alg(info, part_index)
 { }
 
 
@@ -287,16 +295,60 @@ mstate_set complement_rank2::impl::get_init()
 } // get_init() }}}
 
 
+
+std::optional<ranking> complement_rank2::impl::maxrank(
+	const std::set<unsigned>&  glob_reached,
+	const ranking&             f,
+	const bdd&                 symbol)
+{ // {{{
+
+	// TODO: use bounds!
+
+	assert(false);
+
+	return std::nullopt;
+} // maxrank() }}}
+
+
 mstate_col_set complement_rank2::impl::get_succ_track(
 	const std::set<unsigned>&  glob_reached,
 	const mstate*              src,
 	const bdd&                 symbol)
 { // {{{
-	assert(false);
-	assert(&glob_reached);
-	assert(src);
-	assert(&symbol);
+	const mstate_rank* src_rank = dynamic_cast<const mstate_rank*>(src);
+	assert(src_rank);
+	assert(!src_rank->active_);
+	assert(src_rank->invariants_hold());
+
+	mstate_col_set result;
+	DEBUG_PRINT_LN("getting tracking successor for " + std::to_string(*src) +
+		" over symbol " + std::to_string(symbol));
+
+	if (src_rank->is_waiting_) {
+		std::set<unsigned> succ_states = this->restr_states_to_part(glob_reached);
+		assert(false);
+
+	} else { // tight
+		std::optional<ranking> g = this->maxrank(glob_reached, src_rank->f_, symbol);
+		assert(false);
+	}
+
+
 } // get_succ_track() }}}
+
+
+std::set<unsigned> complement_rank2::impl::restr_states_to_part(
+	const std::set<unsigned>& states) const
+{ // {{{
+	std::set<unsigned> res;
+	for (unsigned st : states) {
+		if (this->info_.st_to_part_map_.at(st) == this->part_index_) {
+			res.insert(st);
+		}
+	}
+
+	return res;
+} // restr_states_to_part() }}}
 
 
 ranking complement_rank2::impl::get_rank_bounds(const std::set<unsigned>& states)
@@ -507,6 +559,14 @@ mstate_col_set complement_rank2::impl::get_succ_active(
 
 	DEBUG_PRINT_LN("getting active successor for " + std::to_string(*src) +
 		" over symbol " + std::to_string(symbol));
+
+	std::unique_ptr<mstate_rank> tmp_track;
+	if (src_rank->is_waiting_) {
+		tmp_track.reset(new mstate_rank(mstate_rank::create_waiting_ms(src_rank->states_, false)));
+	} else {
+		tmp_track.reset(new mstate_rank(mstate_rank::create_tight_passive_ms(src_rank->f_)));
+	}
+	mstate_col_set track_succ = this->get_succ_track(glob_reached, tmp_track.get(), symbol);
 
 	assert(false);
 } // get_succ_active() }}}
