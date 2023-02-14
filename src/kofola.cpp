@@ -414,6 +414,7 @@ namespace kofola
       case PartitionType::DETERMINISTIC: return os << "Deterministic";
       case PartitionType::STRONGLY_DETERMINISTIC: return os << "Strongly deterministic";
       case PartitionType::NONDETERMINISTIC: return os << "Nondeterministic";
+      case PartitionType::INITIAL_DETERMINISTIC: return os << "Initial deterministic";
       default: throw std::runtime_error("Undefined partition type");
     }
   }

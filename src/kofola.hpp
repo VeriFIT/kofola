@@ -138,7 +138,8 @@ namespace kofola
     INHERENTLY_WEAK,
     DETERMINISTIC,
     STRONGLY_DETERMINISTIC,
-    NONDETERMINISTIC
+    NONDETERMINISTIC,
+    INITIAL_DETERMINISTIC,
   };
 
   /// output stream overloaded operator

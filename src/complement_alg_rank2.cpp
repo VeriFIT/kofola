@@ -66,6 +66,9 @@ public: // METHODS
 	virtual bool lt(const mstate& rhs) const override;
 	virtual ~mstate_rank() override { }
 
+	virtual const std::set<unsigned>& get_breakpoint() const override { return this->breakpoint_; }
+  	virtual void set_breakpoint(const std::set<unsigned>& breakpoint) override { this->breakpoint_ = breakpoint; }
+
 	/// checks whether internal invariants hold
 	bool invariants_hold() const;
 
@@ -256,9 +259,12 @@ public:  // METHODS
 	virtual mstate_col_set get_succ_active(
 		const std::set<unsigned>&  glob_reached,
 		const mstate*              src,
-		const bdd&                 symbol) override;
+		const bdd&                 symbol,
+		bool resample = true) override;
 
 	virtual bool use_round_robin() const override { return false; }
+
+	virtual bool use_shared_breakpoint() const override { return false; }
 
 	virtual spot::acc_cond get_acc_cond() override
 	{ return spot::acc_cond(1, spot::acc_cond::inf({0})); }
@@ -550,7 +556,8 @@ mstate_set complement_rank2::impl::lift_track_to_active(const mstate* src)
 mstate_col_set complement_rank2::impl::get_succ_active(
 	const std::set<unsigned>&  glob_reached,
 	const mstate*              src,
-	const bdd&                 symbol)
+	const bdd&                 symbol,
+	bool resample)
 { // {{{
 	const mstate_rank* src_rank = dynamic_cast<const mstate_rank*>(src);
 	assert(src_rank);
@@ -597,8 +604,9 @@ mstate_set complement_rank2::lift_track_to_active(const mstate* src)
 mstate_col_set complement_rank2::get_succ_active(
 	const std::set<unsigned>&  glob_reached,
 	const mstate*              src,
-	const bdd&                 symbol)
-{ return this->pimpl_->get_succ_active(glob_reached, src, symbol); }
+	const bdd&                 symbol,
+	bool resample)
+{ return this->pimpl_->get_succ_active(glob_reached, src, symbol, resample); }
 
 
 complement_rank2::~complement_rank2() { }
