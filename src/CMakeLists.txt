@@ -30,9 +30,11 @@ add_executable(kofola
 	# complement_alg_rank.cpp
 	complement_alg_rank2.cpp
 	complement_alg_init_det.cpp
+	complement_alg_subs_tuple.cpp
 	ranking.cpp
 	util.cpp
-)
+		inclusion_test.cpp
+		)
 
 target_compile_options(kofola PRIVATE ${CXX_FLAGS})
 

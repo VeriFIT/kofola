@@ -18,6 +18,7 @@
 // kofola
 #include "kofola.hpp"
 #include "complement_tela.hpp"
+#include "inclusion_test.hpp"
 #include "util.hpp"
 
 // standard library headers
@@ -31,7 +32,6 @@
 
 // Args.hxx
 #include "../3rdparty/args.hxx"
-
 
 //void output_input_type(spot::twa_graph_ptr aut)
 //{
@@ -208,6 +208,7 @@ int process_args(int argc, char *argv[], kofola::options* params)
 	args::ActionFlag version_flag(operation_group, "version", "print program version", {"version"}, print_version);
 	args::ActionFlag version_long_flag(operation_group, "version-long", "print program version (long)", {"version-long"}, print_version_long);
 	args::HelpFlag help_flag(operation_group, "help", "display this help menu", {'h', "help"});
+    args::Flag inclusion_flag(operation_group, "inclusion", "checks inclusion of the given 2 automata", {"inclusion"});
 
 	// miscellaneous flags
 	args::Group misc_group(parser, "Miscellaneous options:");
@@ -258,7 +259,9 @@ int process_args(int argc, char *argv[], kofola::options* params)
 		params->operation = "scc-types";
 	} else if (help_flag) {
 		params->operation = "help";
-	} else { // default
+	} else if (inclusion_flag) {
+        params->operation = "inclusion";
+    } else { // default
 		params->operation = "complement";
 	}
 
@@ -297,6 +300,43 @@ int main(int argc, char *argv[])
 	DEBUG_PRINT_LN("params: " + std::to_string(options.params));
 
 	auto dict = spot::make_bdd_dict();
+
+    if(options.operation == "inclusion") {
+        spot::parsed_aut_ptr parsed_aut_A = nullptr;
+        spot::parsed_aut_ptr parsed_aut_B = nullptr;
+        try {
+            spot::automaton_stream_parser parser_A(options.filenames.at(0)); // first filename provided as automaton A
+            parsed_aut_A = parser_A.parse(dict);
+            if (parsed_aut_A->format_errors(std::cerr)) { return EXIT_FAILURE; }
+            spot::twa_graph_ptr aut_A = parsed_aut_A->aut;
+
+            spot::automaton_stream_parser parser_B(options.filenames.at(1)); // second filename provided as automaton B
+            parsed_aut_B = parser_B.parse(dict);
+            if (parsed_aut_B->format_errors(std::cerr)) { return EXIT_FAILURE; }
+            spot::twa_graph_ptr aut_B = parsed_aut_B->aut;
+
+//            if(!aut_A->intersects(spot::complement(aut_B))) {
+//                printf("A ⊆ B holds!\n");
+//            }
+//            else {
+//                printf("A ⊆ B does not hold!\n");
+//            }
+
+            if(kofola::inclusionTest().test(aut_A, aut_B)) {
+                printf("A ⊆ B holds!\n");
+            }
+            else {
+                printf("A ⊆ B does not hold!\n");
+            }
+
+        }
+        catch (const std::exception& ex) {
+            std::cerr << "Error: " << ex.what() << "\n";
+            return EXIT_FAILURE;
+        }
+
+        return EXIT_SUCCESS;
+    }
 
 	for (const std::string& input_filename : options.filenames) {
 		spot::parsed_aut_ptr parsed_aut = nullptr;
