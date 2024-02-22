@@ -258,6 +258,7 @@ namespace kofola {
     void inclusionTest::tarjan_is_empty(inclusionTest::intersect_mstate &src_mstate, const spot::twa_graph_ptr &aut_A,
                                          cola::tnba_complement &aut_B, unsigned ith_on_path, std::vector<std::set<unsigned>> cols_path) {
         /// STRONGCONNECT
+        cols_visited_.insert({src_mstate, std::set<unsigned>()}); // init
 
         // mark position in current dfs
         if(dfs_state_pos_.count(src_mstate) == 0)
@@ -290,6 +291,24 @@ namespace kofola {
             if (indices_.at(dst_mstate) == UNDEFINED)
             {
                 tarjan_is_empty(dst_mstate, aut_A, aut_B, ++ith_on_path, cols_path);
+                // propagate visited cols when backtracking
+                if(lowlinks_.at(src_mstate) < lowlinks_.at(dst_mstate))
+                {
+                    cols_visited_.at(src_mstate).insert(cols_visited_.at(dst_mstate).begin(), cols_visited_.at(dst_mstate).end());
+                }
+
+                // acc condition check
+                bool is_subset = std::includes(cols_visited_.at(src_mstate).begin(), cols_visited_.at(src_mstate).end(), inf_acc_cols_conj_.begin(), inf_acc_cols_conj_.end());;
+                if(is_subset)
+                {
+                    decided_ = true;
+                    empty_ = false;
+
+                    return;
+                }
+
+                cols_path.at(cols_path.size() - 1).insert(cols_visited_.at(src_mstate).begin(), cols_visited_.at(src_mstate).end()); // add possible lasso colors to the current node on DFS traversal
+
                 lowlinks_.at(src_mstate) = std::min(lowlinks_.at(src_mstate), lowlinks_.at(dst_mstate));
 
                 if(decided_)
@@ -308,7 +327,9 @@ namespace kofola {
                     cols_visited_.at(dst_mstate).insert(cols_path.at(i).begin(), cols_path.at(i).end());
                 }
 
-
+                // propagate visited cols
+                cols_visited_.at(src_mstate).insert(cols_visited_.at(dst_mstate).begin(), cols_visited_.at(dst_mstate).end());
+                // acc cond check
                 bool is_subset = std::includes(cols_visited_.at(dst_mstate).begin(), cols_visited_.at(dst_mstate).end(), inf_acc_cols_conj_.begin(), inf_acc_cols_conj_.end());;
                 if(is_subset)
                 {

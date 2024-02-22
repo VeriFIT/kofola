@@ -19,6 +19,8 @@
 #include "kofola.hpp"
 #include "complement_tela.hpp"
 #include "inclusion_test.hpp"
+#include "hyperltl_mc.h"
+#include "hyperltl_formula_processor.hpp"
 #include "util.hpp"
 
 // standard library headers
@@ -209,6 +211,7 @@ int process_args(int argc, char *argv[], kofola::options* params)
 	args::ActionFlag version_long_flag(operation_group, "version-long", "print program version (long)", {"version-long"}, print_version_long);
 	args::HelpFlag help_flag(operation_group, "help", "display this help menu", {'h', "help"});
     args::Flag inclusion_flag(operation_group, "inclusion", "checks inclusion of the given 2 automata", {"inclusion"});
+    args::Flag hyperltl_flag(operation_group, "hyper", "model checking of given system and hyperltl formula", {"hyper"});
 
 	// miscellaneous flags
 	args::Group misc_group(parser, "Miscellaneous options:");
@@ -259,7 +262,9 @@ int process_args(int argc, char *argv[], kofola::options* params)
 		params->operation = "scc-types";
 	} else if (help_flag) {
 		params->operation = "help";
-	} else if (inclusion_flag) {
+	} else if (hyperltl_flag) {
+        params->operation = "hyper";
+    } else if (inclusion_flag) {
         params->operation = "inclusion";
     } else { // default
 		params->operation = "complement";
@@ -301,6 +306,24 @@ int main(int argc, char *argv[])
 
 	auto dict = spot::make_bdd_dict();
 
+    if(options.operation == "hyper") {
+        // parsing kripke struct
+        spot::automaton_parser_options opts;
+        opts.want_kripke = true;
+        spot::automaton_stream_parser parser(options.filenames.at(0), opts);
+        spot::parsed_aut_ptr parsed_aut = parser.parse(dict);
+        // internal repr. of system
+        spot::kripke_graph_ptr kripke_struct = parsed_aut->ks;
+
+        // parse hyperltl formula
+        auto hyperltl_parser = new kofola::hyperltl_formula_processor(options.filenames.at(1)); // formula
+        kofola::parsed_hyperltl_form_ptr parsed_hyperltl_f = hyperltl_parser->parse_hyperltl_formula();
+
+        // perform model checking
+        kofola::hyperltl_mc(parsed_hyperltl_f, kripke_struct);
+        return 0;
+    }
+
     if(options.operation == "inclusion") {
         spot::parsed_aut_ptr parsed_aut_A = nullptr;
         spot::parsed_aut_ptr parsed_aut_B = nullptr;
@@ -314,7 +337,7 @@ int main(int argc, char *argv[])
             parsed_aut_B = parser_B.parse(dict);
             if (parsed_aut_B->format_errors(std::cerr)) { return EXIT_FAILURE; }
             spot::twa_graph_ptr aut_B = parsed_aut_B->aut;
-
+            
 //            if(!aut_A->intersects(spot::complement(aut_B))) {
 //                printf("A ⊆ B holds!\n");
 //            }

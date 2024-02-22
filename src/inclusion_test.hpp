@@ -8,6 +8,8 @@
 // spot
 #include <spot/twa/twa.hh>
 
+spot::formula formula();
+
 namespace kofola
 {
     class inclusionTest {
