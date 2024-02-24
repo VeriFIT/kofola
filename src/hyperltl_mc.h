@@ -4,24 +4,26 @@
 #include "hyperltl_formula_processor.hpp"
 
 namespace kofola {
-    typedef struct {
-        std::string atomic_prop;
-        std::string trace_var;
-    } AP_trace;
-
     class hyperltl_mc {
-        using mc_macrostate = std::pair<unsigned, unsigned>; // first is system, second is formula
+        using mc_macrostate = std::pair<unsigned, unsigned>; // first-system, second-formula
 
-        parsed_hyperltl_form_ptr parsed_hyperltl_f_;
-        spot::twa_graph_ptr built_aut_;
-        spot::kripke_graph_ptr system_;
-        std::map<std::string, AP_trace> ap_map_;
+        const parsed_hyperltl_form_ptr& parsed_hyperltl_f_; /// info regarding formula
+        spot::twa_graph_ptr built_aut_; /// inductively built automaton
+        spot::kripke_graph_ptr system_; /// kripke struct representing system behavior
+        bddPair *aut_to_system_;
+        bool negate_; /// indicates if formula preprocessing caused the top level negation
     public:
-        hyperltl_mc(parsed_hyperltl_form_ptr parsed_hyperltl_f, spot::kripke_graph_ptr system);
+        hyperltl_mc(const parsed_hyperltl_form_ptr& parsed_hyperltl_f, spot::kripke_graph_ptr  system);
 
-        spot::twa_graph_ptr existential_projection(std::list<std::string> exist_trac_vars);
+        std::list<unsigned> system_successors(spot::kripke_graph_state* s);
 
-        AP_trace parse_formula_AP(std::string input_ap);
+        bddPair *get_bdd_pair_aut_to_system();
+
+        bdd get_relevant_aut_aps(const std::list<std::string>& exist_trac_vars);
+
+        spot::twa_graph_ptr existential_projection(const std::list<std::string>& exist_trac_vars);
+
+        spot::twa_graph_ptr n_fold_self_composition(unsigned n, const std::list<std::string>& exist_trac_vars);
     };
 
 } // kofola

@@ -320,8 +320,8 @@ int main(int argc, char *argv[])
         kofola::parsed_hyperltl_form_ptr parsed_hyperltl_f = hyperltl_parser->parse_hyperltl_formula();
 
         // perform model checking
-        kofola::hyperltl_mc(parsed_hyperltl_f, kripke_struct);
-        return 0;
+        kofola::hyperltl_mc mc(parsed_hyperltl_f, kripke_struct);
+        return EXIT_SUCCESS;
     }
 
     if(options.operation == "inclusion") {

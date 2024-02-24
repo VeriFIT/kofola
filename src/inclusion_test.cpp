@@ -131,7 +131,7 @@ namespace kofola {
     bool inclusionTest::is_transition_acc(const spot::twa_graph_ptr &aut_A, unsigned src, unsigned dst, const bdd &symbol) {
         for (const auto &t: aut_A->out(src)) {
             if (dst == t.dst && bdd_implies(symbol, t.cond)) {
-                if (t.acc) { return true; }
+                if (t.acc) { return true; } // TODO is it valid???
                 else return false;
             }
         }

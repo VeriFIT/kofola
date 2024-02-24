@@ -2,6 +2,7 @@
 
 // Spot
 #include <spot/twaalgos/postproc.hh>
+#include <regex>
 
 namespace kofola {
     hyperltl_formula_processor::hyperltl_formula_processor(const std::string& file) {
@@ -17,6 +18,28 @@ namespace kofola {
                 std::cout << "Forall";
             //std::cout << ", Trace Var: " << q.trace_var << std::endl;
         }
+    }
+
+    AP_trace hyperltl_formula_processor::parse_formula_AP(std::string input_ap) {
+        auto pos = 0;
+        unsigned curly_braces = 0;
+
+        for(unsigned i = 0; i < input_ap.length(); i++) {
+            if(input_ap[i] == '{')
+                curly_braces++;
+            else if(input_ap[i] == '}')
+                curly_braces--;
+            else if(input_ap[i] == '_' && curly_braces == 0) {
+                pos = i;
+                break;
+            }
+        }
+
+        AP_trace res;
+        res.atomic_prop = input_ap.substr(1, pos - 2); // exclude starting '{' and trailing '}_'
+        res.trace_var = input_ap.substr(pos + 2, input_ap.size() - pos - 3); // exclude '_'
+
+        return res;
     }
 
     parsed_hyperltl_form_ptr hyperltl_formula_processor::parse_hyperltl_formula() {
@@ -42,6 +65,16 @@ namespace kofola {
                 std::string tmp;
                 while(file >> tmp) {
                     ltl_body += tmp;
+
+                    // search for APs
+                    std::regex pattern("\"([^\"]*)\"");
+                    std::smatch match;
+                    // Search for matches
+                    while (std::regex_search(tmp, match, pattern)) {
+                        res->aps_map[match[1]] = parse_formula_AP(match[1]);
+                        // Update input to search for the next occurrence
+                        tmp = match.suffix();
+                    }
                 }
 
                 break;

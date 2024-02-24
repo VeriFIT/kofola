@@ -85,6 +85,7 @@ mstate_set complement_mh::get_init()
   std::set<unsigned> init_state;
 
   unsigned orig_init = this->info_.aut_->get_init_state_number();
+
   if (this->info_.st_to_part_map_.at(orig_init) == this->part_index_) {
     init_state.insert(orig_init);
   }
