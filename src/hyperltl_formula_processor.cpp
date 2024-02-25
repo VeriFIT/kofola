@@ -84,11 +84,11 @@ namespace kofola {
             trace_var.pop_back(); // remove '.' following the trace variable
             // when alternation, keep order of quantifiers
             if(res->q_list.empty() || q.type != res->q_list.front().type) {
-                q.trace_vars.emplace_front(trace_var);
-                res->q_list.emplace_front(q);
+                q.trace_vars.emplace_back(trace_var);
+                res->q_list.emplace_back(q);
             }
             else {
-                res->q_list.front().trace_vars.emplace_front(trace_var);
+                res->q_list.front().trace_vars.emplace_back(trace_var);
             }
 
         }

@@ -15,8 +15,8 @@ namespace kofola {
     };
 
     typedef struct {
-        unsigned int type : 1; /// 1-bit information of quantification type
-        std::list<std::string> trace_vars; /// the order corresponds with the textual form on the input
+        unsigned int type : 1; /// 1-bit information indicating quantification type
+        std::vector<std::string> trace_vars; /// the order corresponds with the textual form on the input
     } Quantification;
 
     typedef struct {

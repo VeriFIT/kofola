@@ -140,10 +140,10 @@ namespace kofola {
     }
 
     std::set<inclusionTest::state_col>
-    inclusionTest::get_cross_prod(const spot::twa_graph_ptr &aut_A, unsigned aut_A_src, cola::tnba_complement &aut_B,
+    inclusionTest::get_cartesian_prod(const spot::twa_graph_ptr &aut_A, unsigned aut_A_src, cola::tnba_complement &aut_B,
                                    std::set<unsigned> &states_A, cola::tnba_complement::vec_state_taggedcol &states_B,
                                    std::map<intersect_mstate, vec_state_col> &intersect_states, const bdd &letter) {
-        std::set<inclusionTest::state_col> cross_prod;
+        std::set<inclusionTest::state_col> cartesian_prod;
 
         auto vec_acc_cond = aut_B.get_vec_acc_cond();
         auto part_col_offset = aut_B.get_part_col_offset();
@@ -178,7 +178,7 @@ namespace kofola {
                 }
 
                 auto succ = std::make_pair(std::make_pair(state_A, state_B), new_cols);
-                cross_prod.insert(succ);
+                cartesian_prod.insert(succ);
 
                 //auto it_bool_pair =
                 intersect_states.insert({{state_A, state_B},{}});
@@ -188,14 +188,14 @@ namespace kofola {
             }
         }
 
-        return cross_prod;
+        return cartesian_prod;
     }
 
     std::set<inclusionTest::state_col>
     inclusionTest::get_all_succs(const spot::twa_graph_ptr &aut_A, cola::tnba_complement &aut_B,
                                   intersect_mstate &mstate,
                                   std::map<intersect_mstate, vec_state_col> &intersect_states) {
-        std::set<inclusionTest::state_col> cross_prod;
+        std::set<inclusionTest::state_col> cartesian_prod;
         std::set<inclusionTest::state_col> result;
 
         // prepare to insert post of current intersection macrostate
@@ -245,10 +245,10 @@ namespace kofola {
 
             if(!succs_A.empty())
             {
-                cross_prod = get_cross_prod(aut_A, state_of_A, aut_B, succs_A, succs_B, intersect_states,
+                cartesian_prod = get_cartesian_prod(aut_A, state_of_A, aut_B, succs_A, succs_B, intersect_states,
                                             letter);
-                result.insert(cross_prod.begin(), cross_prod.end());
-                intersect_post.insert(intersect_post.end(), cross_prod.begin(), cross_prod.end());
+                result.insert(cartesian_prod.begin(), cartesian_prod.end());
+                intersect_post.insert(intersect_post.end(), cartesian_prod.begin(), cartesian_prod.end());
             }
         }
 

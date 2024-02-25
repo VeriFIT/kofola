@@ -15,15 +15,19 @@ namespace kofola {
     public:
         hyperltl_mc(const parsed_hyperltl_form_ptr& parsed_hyperltl_f, spot::kripke_graph_ptr  system);
 
-        std::list<unsigned> system_successors(spot::kripke_graph_state* s);
+        std::vector<unsigned> system_successors(spot::kripke_graph_state* s);
 
         bddPair *get_bdd_pair_aut_to_system();
 
-        bdd get_relevant_aut_aps(const std::list<std::string>& exist_trac_vars);
+        bdd get_relevant_aut_aps(const std::vector<std::string>& exist_trac_vars);
 
-        spot::twa_graph_ptr existential_projection(const std::list<std::string>& exist_trac_vars);
+        spot::twa_graph_ptr existential_projection(const std::vector<std::string>& exist_trac_vars);
 
-        spot::twa_graph_ptr n_fold_self_composition(unsigned n, const std::list<std::string>& exist_trac_vars);
+        std::vector<std::vector<unsigned>> prod(const std::vector<std::vector<unsigned>>& a, const std::vector<unsigned>& b);
+
+        bddPair *get_bdd_pair_system_to_aut(const std::string& trace_vars);
+
+        spot::twa_graph_ptr n_fold_self_composition(std::vector<std::string> trac_vars);
     };
 
 } // kofola

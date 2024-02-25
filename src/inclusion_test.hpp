@@ -72,7 +72,7 @@ namespace kofola
 
         /// returns cross product: states_A x states_B
         std::set<state_col>
-        get_cross_prod(const spot::twa_graph_ptr &aut_A, unsigned aut_A_src, cola::tnba_complement &aut_B,
+        get_cartesian_prod(const spot::twa_graph_ptr &aut_A, unsigned aut_A_src, cola::tnba_complement &aut_B,
                        std::set<unsigned> &states_A, cola::tnba_complement::vec_state_taggedcol &states_B,
                        std::map<intersect_mstate, vec_state_col> &intersect_states, const bdd &letter);
 
