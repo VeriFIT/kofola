@@ -23,7 +23,7 @@ namespace kofola {
 
         spot::twa_graph_ptr existential_projection(const std::vector<std::string>& exist_trac_vars);
 
-        std::vector<std::vector<unsigned>> prod(const std::vector<std::vector<unsigned>>& a, const std::vector<unsigned>& b);
+        std::vector<std::vector<unsigned>> prod(const std::vector<std::vector<unsigned>>& sets);
 
         bddPair *get_bdd_pair_system_to_aut(const std::string& trace_vars);
 

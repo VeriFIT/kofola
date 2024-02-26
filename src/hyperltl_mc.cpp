@@ -179,16 +179,18 @@ namespace kofola {
         return res;
     }
 
-    std::vector<std::vector<unsigned>> hyperltl_mc::prod(const std::vector<std::vector<unsigned>>& a, const std::vector<unsigned>& b) {
-        std::vector<std::vector<unsigned>> res;
-
-        for(auto el_a: a) {
-            std::vector<unsigned> tmp;
-            for(auto el_b: b) {
-                tmp = el_a;
-                tmp.emplace_back(el_b);
-                res.emplace_back(tmp);
+    std::vector<std::vector<unsigned>> hyperltl_mc::prod(const std::vector<std::vector<unsigned>>& sets) {
+        std::vector<std::vector<unsigned>> res = {{}};
+        for(const auto & set : sets) {
+            std::vector<std::vector<unsigned>> new_res;
+            for(const auto& product: res) {
+                for(auto val: set) {
+                    auto tmp = product;
+                    tmp.emplace_back(val);
+                    new_res.emplace_back(tmp);
+                }
             }
+            res = new_res;
         }
 
         return res;
@@ -217,7 +219,7 @@ namespace kofola {
             auto src_state_vec = s.first;
             unsigned new_aut_src = s.second;
 
-            std::vector<std::vector<std::vector<unsigned>>> to_cross_prod;
+            std::vector<std::vector<unsigned>> to_cross_prod;
             std::vector<std::vector<unsigned>> succs;
             bdd trans = bddtrue;
 
@@ -230,15 +232,10 @@ namespace kofola {
                 auto tmp = bdd_and(trans, system_->state_condition(kripke_state));
                 trans = bdd_and(trans, bdd_replace(tmp, transl_aps));
 
-                to_cross_prod.emplace_back(std::vector<std::vector<unsigned>> (1, system_successors(kripke_state)));
-
-                if(to_cross_prod.size() >= 2) {
-                    succs = prod(to_cross_prod[0], to_cross_prod[1][0]);
-                    to_cross_prod.clear();
-                    to_cross_prod.emplace_back(succs);
-                }
-            } // result in 'to_cross_prod[0]'
-            for(const auto& succ: to_cross_prod[0]) {
+                to_cross_prod.emplace_back(system_successors(kripke_state));
+            }
+            auto all_succs = prod(to_cross_prod);
+            for(const auto& succ: all_succs) {
                 spot_state = self_composition->new_state();
 
                 std::vector<unsigned> acceptance(1, 0);
