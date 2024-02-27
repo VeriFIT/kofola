@@ -13,19 +13,24 @@ namespace kofola {
     built_aut_(parsed_hyperltl_f->aut),
     system_(std::move(system))
     {
+        spot::print_hoa(std::cout, system_);
         Quantification q;
         while(!(parsed_hyperltl_f->q_list.empty())) {
             q = parsed_hyperltl_f->q_list.back();
             parsed_hyperltl_f->q_list.pop_back();
 
             if(q.type == static_cast<unsigned int>(QuantificationType::Exists) && !parsed_hyperltl_f->q_list.empty()) {
-                existential_projection(q.trace_vars);
+                for(auto trace_var: q.trace_vars) {
+                    built_aut_ = existential_projection({trace_var});
+                }
             }
             else if(q.type == static_cast<unsigned int>(QuantificationType::Exists) && parsed_hyperltl_f->q_list.empty()) {
-                existential_projection(q.trace_vars);
+                for(int i = q.trace_vars.size() - 1; i >= 0; i--) {
+                    built_aut_ = existential_projection({q.trace_vars[i]});
+                }
                 spot::generic_emptiness_check(built_aut_)
-                ? std::cout << "SAT" << std::endl
-                : std::cout << "UNSAT" << std::endl;
+                ? std::cout << "UNSAT" << std::endl
+                : std::cout << "SAT" << std::endl;
 
                 return;
             }
@@ -34,6 +39,7 @@ namespace kofola {
                 // although when there is only seq. of existential, we can
                 // perform emptiness check on the fly
                 auto aut_A = n_fold_self_composition(q.trace_vars);
+                spot::print_hoa(std::cout, aut_A);
                 kofola::inclusionTest().test(aut_A, built_aut_)
                 ? std::cout << "SAT" << std::endl
                 : std::cout << "UNSAT" << std::endl;
@@ -41,6 +47,7 @@ namespace kofola {
                 return;
             }
             else {
+                // TODO when innermost, the formula can be negated only ??
                 built_aut_ = kofola::complement_tela(built_aut_);
                 built_aut_ = existential_projection(q.trace_vars);
                 built_aut_ = kofola::complement_tela(built_aut_);
@@ -69,6 +76,7 @@ namespace kofola {
 
         for(const auto& ap: built_aut_->ap()) {
             for (const auto &system_ap: system_->ap()) {
+//                std::cout <<  system_ap.ap_name() << ", " << ap.ap_name() << std::endl;
                 if (system_ap.ap_name() == parsed_hyperltl_f_->aps_map[ap.ap_name()].atomic_prop) {
                     aut_part.emplace_back(dict->var_map[ap]);
                     sys_part.emplace_back(system_dict->var_map[system_ap]);
@@ -88,28 +96,33 @@ namespace kofola {
         auto system_dict = system_->get_dict();
         // obtain all aps from the automaton
         std::vector<int> aps_to_remove;
+        std::vector<int> aps_to_keep;
         for(const auto& ap: built_aut_->ap()) {
-            bool remove = true;
+            bool keep = true;
 
             for(const auto& trace_var: exist_trac_vars) {
                 if(parsed_hyperltl_f_->aps_map[ap.ap_name()].trace_var == trace_var) {
-                    remove = false;
+                    keep = false;
                     break;
                 }
             }
-
-            if(remove)
+            std::cout << ap.ap_name() << std::endl;
+            if(keep)
+                aps_to_keep.emplace_back(dict->var_map[ap]);
+            else
                 aps_to_remove.emplace_back(dict->var_map[ap]);
         }
+        if(aps_to_keep.empty())
+            return bdd_false();
 
-        return bdd_makeset(aps_to_remove.data(), aps_to_remove.size());
+        aps_to_remove_ = bdd_makeset(aps_to_remove.data(), aps_to_remove.size());
+        return bdd_makeset(aps_to_keep.data(), aps_to_keep.size());
     }
 
     spot::twa_graph_ptr hyperltl_mc::existential_projection(const std::vector<std::string>& exist_trac_vars) {
-        auto init_formula = parsed_hyperltl_f_->aut->get_init_state_number();
+        auto init_formula = built_aut_->get_init_state_number();
         auto init_system = system_->get_init_state_number();
-
-        mc_macrostate initial_macrostate = std::make_pair(init_formula, init_system);
+        mc_macrostate initial_macrostate = std::make_pair(init_system, init_formula);
 
         auto projected = spot::make_twa_graph(built_aut_->get_dict());
         unsigned spot_state = projected->new_state();
@@ -133,17 +146,15 @@ namespace kofola {
             auto system_cond = system_->state_condition(kripke_state);
             auto system_succs = system_successors(kripke_state);
 
-            auto aps_to_remove = get_relevant_aut_aps(exist_trac_vars); // aps to remove
-
+            auto not_interesting_ap = get_relevant_aut_aps(exist_trac_vars); // aps to remove
             for (const auto &t : built_aut_->out(aut_src)) {
-                auto relevant_aut_aps = bdd_exist(t.cond, aps_to_remove);
+                auto relevant_aut_aps = bdd_exist(t.cond, not_interesting_ap);
                 auto to_compare = bdd_replace(relevant_aut_aps,get_bdd_pair_aut_to_system());
-
                 if (bdd_implies(system_cond, to_compare)) {
                     for(auto s_succ: system_succs) {
                         mc_macrostate mstate = std::make_pair(s_succ, t.dst);
                         spot_state = projected->new_state();
-                        projected->new_edge(new_aut_src, spot_state, system_cond, t.acc);
+                        projected->new_edge(new_aut_src, spot_state, bdd_exist(t.cond, aps_to_remove_), t.acc);
                         if(used_states.count(mstate) == 0) {
                             macrostates_spotstate.push(std::make_pair(mstate, spot_state));
                             used_states[mstate] = true;
@@ -198,6 +209,7 @@ namespace kofola {
 
     spot::twa_graph_ptr hyperltl_mc::n_fold_self_composition(std::vector<std::string> trac_vars) {
         auto self_composition = spot::make_twa_graph(built_aut_->get_dict()); // preserving the same alphabet
+        spot::print_hoa(std::cout, built_aut_);
         auto cond = spot::acc_cond::acc_code::inf({0});
         self_composition->set_acceptance(cond);
 

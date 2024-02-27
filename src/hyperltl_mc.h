@@ -11,6 +11,7 @@ namespace kofola {
         spot::twa_graph_ptr built_aut_; /// inductively built automaton
         spot::kripke_graph_ptr system_; /// kripke struct representing system behavior
         bddPair *aut_to_system_;
+        bdd aps_to_remove_;
         bool negate_; /// indicates if formula preprocessing caused the top level negation
     public:
         hyperltl_mc(const parsed_hyperltl_form_ptr& parsed_hyperltl_f, spot::kripke_graph_ptr  system);
