@@ -1,0 +1,16 @@
+concur_p1_1bit.hoa
+concur_p1_3bit.hoa
+concur_p1_4bit.hoa
+concur_p2_1bit.hoa
+concur_p3_1bit.hoa 
+concur_p3_3bit.hoa
+concur_p4_1bit.hoa
+concur_p4_3bit.hoa
+lmcs_p1_1bit.hoa
+lmcs_p2_1bit.hoa
+lmcs_p2_2bit.hoa
+lmcs_p2_4bit.hoa
+lmcs_p3_1bit.hoa
+lmcs_p3_3bit.hoa
+lmcs_p4_1bit.hoa
+lmcs_p4_3bit.hoa

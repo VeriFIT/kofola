@@ -1,0 +1,28 @@
+forall A. exists B.
+(G
+    (
+        ("{p1-TOKEN}_{A}" <-> "{p2-TOKEN}_{B}")
+        &
+        ("{p2-TOKEN}_{A}" <-> "{p1-TOKEN}_{B}")
+        &
+        (("{p1_line=0}_{A}" & "{p2_line=0}_{B}") | ("{p1_line=1}_{A}" & "{p2_line=1}_{B}") | ("{p1_line=2}_{A}" & "{p2_line=2}_{B}") | ("{p1_line=3}_{A}" & "{p2_line=3}_{B}") | ("{p1_line=4}_{A}" & "{p2_line=4}_{B}")) 
+        &
+        (("{p2_line=0}_{A}" & "{p1_line=0}_{B}") | ("{p2_line=1}_{A}" & "{p1_line=1}_{B}") | ("{p2_line=2}_{A}" & "{p1_line=2}_{B}") | ("{p2_line=3}_{A}" & "{p1_line=3}_{B}") | ("{p2_line=4}_{A}" & "{p1_line=4}_{B}")) 
+        &
+        ("{p1-TOKEN}_{A}" <-> "{p3-TOKEN}_{B}")
+        &
+        ("{p3-TOKEN}_{A}" <-> "{p1-TOKEN}_{B}")
+        &
+        (("{p1_line=0}_{A}" & "{p3_line=0}_{B}") | ("{p1_line=1}_{A}" & "{p3_line=1}_{B}") | ("{p1_line=2}_{A}" & "{p3_line=2}_{B}") | ("{p1_line=3}_{A}" & "{p3_line=3}_{B}") | ("{p1_line=4}_{A}" & "{p3_line=4}_{B}")) 
+        &
+        (("{p3_line=0}_{A}" & "{p1_line=0}_{B}") | ("{p3_line=1}_{A}" & "{p1_line=1}_{B}") | ("{p3_line=2}_{A}" & "{p1_line=2}_{B}") | ("{p3_line=3}_{A}" & "{p1_line=3}_{B}") | ("{p3_line=4}_{A}" & "{p1_line=4}_{B}")) 
+        &
+        ("{p2-TOKEN}_{A}" <-> "{p3-TOKEN}_{B}")
+        &
+        ("{p3-TOKEN}_{A}" <-> "{p2-TOKEN}_{B}")
+        &
+        (("{p2_line=0}_{A}" & "{p3_line=0}_{B}") | ("{p2_line=1}_{A}" & "{p3_line=1}_{B}") | ("{p2_line=2}_{A}" & "{p3_line=2}_{B}") | ("{p2_line=3}_{A}" & "{p3_line=3}_{B}") | ("{p2_line=4}_{A}" & "{p3_line=4}_{B}")) 
+        &
+        (("{p3_line=0}_{A}" & "{p2_line=0}_{B}") | ("{p3_line=1}_{A}" & "{p2_line=1}_{B}") | ("{p3_line=2}_{A}" & "{p2_line=2}_{B}") | ("{p3_line=3}_{A}" & "{p2_line=3}_{B}") | ("{p3_line=4}_{A}" & "{p2_line=4}_{B}"))
+    )
+)

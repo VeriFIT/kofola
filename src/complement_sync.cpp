@@ -102,7 +102,6 @@ namespace cola {
                         });
         // Generate bdd supports and compatible options for each state.
         // Also check if all its transitions are accepting.
-        std::cout << nb_states_ << "\n\n";
         for (unsigned i = 0; i < nb_states_; ++i) {
             bdd res_support = bddtrue;
             bdd res_compat = bddfalse;

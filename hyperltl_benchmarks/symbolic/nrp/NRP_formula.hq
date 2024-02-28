@@ -1,0 +1,40 @@
+exists A. forall B. 
+(
+    (F "{line=3}_{A}") 
+    & 
+    (F "{line=5}_{A}") 
+    & 
+    (F "{line=6}_{A}")
+) 
+&
+( 
+    (G
+        ("{sender_actions}_{A}" = "{sender_actions}_{B}")
+    ) 
+    -> 
+    (
+        (F
+            ("{line=5}_{B}")
+        ) 
+        <-> 
+        (F
+            ("{line=6}_{B}")
+        )
+    ) 
+) 
+&
+( 
+    (G 
+        ({receiver_actions}_A = {receiver_actions}_B) 
+    ) 
+    -> 
+    (
+        (F 
+            ("{line=5}_{B}")
+        )
+        <-> 
+        (F 
+            ("{line=6}_{B}")
+        )
+    ) 
+)

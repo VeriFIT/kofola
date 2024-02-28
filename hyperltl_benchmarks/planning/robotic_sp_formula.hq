@@ -1,0 +1,13 @@
+exists A. forall B.
+
+    (F
+        ("{GOAL}_{A}") 
+    )
+&
+    (G
+        (
+            (! "{GOAL}_{A}")
+            ->
+            (! "{GOAL}_{B}")
+        )
+    )

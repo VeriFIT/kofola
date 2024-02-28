@@ -1,0 +1,65 @@
+HOA: v1
+States: 28
+Start: 8
+AP: 3 "h_0" "l_0" "o_0" 
+acc-name: all
+Acceptance: 0 t
+properties: state-labels explicit-labels state-acc deterministic
+--BODY--
+State: [!0&!1&!2] 5
+11 20 
+State: [!0&!1&!2] 6
+26 
+State: [!0&!1&!2] 8
+5 
+State: [!0&!1&!2] 9
+6 
+State: [!0&!1&!2] 10
+12 
+State: [!0&!1&!2] 11
+9 10 
+State: [!0&!1&!2] 12
+8 
+State: [0&!1&!2] 14
+11 20 
+State: [0&!1&!2] 15
+32 
+State: [0&!1&!2] 17
+14 
+State: [0&!1&!2] 18
+15 
+State: [0&!1&!2] 19
+21 
+State: [0&!1&!2] 20
+18 19 
+State: [0&!1&!2] 21
+17 
+State: [2&!0&!1] 23
+35 38 
+State: [2&!0&!1] 24
+8 
+State: [2&!0&!1] 26
+23 
+State: [2&!0&!1] 27
+24 
+State: [0&2&!1] 29
+35 38 
+State: [0&2&!1] 30
+17 
+State: [0&2&!1] 32
+29 
+State: [0&2&!1] 33
+30 
+State: [2&!0&!1] 34
+36 
+State: [2&!0&!1] 35
+27 34 
+State: [2&!0&!1] 36
+26 
+State: [0&2&!1] 37
+39 
+State: [0&2&!1] 38
+33 37 
+State: [0&2&!1] 39
+32 
+--END--

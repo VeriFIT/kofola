@@ -1,0 +1,16 @@
+exists A. forall B. 
+(
+    (
+        "{action}_{A}" = "{action}_{B}"
+    ) 
+    U 
+    ( 
+        ("{beverage}_{A}" = "{beverage}_{B}") 
+        |
+        ("{water}_{A}" = "{water}_{B}") 
+        |
+        !("{NO_water}_{A}" <-> "{NO_water}_{B}") 
+        |
+        !("{NO_output}_{A}" <-> "{NO_output}_{B}")
+    )
+)
