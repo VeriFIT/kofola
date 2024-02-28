@@ -379,7 +379,7 @@ namespace kofola {
         preprocessed_orig_aut_B_ = preprocess(aut_B);
 
         spot::scc_info si_B(preprocessed_orig_aut_B_, spot::scc_info_options::ALL);
-        auto comp_aut_B = cola::tnba_complement(preprocessed_orig_aut_B_, si_B);
+        cola::tnba_complement comp_aut_B(preprocessed_orig_aut_B_, si_B);
 
         DEBUG_PRINT_LN("selecting algorithms");
         // creates a vector of algorithms, for every SCC of aut one

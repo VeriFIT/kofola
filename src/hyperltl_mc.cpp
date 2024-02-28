@@ -13,7 +13,7 @@ namespace kofola {
     built_aut_(parsed_hyperltl_f->aut),
     system_(std::move(system))
     {
-        spot::print_hoa(std::cout, system_);
+        mark_redundant_aps_formula();
         Quantification q;
         while(!(parsed_hyperltl_f->q_list.empty())) {
             q = parsed_hyperltl_f->q_list.back();
@@ -39,8 +39,8 @@ namespace kofola {
                 // although when there is only seq. of existential, we can
                 // perform emptiness check on the fly
                 auto aut_A = n_fold_self_composition(q.trace_vars);
-                spot::print_hoa(std::cout, aut_A);
-                kofola::inclusionTest().test(aut_A, built_aut_)
+                kofola::inclusionTest inclusion;
+                inclusion.test(aut_A, built_aut_)
                 ? std::cout << "SAT" << std::endl
                 : std::cout << "UNSAT" << std::endl;
 
@@ -53,6 +53,24 @@ namespace kofola {
                 built_aut_ = kofola::complement_tela(built_aut_);
             }
         }
+    }
+
+    void hyperltl_mc::mark_redundant_aps_formula() {
+        std::vector<int> to_remove;
+        for(const auto& keys: parsed_hyperltl_f_->aps_map) {
+            bool remove = true;
+            for(const auto& sys_ap: system_->ap()) {
+                if(sys_ap.ap_name() == keys.second.atomic_prop) {
+                    remove = false;
+                    break;
+                }
+            }
+            if(remove) {
+                auto ap = built_aut_->register_ap(keys.first);
+                to_remove.emplace_back(ap);
+            }
+        }
+        aps_not_in_system_ = bdd_makeset(to_remove.data(), to_remove.size());
     }
 
     std::vector<unsigned> hyperltl_mc::system_successors(spot::kripke_graph_state* s) {
@@ -76,7 +94,6 @@ namespace kofola {
 
         for(const auto& ap: built_aut_->ap()) {
             for (const auto &system_ap: system_->ap()) {
-//                std::cout <<  system_ap.ap_name() << ", " << ap.ap_name() << std::endl;
                 if (system_ap.ap_name() == parsed_hyperltl_f_->aps_map[ap.ap_name()].atomic_prop) {
                     aut_part.emplace_back(dict->var_map[ap]);
                     sys_part.emplace_back(system_dict->var_map[system_ap]);
@@ -91,9 +108,10 @@ namespace kofola {
         return res;
     }
 
-    bdd hyperltl_mc::get_relevant_aut_aps(const std::vector<std::string>& exist_trac_vars) {
+    bdd hyperltl_mc::get_relevant_aut_aps(const std::vector<std::string>& exist_trac_vars, spot::twa_graph_ptr &projected) {
         auto dict = built_aut_->get_dict();
         auto system_dict = system_->get_dict();
+
         // obtain all aps from the automaton
         std::vector<int> aps_to_remove;
         std::vector<int> aps_to_keep;
@@ -106,12 +124,13 @@ namespace kofola {
                     break;
                 }
             }
-            std::cout << ap.ap_name() << std::endl;
+
             if(keep)
-                aps_to_keep.emplace_back(dict->var_map[ap]);
+            {aps_to_keep.emplace_back(dict->var_map[ap]); projected->register_ap(ap);}
             else
-                aps_to_remove.emplace_back(dict->var_map[ap]);
+            {aps_to_remove.emplace_back(dict->var_map[ap]);}
         }
+
         if(aps_to_keep.empty())
             return bdd_false();
 
@@ -131,8 +150,8 @@ namespace kofola {
         macrostates_spotstate.emplace(std::make_pair(initial_macrostate, spot_state));
 
         std::pair<mc_macrostate, unsigned> s;
-        std::map<mc_macrostate, bool> used_states;
-        used_states[initial_macrostate] = true;
+        std::map<mc_macrostate, unsigned> used_states;
+        used_states[initial_macrostate] = spot_state;
 
         while(!macrostates_spotstate.empty()) {
             s = macrostates_spotstate.front();
@@ -146,47 +165,49 @@ namespace kofola {
             auto system_cond = system_->state_condition(kripke_state);
             auto system_succs = system_successors(kripke_state);
 
-            auto not_interesting_ap = get_relevant_aut_aps(exist_trac_vars); // aps to remove
+            auto not_interesting_ap = get_relevant_aut_aps(exist_trac_vars, projected); // aps to remove
             for (const auto &t : built_aut_->out(aut_src)) {
-                auto relevant_aut_aps = bdd_exist(t.cond, not_interesting_ap);
+                auto relevant_aut_aps = bdd_exist(bdd_exist(t.cond, aps_not_in_system_), not_interesting_ap);
                 auto to_compare = bdd_replace(relevant_aut_aps,get_bdd_pair_aut_to_system());
                 if (bdd_implies(system_cond, to_compare)) {
                     for(auto s_succ: system_succs) {
                         mc_macrostate mstate = std::make_pair(s_succ, t.dst);
-                        spot_state = projected->new_state();
-                        projected->new_edge(new_aut_src, spot_state, bdd_exist(t.cond, aps_to_remove_), t.acc);
                         if(used_states.count(mstate) == 0) {
+                            spot_state = projected->new_state();
                             macrostates_spotstate.push(std::make_pair(mstate, spot_state));
-                            used_states[mstate] = true;
+                            used_states[mstate] = spot_state;
                         }
+                        else {
+                            spot_state = used_states[mstate];
+                        }
+                        projected->new_edge(new_aut_src, spot_state, bdd_exist(bdd_exist(t.cond, aps_not_in_system_), aps_to_remove_), t.acc);
                     }
                 }
             }
         }
-
+        projected->remove_unused_ap();
         return projected;
     }
 
-    bddPair *hyperltl_mc::get_bdd_pair_system_to_aut(const std::string& trace_var) {
-        auto dict = built_aut_->get_dict();
+    bdd hyperltl_mc::get_bdd_pair_system_to_aut(const std::string& trace_var, spot::twa_graph_ptr &composed, bdd cond) {
         auto system_dict = system_->get_dict();
 
-        std::vector<int> aut_part;
-        std::vector<int> sys_part;
+        std::vector<int> new_aps;
+        std::vector<int> old_aps;
 
         for(const auto &system_ap: system_->ap()) {
-            for (const auto& ap: built_aut_->ap()) {
-                if(system_ap.ap_name() == parsed_hyperltl_f_->aps_map[ap.ap_name()].atomic_prop &&
-                trace_var == parsed_hyperltl_f_->aps_map[ap.ap_name()].trace_var) {
-                    aut_part.emplace_back(dict->var_map[ap]);
-                    sys_part.emplace_back(system_dict->var_map[system_ap]);
+            for(const auto &composed_ap: composed->ap()) {
+                if(parsed_hyperltl_f_->aps_map[composed_ap.ap_name()].atomic_prop ==  system_ap.ap_name()) {
+                    new_aps.emplace_back(composed->get_dict()->var_map[composed_ap]);
+                    old_aps.emplace_back(system_dict->var_map[system_ap]);
                     break;
                 }
             }
         }
 
-        bddPair *res = bdd_newpair();
-        bdd_setpairs(res, sys_part.data(), aut_part.data(), aut_part.size());
+        auto pair = bdd_newpair();
+        bdd_setpairs(pair, old_aps.data(), new_aps.data(), old_aps.size());
+        auto res = bdd_replace(cond, pair);
         return res;
     }
 
@@ -208,8 +229,13 @@ namespace kofola {
     }
 
     spot::twa_graph_ptr hyperltl_mc::n_fold_self_composition(std::vector<std::string> trac_vars) {
-        auto self_composition = spot::make_twa_graph(built_aut_->get_dict()); // preserving the same alphabet
-        spot::print_hoa(std::cout, built_aut_);
+        auto dict = spot::make_bdd_dict();
+        auto self_composition = spot::make_twa_graph(dict);
+        for(const auto &system_ap: system_->ap()) {
+            for(const auto& trace_var: trac_vars) {
+                self_composition->register_ap("{" + system_ap.ap_name() + "}_{" + trace_var + "}");
+            }
+        }
         auto cond = spot::acc_cond::acc_code::inf({0});
         self_composition->set_acceptance(cond);
 
@@ -221,8 +247,8 @@ namespace kofola {
         std::queue<std::pair<std::vector<unsigned>, unsigned>> macrostates_spotstate;
         macrostates_spotstate.emplace(std::make_pair(init_self_comp_state, spot_state));
 
-        std::map<std::vector<unsigned>, bool> used_states;
-        used_states[init_self_comp_state] = true;
+        std::map<std::vector<unsigned>, unsigned> used_states;
+        used_states[init_self_comp_state] = spot_state;
         std::pair<std::vector<unsigned>, unsigned> s;
         while(!macrostates_spotstate.empty()) {
             s = macrostates_spotstate.front();
@@ -239,24 +265,25 @@ namespace kofola {
             for(auto src_state: src_state_vec) {
                 auto kripke_state = system_->state_from_number(src_state);
                 // translate system AP to automaton AP
-                auto transl_aps = get_bdd_pair_system_to_aut(trac_vars[i]); // conjunction of aps of all states;
+                auto transl_aps = get_bdd_pair_system_to_aut(trac_vars[i], self_composition, kripke_state->cond()); // conjunction of aps of all states;
                 i++;
-                auto tmp = bdd_and(trans, system_->state_condition(kripke_state));
-                trans = bdd_and(trans, bdd_replace(tmp, transl_aps));
-
+                trans = bdd_and(trans, transl_aps);
                 to_cross_prod.emplace_back(system_successors(kripke_state));
             }
             auto all_succs = prod(to_cross_prod);
             for(const auto& succ: all_succs) {
-                spot_state = self_composition->new_state();
+                if(used_states.count(succ) == 0) {
+                    spot_state = self_composition->new_state();
+                    macrostates_spotstate.push(std::make_pair(succ, spot_state));
+                    used_states[succ] = spot_state;
+                }
+                else {
+                    spot_state = used_states[succ];
+                }
 
                 std::vector<unsigned> acceptance(1, 0);
                 spot::acc_cond::mark_t spot_cols(acceptance.begin(), acceptance.end());
                 self_composition->new_edge(new_aut_src, spot_state, trans, spot_cols);
-                if(used_states.count(succ) == 0) {
-                    macrostates_spotstate.push(std::make_pair(succ, spot_state));
-                    used_states[succ] = true;
-                }
             }
 
 // TODO used state na zaklade spot_state => moze sa vyuzit unordered_map
