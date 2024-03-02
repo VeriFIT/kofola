@@ -310,17 +310,24 @@ int main(int argc, char *argv[])
         // parsing kripke struct
         spot::automaton_parser_options opts;
         opts.want_kripke = true;
-        spot::automaton_stream_parser parser(options.filenames.at(0), opts);
-        spot::parsed_aut_ptr parsed_aut = parser.parse(dict);
-        // internal repr. of system
-        spot::kripke_graph_ptr kripke_struct = parsed_aut->ks;
+        std::vector<spot::kripke_graph_ptr> kripke_structs;
+        kofola::parsed_hyperltl_form_ptr parsed_hyperltl_f;
 
-        // parse hyperltl formula
-        auto hyperltl_parser = new kofola::hyperltl_formula_processor(options.filenames.at(1)); // formula
-        kofola::parsed_hyperltl_form_ptr parsed_hyperltl_f = hyperltl_parser->parse_hyperltl_formula();
+        for(auto filename: options.filenames) {
+            if(filename.find(".hoa") != std::string::npos) {
+                spot::automaton_stream_parser parser(filename, opts);
+                spot::parsed_aut_ptr parsed_aut = parser.parse(dict);
+
+                kripke_structs.emplace_back(parsed_aut->ks);
+            }
+            else if(filename.find(".hq") != std::string::npos) {
+                auto hyperltl_parser = kofola::hyperltl_formula_processor(filename);
+                parsed_hyperltl_f = hyperltl_parser.parse_hyperltl_formula();
+            }
+        }
 
         // perform model checking
-        kofola::hyperltl_mc mc(parsed_hyperltl_f, kripke_struct);
+        kofola::hyperltl_mc mc(parsed_hyperltl_f, kripke_structs);
         return EXIT_SUCCESS;
     }
 

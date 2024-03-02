@@ -9,13 +9,14 @@ namespace kofola {
 
         const parsed_hyperltl_form_ptr& parsed_hyperltl_f_; /// info regarding formula
         spot::twa_graph_ptr built_aut_; /// inductively built automaton
-        spot::kripke_graph_ptr system_; /// kripke struct representing system behavior
+        std::vector<spot::kripke_graph_ptr> kripke_structs_; /// kripke struct representing system behavior
+        spot::kripke_graph_ptr system_;
+        bool one_system_only_;
         bddPair *aut_to_system_;
-        bdd aps_to_remove_;
         bool negate_; /// indicates if formula preprocessing caused the top level negation
         bdd aps_not_in_system_;
     public:
-        hyperltl_mc(const parsed_hyperltl_form_ptr& parsed_hyperltl_f, spot::kripke_graph_ptr  system);
+        hyperltl_mc(const parsed_hyperltl_form_ptr& parsed_hyperltl_f, std::vector<spot::kripke_graph_ptr> kripke_structs);
 
         void mark_redundant_aps_formula();
 
@@ -23,7 +24,9 @@ namespace kofola {
 
         bddPair *get_bdd_pair_aut_to_system();
 
-        bdd get_relevant_aut_aps(const std::vector<std::string>& exist_trac_vars, spot::twa_graph_ptr &projected);
+        std::pair<std::vector<int>,std::vector<int>> get_relevant_aut_aps(const std::vector<std::string>& exist_trac_vars, spot::twa_graph_ptr &projected);
+
+        bdd remove_bdd_vars(bdd cond, std::vector<int> vars);
 
         spot::twa_graph_ptr existential_projection(const std::vector<std::string>& exist_trac_vars);
 

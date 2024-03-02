@@ -65,18 +65,18 @@ namespace kofola {
                 std::string tmp;
                 while(file >> tmp) {
                     ltl_body += tmp;
-
-                    // search for APs
-                    std::regex pattern("\"([^\"]*)\"");
-                    std::smatch match;
-                    // Search for matches
-                    while (std::regex_search(tmp, match, pattern)) {
-                        res->aps_map[match[1]] = parse_formula_AP(match[1]);
-                        // Update input to search for the next occurrence
-                        tmp = match.suffix();
-                    }
                 }
 
+                // search for APs
+                std::regex pattern("\"([^\"]*)\"");
+                std::smatch match;
+                tmp = ltl_body;
+                // Search for matches
+                while (std::regex_search(tmp, match, pattern)) {
+                    res->aps_map[match[1]] = parse_formula_AP(match[1]);
+                    // Update input to search for the next occurrence
+                    tmp = match.suffix();
+                }
                 break;
             }
 
