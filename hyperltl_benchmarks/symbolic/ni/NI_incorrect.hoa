@@ -1,10 +1,10 @@
 HOA: v1
-States: 368
-Start: 58 104 148 198 246 294 342 390
+States: 369
+Start: 676
 AP: 13 "halt" "PIN[0]=0" "PIN[0]=1" "PIN[1]=0" "PIN[1]=1" "PIN[2]=0" "PIN[2]=1" "RESULT[0]=0" "RESULT[0]=1" "RESULT[1]=0" "RESULT[1]=1" "RESULT[2]=0" "RESULT[2]=1" 
 acc-name: all
 Acceptance: 0 t
-properties: state-labels explicit-labels state-acc deterministic
+properties: state-labels explicit-labels state-acc
 --BODY--
 State: [0&1&10&12&3&5&8&!2&!4&!6&!7&!9&!11] 0
 0 
@@ -742,4 +742,6 @@ State: [10&12&2&4&6&8&!0&!1&!3&!5&!7&!9&!11] 674
 672 
 State: [10&12&2&4&6&8&!0&!1&!3&!5&!7&!9&!11] 675
 674 
+State: [t] 676
+58 104 148 198 246 294 342 390
 --END--

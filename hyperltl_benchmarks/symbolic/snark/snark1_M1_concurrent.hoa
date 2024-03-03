@@ -4,7 +4,7 @@ Start: 565
 AP: 14 "FAIL" "popRightFAIL" "proc1.popLeftEND" "proc1.popLeftSTART" "proc1.popRightEND" "proc1.popRightSTART" "proc1.pushRightEND" "proc1.pushRightSTART" "proc2.popLeftEND" "proc2.popLeftSTART" "proc2.popRightEND" "proc2.popRightSTART" "proc2.pushRightEND" "proc2.pushRightSTART" 
 acc-name: all
 Acceptance: 0 t
-properties: state-labels explicit-labels state-acc deterministic
+properties: state-labels explicit-labels state-acc
 --BODY--
 State: [1&10&12&2&4&6&8&!0&!3&!5&!7&!9&!11&!13] 16
 687 709 

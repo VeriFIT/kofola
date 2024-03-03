@@ -4,7 +4,7 @@ Start: 0
 AP: 12 "NO_output" "NO_water" "action=0" "action=1" "action=2" "beverage=0" "beverage=1" "beverage=2" "water=0" "water=1" "water=2" "water=3" 
 acc-name: all
 Acceptance: 0 t
-properties: state-labels explicit-labels state-acc deterministic
+properties: state-labels explicit-labels state-acc
 --BODY--
 State: [0&10&2&5&!1&!3&!4&!6&!7&!8&!9&!11] 0
 1 6 11 

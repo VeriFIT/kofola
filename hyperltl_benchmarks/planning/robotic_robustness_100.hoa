@@ -1,6 +1,6 @@
 HOA: v1
-States: 258
-Start: 20 36 37
+States: 259
+Start: 328
 AP: 5 "GOAL" "act=1" "act=2" "act=3" "act=4" 
 acc-name: all
 Acceptance: 0 t
@@ -522,4 +522,6 @@ State: [0&4&!1&!2&!3] 326
 172 253 
 State: [0&4&!1&!2&!3] 327
 187 238 
+State: [t] 328
+20 36 37
 --END--

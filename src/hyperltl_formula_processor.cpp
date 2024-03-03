@@ -9,14 +9,17 @@ namespace kofola {
         filename_ = file;
     }
 
-    void hyperltl_formula_processor::print_quantifications(const std::list<Quantification>& q_list) {
-        for (const auto& q : q_list) {
-            std::cout << "Type: ";
-            if (q.type == static_cast<unsigned int>(QuantificationType::Exists))
-                std::cout << "Exists";
-            else
-                std::cout << "Forall";
-            //std::cout << ", Trace Var: " << q.trace_var << std::endl;
+    void hyperltl_formula_processor::preprocess(parsed_hyperltl_form_ptr &formula_to_preproc) {
+        if(formula_to_preproc->q_list.front().type == static_cast<unsigned int>(QuantificationType::Exists) &&
+                formula_to_preproc->q_list.size() >= 2) {
+            for (auto &q: formula_to_preproc->q_list) {
+                if (q.type == static_cast<unsigned int>(QuantificationType::Exists))
+                    q.type = static_cast<unsigned int>(QuantificationType::Forall);
+                else
+                    q.type = static_cast<unsigned int>(QuantificationType::Exists);
+            }
+
+            formula_to_preproc->negate = true;
         }
     }
 
@@ -47,6 +50,7 @@ namespace kofola {
         std::ifstream file(filename_);
         std::string quantifier;
         auto res = std::make_shared<parsed_hyperltl_form>();
+        res->negate = false; // implicitly
 
         // cycle to collect each quantification with its trace variable
         while(file >> quantifier) {
@@ -63,6 +67,9 @@ namespace kofola {
                 // no more quantification, return ltl body
                 ltl_body += quantifier; // quantifier holds some other string than quantifiers
                 std::string tmp;
+
+                preprocess(res);
+
                 while(file >> tmp) {
                     ltl_body += tmp;
                 }
@@ -77,6 +84,9 @@ namespace kofola {
                     // Update input to search for the next occurrence
                     tmp = match.suffix();
                 }
+
+                if(res->negate)
+                    ltl_body = "!(" + ltl_body + ")";
                 break;
             }
 

@@ -12,7 +12,7 @@ for p in progs:
     print("|  " + p + "  |", end="", flush=True)
     startTime = time.time()
     try:
-        result = subprocess.run(["../build/src/kofola", "--hyper", "./bp/" + p,  "./bp/gni.txt"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
+        result = subprocess.run(["../build/src/kofola", "--hyper", "./bp/" + p,  "./bp/gni.hq"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
 
         endTime = time.time()
         et = endTime - startTime 

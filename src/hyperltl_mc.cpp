@@ -22,6 +22,8 @@ namespace kofola {
             kripke_structs_.pop_back();
         }
 
+        bool sat = false;
+
         while(!(parsed_hyperltl_f->q_list.empty())) {
             q = parsed_hyperltl_f->q_list.back();
             parsed_hyperltl_f->q_list.pop_back();
@@ -41,11 +43,12 @@ namespace kofola {
                     built_aut_ = existential_projection({trace_var});
                 }
 
-                spot::generic_emptiness_check(built_aut_)
-                ? std::cout << "UNSAT" << std::endl
-                : std::cout << "SAT" << std::endl;
+                if(spot::generic_emptiness_check(built_aut_))
+                    sat = false;
+                else
+                    sat = true;
 
-                return;
+                break;
             }
             else if(q.type == static_cast<unsigned int>(QuantificationType::Forall) && parsed_hyperltl_f->q_list.empty()) {
                 // n-fold self composition and inclusion,
@@ -54,11 +57,12 @@ namespace kofola {
 
                 auto aut_A = n_fold_self_composition(q.trace_vars);
                 kofola::inclusionTest inclusion;
-                inclusion.test(aut_A, built_aut_)
-                ? std::cout << "SAT" << std::endl
-                : std::cout << "UNSAT" << std::endl;
+                if(inclusion.test(aut_A, built_aut_))
+                    sat = true;
+                else
+                    sat = false;
 
-                return;
+                break;
             }
             else {
                 // TODO when innermost, the formula can be negated only ??
@@ -69,24 +73,11 @@ namespace kofola {
                 built_aut_ = kofola::complement_tela(built_aut_);
             }
         }
-    }
 
-    void hyperltl_mc::mark_redundant_aps_formula() {
-        std::vector<int> to_remove;
-        for(const auto& keys: parsed_hyperltl_f_->aps_map) {
-            bool remove = true;
-            for(const auto& sys_ap: system_->ap()) {
-                if(sys_ap.ap_name() == keys.second.atomic_prop) {
-                    remove = false;
-                    break;
-                }
-            }
-            if(remove) {
-                auto ap = built_aut_->register_ap(keys.first);
-                to_remove.emplace_back(ap);
-            }
-        }
-        aps_not_in_system_ = bdd_makeset(to_remove.data(), to_remove.size());
+        if((!sat && !parsed_hyperltl_f_->negate) || (sat && parsed_hyperltl_f_->negate))
+            std::cout << "UNSAT\n";
+        else if((sat && !parsed_hyperltl_f_->negate) || (!sat && parsed_hyperltl_f_->negate))
+            std::cout << "SAT\n";
     }
 
     std::vector<unsigned> hyperltl_mc::system_successors(spot::kripke_graph_state* s) {
@@ -98,29 +89,6 @@ namespace kofola {
             res.emplace_back(system_->state_number(tmp));
         }
 
-        return res;
-    }
-
-    bddPair *hyperltl_mc::get_bdd_pair_aut_to_system() {
-        auto dict = built_aut_->get_dict();
-        auto system_dict = system_->get_dict();
-
-        std::vector<int> aut_part;
-        std::vector<int> sys_part;
-
-        for(const auto& ap: built_aut_->ap()) {
-            for (const auto &system_ap: system_->ap()) {
-                if (system_ap.ap_name() == parsed_hyperltl_f_->aps_map[ap.ap_name()].atomic_prop) {
-                    aut_part.emplace_back(dict->var_map[ap]);
-                    sys_part.emplace_back(system_dict->var_map[system_ap]);
-                    break;
-                }
-            }
-        }
-
-        bddPair *res = bdd_newpair();
-        bdd_setpairs(res, aut_part.data(), sys_part.data(), aut_part.size());
-        aut_to_system_ = res;
         return res;
     }
 
@@ -201,12 +169,8 @@ namespace kofola {
             auto aps_to_keep = partitioned_aps.first;
             auto curr_aps = partitioned_aps.second;
             for (const auto &t : built_aut_->out(aut_src)) {
-                //auto relevant_aut_aps = remove_bdd_vars(t.cond, aps_to_keep);
-                //auto relevant_aut_aps = bdd_exist(t.cond, bdd_makeset(aps_to_keep.data(), aps_to_keep.size()));
                 auto to_restrict = get_bdd_pair_system_to_aut(exist_trac_vars[0], built_aut_, system_cond);
                 auto restricted = bdd_restrict(t.cond, to_restrict);
-//                bdd_printset(t.cond); std::cout << "--------------\n";
-//                bdd_printset(restricted); std::cout << "\n\n";
 
                 if (restricted != bddfalse) {
                     for(auto s_succ: system_succs) {
@@ -220,13 +184,11 @@ namespace kofola {
                             spot_state = used_states[mstate];
                         }
                         projected->new_edge(new_aut_src, spot_state, restricted, t.acc);
-                        //projected->new_edge(new_aut_src, spot_state, bdd_exist(t.cond, bdd_makeset(curr_aps.data(), curr_aps.size())), t.acc);
                     }
                 }
             }
         }
-        // spot::print_hoa(std::cout, projected);
-//        std::cout << "\n-------------------------------------\n--------------------------------\n";
+
         return projected;
     }
 

@@ -30,6 +30,7 @@ namespace kofola {
         spot::twa_graph_ptr aut; /// automaton for the formula
         std::list<Quantification> q_list; /// the order corresponds with the textual form on the input
         std::map<std::string, AP_trace> aps_map; /// to map formula automaton APs "{ap}_{trace}" -> (ap,trace) with ap being the system AP
+        bool negate;
     };
     typedef std::shared_ptr<parsed_hyperltl_form> parsed_hyperltl_form_ptr;
 
@@ -39,7 +40,7 @@ namespace kofola {
         public:
             hyperltl_formula_processor(const std::string& file);
 
-            void print_quantifications(const std::list<Quantification>& q_list);
+            void preprocess(parsed_hyperltl_form_ptr &formula_to_preproc);
 
             /**
              * @brief For the string "{ap}_{trace}" creates struct 'AP_trace'

@@ -4,7 +4,7 @@ Start: 34
 AP: 11 "line=3" "line=5" "line=6" "receiver_actions=0" "receiver_actions=1" "receiver_actions=2" "sender_actions=0" "sender_actions=1" "sender_actions=2" "sender_actions=3" "sender_actions=4" 
 acc-name: all
 Acceptance: 0 t
-properties: state-labels explicit-labels state-acc deterministic
+properties: state-labels explicit-labels state-acc
 --BODY--
 State: [0&3&6&!1&!2&!4&!5&!7&!8&!9&!10] 7
 35 

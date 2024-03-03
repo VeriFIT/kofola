@@ -4,7 +4,7 @@ Start: 80
 AP: 18 "p1-TOKEN" "p2-TOKEN" "p3-TOKEN" "p1_line=0" "p1_line=1" "p1_line=2" "p1_line=3" "p1_line=4" "p2_line=0" "p2_line=1" "p2_line=2" "p2_line=3" "p2_line=4" "p3_line=0" "p3_line=1" "p3_line=2" "p3_line=3" "p3_line=4" 
 acc-name: all
 Acceptance: 0 t
-properties: state-labels explicit-labels state-acc deterministic
+properties: state-labels explicit-labels state-acc
 --BODY--
 State: [0&1&15&2&3&8&!4&!5&!6&!7&!9&!10&!11&!12&!13&!14&!16&!17] 2
 19 21 27 29 

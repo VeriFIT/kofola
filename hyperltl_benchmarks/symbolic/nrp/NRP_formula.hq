@@ -1,4 +1,5 @@
 exists A. forall B. 
+
 (
     (F "{line=3}_{A}") 
     & 
@@ -9,32 +10,32 @@ exists A. forall B.
 &
 ( 
     (G
-        ("{sender_actions}_{A}" = "{sender_actions}_{B}")
+        (("{sender_actions=0}_{A}" & "{sender_actions=0}_{B}") | ("{sender_actions=1}_{A}" & "{sender_actions=1}_{B}") | ("{sender_actions=2}_{A}" & "{sender_actions=2}_{B}") | ("{sender_actions=3}_{A}" & "{sender_actions=3}_{B}") | ("{sender_actions=4}_{A}" & "{sender_actions=4}_{B}"))
     ) 
     -> 
     (
         (F
-            ("{line=5}_{B}")
+            "{line=5}_{B}"
         ) 
         <-> 
         (F
-            ("{line=6}_{B}")
+            "{line=6}_{B}"
         )
     ) 
 ) 
 &
 ( 
     (G 
-        ({receiver_actions}_A = {receiver_actions}_B) 
+        (("{receiver_actions=0}_{A}" & "{receiver_actions=0}_{B}") | ("{receiver_actions=1}_{A}" & "{receiver_actions=1}_{B}") | ("{receiver_actions=2}_{A}" & "{receiver_actions=2}_{B}")) 
     ) 
     -> 
     (
         (F 
-            ("{line=5}_{B}")
+            "{line=5}_{B}"
         )
         <-> 
         (F 
-            ("{line=6}_{B}")
+            "{line=6}_{B}"
         )
     ) 
 )
