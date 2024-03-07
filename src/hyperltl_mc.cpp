@@ -57,6 +57,7 @@ namespace kofola {
 
                 auto aut_A = n_fold_self_composition(q.trace_vars);
                 kofola::inclusionTest inclusion;
+
                 if(inclusion.test(aut_A, built_aut_))
                     sat = true;
                 else
@@ -111,7 +112,7 @@ namespace kofola {
             if(keep)
             {aps_to_keep.emplace_back(dict->var_map[ap]);  projected->register_ap(ap); }
             else
-            {aps_to_remove.emplace_back(dict->var_map[ap]);}
+            {aps_to_remove.emplace_back(dict->var_map[ap]); projected->register_ap(ap);}
         }
 
         return std::make_pair(aps_to_keep, aps_to_remove);
@@ -135,7 +136,9 @@ namespace kofola {
         }
 
         auto projected = spot::make_twa_graph(built_aut_->get_dict());
-        projected->register_aps_from_dict();
+        for(auto orig_ap: built_aut_->ap()) {
+            projected->register_ap(orig_ap);
+        }
         projected->set_acceptance(built_aut_->get_acceptance());
 
         std::queue<std::pair<mc_macrostate, unsigned>> macrostates_spotstate;
@@ -165,9 +168,9 @@ namespace kofola {
             auto system_cond = system_->state_condition(kripke_state);
             auto system_succs = system_successors(kripke_state);
 
-            auto partitioned_aps = get_relevant_aut_aps(exist_trac_vars, projected); // aps to remove
-            auto aps_to_keep = partitioned_aps.first;
-            auto curr_aps = partitioned_aps.second;
+            //auto partitioned_aps = get_relevant_aut_aps(exist_trac_vars, projected); // aps to remove
+            //auto aps_to_keep = partitioned_aps.first;
+            //auto curr_aps = partitioned_aps.second;
             for (const auto &t : built_aut_->out(aut_src)) {
                 auto to_restrict = get_bdd_pair_system_to_aut(exist_trac_vars[0], built_aut_, system_cond);
                 auto restricted = bdd_restrict(t.cond, to_restrict);
@@ -183,12 +186,13 @@ namespace kofola {
                         else {
                             spot_state = used_states[mstate];
                         }
+
                         projected->new_edge(new_aut_src, spot_state, restricted, t.acc);
                     }
                 }
             }
         }
-
+        projected->remove_unused_ap();
         return projected;
     }
 
