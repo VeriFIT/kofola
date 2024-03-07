@@ -305,7 +305,6 @@ namespace kofola {
                 spot::acc_cond::mark_t spot_cols(acceptance.begin(), acceptance.end());
                 self_composition->new_edge(new_aut_src, spot_state, trans, spot_cols);
             }
-
 // TODO used state na zaklade spot_state => moze sa vyuzit unordered_map
         }
         return self_composition;
