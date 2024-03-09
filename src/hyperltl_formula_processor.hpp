@@ -28,6 +28,7 @@ namespace kofola {
     {
         spot::formula formula; /// spot representation of the formula (if needed)
         spot::twa_graph_ptr aut; /// automaton for the formula
+        unsigned qantifiers;
         std::list<Quantification> q_list; /// the order corresponds with the textual form on the input
         std::map<std::string, AP_trace> aps_map; /// to map formula automaton APs "{ap}_{trace}" -> (ap,trace) with ap being the system AP
         bool negate;

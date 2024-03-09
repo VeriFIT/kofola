@@ -100,7 +100,7 @@ namespace kofola {
             else {
                 res->q_list.front().trace_vars.emplace_back(trace_var);
             }
-
+            res->qantifiers++;
         }
 
         res->formula = spot::parse_formula(ltl_body);
