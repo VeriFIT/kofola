@@ -139,7 +139,7 @@ namespace cola {
         this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
 
         // if (this->decomp_options_.iw_sim || this->decomp_options_.det_sim) {
-        //this->reduce_and_compute_simulation(); only for hyperltl PURPOSE commented, should uncomment
+        this->reduce_and_compute_simulation();
         // }
 
         this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);

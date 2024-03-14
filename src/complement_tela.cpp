@@ -112,7 +112,7 @@ spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 	spot::twa_graph_ptr aut_to_compl;
 	aut_to_compl = p.run(aut_reduced);
 
-	auto res = kofola::complement_sync(aut_to_compl);
+	auto res = kofola::complement_sync(aut_reduced);
 	DEBUG_PRINT_LN("finished call to run_new()");
 
 	// postprocessing  TODO: should also consider other options
