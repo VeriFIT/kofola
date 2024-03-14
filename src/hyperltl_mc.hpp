@@ -7,7 +7,7 @@
 namespace kofola {
     class  hyperltl_mc_mstate;
 
-    class hyperltl_mc {
+    class hyperltl_mc : public abstr_succ::abstract_successor {
         using mc_macrostate = std::vector<unsigned>; // first-system, second-formula
 
         const parsed_hyperltl_form_ptr& parsed_hyperltl_f_; /// info regarding formula
@@ -36,18 +36,35 @@ namespace kofola {
 
         spot::twa_graph_ptr n_fold_self_composition(std::vector<std::string> trac_vars);
 
-        std::vector<std::shared_ptr<kofola::hyperltl_mc_mstate>> get_succs(std::vector<unsigned> src, std::vector<std::string> exist_trac_vars);
+        bool is_accepting(spot::acc_cond::mark_t cond) override;
+
+        std::vector<std::unique_ptr<abstract_successor::mstate>> get_initial_states() override;
+
+        std::vector<std::unique_ptr<abstract_successor::mstate>> get_succs(const std::unique_ptr<abstract_successor::mstate> &src) override;
+
+        std::vector<std::unique_ptr<hyperltl_mc_mstate>> get_succs_internal(std::vector<unsigned> src, std::vector<std::string> exist_trac_vars);
     };
 
-    class  hyperltl_mc_mstate : public abstract_successor::mstate {
+class  hyperltl_mc_mstate : public abstr_succ::abstract_successor::mstate {
     private:
         std::vector<unsigned> state_; /// systems, last state of aut
-        spot::acc_cond::mark_t acc_;
-        bdd trans_cond_;
     public:
         hyperltl_mc_mstate() {
             ;
         }
+
+        bool eq(const hyperltl_mc_mstate& rhs) {
+            return (state_ == rhs.state_);
+        }
+
+        bool neq(const hyperltl_mc_mstate& rh) {
+            return !eq(rh);
+        }
+
+        bool lt(const hyperltl_mc_mstate& rhs) {
+            if(state_ != rhs.state_) {return state_ < rhs.state_;}
+        }
+
         friend class hyperltl_mc;
     };
 

@@ -18,10 +18,11 @@
 // kofola
 #include "kofola.hpp"
 #include "complement_tela.hpp"
-#include "inclusion_test.hpp"
-#include "hyperltl_mc.h"
+#include "emptiness_check.hpp"
+#include "hyperltl_mc.hpp"
 #include "hyperltl_formula_processor.hpp"
 #include "util.hpp"
+#include "inclusion_check.hpp"
 
 // standard library headers
 #include <unistd.h>
@@ -34,6 +35,9 @@
 
 // Args.hxx
 #include "../3rdparty/args.hxx"
+
+#include <chrono>
+#include <iomanip>
 
 //void output_input_type(spot::twa_graph_ptr aut)
 //{
@@ -327,7 +331,18 @@ int main(int argc, char *argv[])
         }
 
         // perform model checking
+        clock_t start, end;
+        //auto start = std::chrono::high_resolution_clock::now();
+        start = clock();
         kofola::hyperltl_mc mc(parsed_hyperltl_f, kripke_structs);
+        end = clock();
+        double time_taken = 1000 * double(end - start) / double(CLOCKS_PER_SEC);
+        std::cout << "Time taken by program is : " << std::fixed
+             << time_taken << std::setprecision(5);
+        std::cout << " ms " << std::endl;
+        //auto stop = std::chrono::high_resolution_clock::now();
+        //auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+        //std::cout << duration.count() << std::endl;
         return EXIT_SUCCESS;
     }
 
@@ -352,7 +367,8 @@ int main(int argc, char *argv[])
 //                printf("A ⊆ B does not hold!\n");
 //            }
 
-            if(kofola::inclusionTest().test(aut_A, aut_B)) {
+            kofola::inclusion_check inclusion_checker(aut_A, aut_B);
+            if(inclusion_checker.inclusion()) {
                 printf("A ⊆ B holds!\n");
             }
             else {

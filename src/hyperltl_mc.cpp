@@ -1,5 +1,6 @@
-#include "hyperltl_mc.h"
-#include "inclusion_test.hpp"
+#include "hyperltl_mc.hpp"
+#include "inclusion_check.hpp"
+#include "emptiness_check.hpp"
 #include <spot/twa/twagraph.hh>
 #include <utility>
 #include <spot/twaalgos/hoa.hh>
@@ -36,9 +37,10 @@ namespace kofola {
             }
             else if(q.type == static_cast<unsigned int>(QuantificationType::Exists) && parsed_hyperltl_f->q_list.empty()) {
                 use_last_n_kripke_structs(q.trace_vars.size());
-                built_aut_ = existential_projection(q.trace_vars);
 
-                if(spot::generic_emptiness_check(built_aut_))
+                emptiness_check emptiness_checker(this);
+
+                if(emptiness_checker.empty())
                     sat = false;
                 else
                     sat = true;
@@ -52,10 +54,10 @@ namespace kofola {
                 use_last_n_kripke_structs(q.trace_vars.size());
 
                 auto aut_A = n_fold_self_composition(q.trace_vars);
-                kofola::inclusionTest inclusion;
-                spot::print_hoa(std::cout, aut_A); spot::print_hoa(std::cout, built_aut_);
+                kofola::inclusion_check inclusion_checker(aut_A, built_aut_);
+                // spot::print_hoa(std::cout, aut_A); spot::print_hoa(std::cout, built_aut_);
 
-                if(inclusion.test(aut_A, built_aut_))
+                if(inclusion_checker.inclusion())
                     sat = true;
                 else
                     sat = false;
@@ -127,8 +129,12 @@ namespace kofola {
         return res;
     }
 
-    std::vector<std::shared_ptr<kofola::hyperltl_mc_mstate>> hyperltl_mc::get_succs(std::vector<unsigned> src, std::vector<std::string> exist_trac_vars) {
-        std::vector<std::shared_ptr<kofola::hyperltl_mc_mstate>> res;
+    bool hyperltl_mc::is_accepting(spot::acc_cond::mark_t cond) {
+        return built_aut_->get_acceptance().accepting(cond);
+    }
+
+    std::vector<std::unique_ptr<hyperltl_mc_mstate>> hyperltl_mc::get_succs_internal(std::vector<unsigned> src, std::vector<std::string> exist_trac_vars) {
+        std::vector<std::unique_ptr<hyperltl_mc_mstate>> res;
 
         std::vector<unsigned> system_src_states(src.begin(), src.end() - 1);
         std::vector<std::vector<unsigned>> sets_of_sys_succs = system_successors(system_src_states);
@@ -148,11 +154,42 @@ namespace kofola {
                 to_prod.emplace_back(aut_dst);
                 auto product = prod(to_prod);
                 for(const auto& mstate: product) {
-                    std::shared_ptr<hyperltl_mc_mstate> ptr(new hyperltl_mc_mstate);
+                    auto ptr = std::make_unique<hyperltl_mc_mstate>();
                     ptr->state_ = mstate; ptr->acc_ = t.acc; ptr->trans_cond_ = restricted;
-                    res.emplace_back(ptr);
+                    res.emplace_back(std::move(ptr));
                 }
             }
+        }
+
+        return res;
+    }
+
+    std::vector<std::unique_ptr<abstr_succ::abstract_successor::mstate>> hyperltl_mc::get_initial_states() {
+        std::vector<std::unique_ptr<abstract_successor::mstate>> res;
+
+        std::vector<unsigned> init_aut = {built_aut_->get_init_state_number()};
+        auto sys_init = get_systems_init();
+
+        std::vector<std::vector<unsigned>> to_prod = sys_init;
+        to_prod.emplace_back(init_aut);
+        auto initial_macrostates = prod(to_prod);
+        for(auto init: initial_macrostates) {
+            auto ptr = std::make_unique<hyperltl_mc_mstate>();
+            ptr->state_ = init;
+            res.emplace_back(std::move(ptr));
+        }
+
+        return res;
+    }
+
+
+    std::vector<std::unique_ptr<abstr_succ::abstract_successor::mstate>> hyperltl_mc::get_succs(const std::unique_ptr<abstract_successor::mstate> &src) {
+        auto casted_src = dynamic_cast<hyperltl_mc_mstate*>(src.get());
+        auto succs = get_succs_internal(casted_src->state_, this->parsed_hyperltl_f_->q_list.front().trace_vars);
+        std::vector<std::unique_ptr<abstract_successor::mstate>> res;
+
+        for (auto& succ : succs) {
+            res.emplace_back(std::move(succ));
         }
 
         return res;
@@ -206,7 +243,7 @@ namespace kofola {
             std::vector<unsigned> system_srcs(src_mstate.begin(), src_mstate.end() - 1);
             unsigned new_aut_src = s.second;
 
-            auto succs = get_succs(src_mstate, exist_trac_vars);
+            auto succs = get_succs_internal(src_mstate, exist_trac_vars);
             for(const auto& mstate: succs) {
                 if(used_states.count(mstate->state_) == 0) {
                     spot_state = projected->new_state();

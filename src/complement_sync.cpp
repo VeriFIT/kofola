@@ -139,7 +139,7 @@ namespace cola {
         this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
 
         // if (this->decomp_options_.iw_sim || this->decomp_options_.det_sim) {
-        this->reduce_and_compute_simulation();
+        //this->reduce_and_compute_simulation(); only for hyperltl PURPOSE commented, should uncomment
         // }
 
         this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
@@ -1891,8 +1891,7 @@ namespace cola {
         return part_col_offset_;
     }
 
-    std::set<unsigned> cola::tnba_complement::set_acc_cond() {
-        std::set<unsigned> inf_cols;
+    void cola::tnba_complement::set_acc_cond() {
         num_colours_ = RESERVED_COLOURS;
         int rr_colour = -1;     // colour for round robin
         int sh_br_colour = -2;  // colour for shared breakpoint
@@ -1910,7 +1909,6 @@ namespace cola {
                     sh_br_colour = num_colours_;
                     ++num_colours_;
                     alg_acc_code &= spot::acc_cond::acc_code::inf({static_cast<unsigned>(sh_br_colour)});
-                    inf_cols.insert(static_cast<unsigned>(sh_br_colour));
                 }
 
                 part_col_offset_[i] = sh_br_colour;
@@ -1919,7 +1917,6 @@ namespace cola {
                     rr_colour = num_colours_;
                     ++num_colours_;
                     alg_acc_code &= spot::acc_cond::acc_code::inf({static_cast<unsigned>(rr_colour)});
-                    inf_cols.insert(static_cast<unsigned>(rr_colour));
                 }
 
                 part_col_offset_[i] = rr_colour;
@@ -1927,7 +1924,6 @@ namespace cola {
                 cond_code <<= num_colours_;
                 alg_acc_code &= cond_code;
                 part_col_offset_[i] = num_colours_;
-                inf_cols.insert(num_colours_);
                 num_colours_ += cond.num_sets();
             }
         }
@@ -1937,8 +1933,6 @@ namespace cola {
 
         final_code_ = alg_acc_code;
         DEBUG_PRINT_LN("final code: " + std::to_string(final_code_));
-
-        return inf_cols;
     }
 }
 

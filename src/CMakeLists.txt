@@ -34,9 +34,11 @@ add_executable(kofola
 	complement_alg_subs_tuple.cpp
 	ranking.cpp
 	util.cpp
-	inclusion_test.cpp
+	emptiness_check.cpp
 	hyperltl_formula_processor.cpp
-	hyperltl_mc.cpp)
+	hyperltl_mc.cpp
+	inclusion_check.cpp
+	abstract_successor.cpp)
 
 target_compile_options(kofola PRIVATE ${CXX_FLAGS})
 
