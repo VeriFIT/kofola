@@ -12,15 +12,19 @@ namespace kofola {
         protected:
             spot::acc_cond::mark_t acc_;
             bdd trans_cond_;
+            bool encountered_ = false; /// to avoid incoming transition to the root
         public: // METHODS
             spot::acc_cond::mark_t get_acc() {return acc_; }
-            spot::acc_cond::mark_t set_acc(spot::acc_cond::mark_t new_acc) {acc_ = new_acc; }
+            void set_acc(spot::acc_cond::mark_t new_acc) {acc_ = new_acc; }
+
+            void set_encountered(bool val) {encountered_ = val;}
+            bool get_encountered() {return encountered_;}
 
             virtual bool eq(const mstate& rhs) const = 0;
 
-            virtual bool neq(const mstate& rhs) const = 0;
-
             virtual bool lt(const mstate& rhs) const = 0;
+
+            mstate& operator=(const mstate& other) = default;
 
             virtual ~mstate() { }
         }; // mstate }}}
@@ -28,9 +32,9 @@ namespace kofola {
     protected: // DATA MEMBERS
 
     public: // METHODS
-        virtual std::vector<std::unique_ptr<mstate>> get_initial_states() = 0;
+        virtual std::vector<std::shared_ptr<mstate>> get_initial_states() = 0;
 
-        virtual std::vector<std::unique_ptr<mstate>> get_succs(const std::unique_ptr<abstract_successor::mstate> &src) = 0;
+        virtual std::vector<std::shared_ptr<mstate>> get_succs(const std::shared_ptr<abstract_successor::mstate> &src) = 0;
 
         virtual bool is_accepting(spot::acc_cond::mark_t cond) = 0;
     }; // abstract_complement_alg }}}

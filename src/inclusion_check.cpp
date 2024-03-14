@@ -29,7 +29,7 @@ namespace kofola {
         // get initial uberstates
         auto init_vec{aut_B_compl_.get_initial_uberstates()};
         for (unsigned state: init_vec) {
-            auto ptr = std::make_unique<inclusion_mstate>();
+            auto ptr = std::make_shared<inclusion_mstate>();
             ptr->state_ = {init_A, state};
 
             init_states_.emplace_back(std::move(ptr));
@@ -38,29 +38,31 @@ namespace kofola {
         }
 
         // setting accepting cond to acc of complement & Inf(color of aut_A=UINTMAX-1)
-        aut_B_compl_.set_acc_cond();
+        first_col_to_use_ = static_cast<unsigned int>(aut_B_compl_.set_acc_cond());
         acc_cond_ = aut_B_compl_.get_final_acc_code();
-        acc_cond_ &= spot::acc_cond::acc_code::inf({static_cast<unsigned>(UINT_MAX - 1)});
+        acc_cond_ &= spot::acc_cond::acc_code::inf({first_col_to_use_});
     }
 
     cola::tnba_complement inclusion_check::init_compl_aut_b(const spot::twa_graph_ptr &aut_B) {
         preprocessed_orig_aut_B_ = preprocess(aut_B);
 
         spot::scc_info si_B(preprocessed_orig_aut_B_, spot::scc_info_options::ALL);
-        aut_B_compl_ = cola::tnba_complement(preprocessed_orig_aut_B_, si_B);
+        cola::tnba_complement comp(preprocessed_orig_aut_B_, si_B);
+        return comp;
     }
 
     bool inclusion_check::inclusion() {
-        emptiness_check emptiness_checker(this);
-        return emptiness_checker.empty();
+        emptiness_check emptiness_checker(this, INCLUSION);
+        auto res = emptiness_checker.empty();
+        return res;
     }
 
     bool inclusion_check::is_accepting(spot::acc_cond::mark_t inf_cond) {
         return acc_cond_.accepting(inf_cond);
     }
 
-    std::vector<std::unique_ptr<abstr_succ::abstract_successor::mstate>> inclusion_check::get_initial_states() {
-        std::vector<std::unique_ptr<abstract_successor::mstate>> base_mstates;
+    std::vector<std::shared_ptr<abstract_successor::mstate>> inclusion_check::get_initial_states() {
+        std::vector<std::shared_ptr<abstract_successor::mstate>> base_mstates;
 
         for (auto& init : init_states_) {
             base_mstates.emplace_back(std::move(init));
@@ -177,9 +179,9 @@ namespace kofola {
         return std::make_pair(res, msupport);
     }
 
-    std::vector<std::unique_ptr<abstr_succ::abstract_successor::mstate>> inclusion_check::get_succs(const std::unique_ptr<abstract_successor::mstate> &src) {
-        std::vector<std::unique_ptr<inclusion_mstate>> cartesian_prod;
-        std::vector<std::unique_ptr<abstract_successor::mstate>> result;
+    std::vector<std::shared_ptr<abstract_successor::mstate>> inclusion_check::get_succs(const std::shared_ptr<abstract_successor::mstate> &src) {
+        std::vector<std::shared_ptr<inclusion_mstate>> cartesian_prod;
+        std::vector<std::shared_ptr<abstract_successor::mstate>> result;
 
         auto casted_src = dynamic_cast<inclusion_mstate*>(src.get());
 
@@ -248,10 +250,10 @@ namespace kofola {
         return false;
     }
 
-    std::vector<std::unique_ptr<inclusion_mstate>>
+    std::vector<std::shared_ptr<inclusion_mstate>>
     inclusion_check::get_cartesian_prod(unsigned aut_A_src, std::set<unsigned> &states_A,
                                         cola::tnba_complement::vec_state_taggedcol &states_B, const bdd &letter) {
-        std::vector<std::unique_ptr<inclusion_mstate>> cartesian_prod;
+        std::vector<std::shared_ptr<inclusion_mstate>> cartesian_prod;
 
         auto vec_acc_cond = aut_B_compl_.get_vec_acc_cond();
         auto part_col_offset = aut_B_compl_.get_part_col_offset();
@@ -263,7 +265,7 @@ namespace kofola {
                 std::set<unsigned> new_cols;
 
                 if (is_transition_acc(aut_A_, aut_A_src, state_A, letter)) {
-                    new_cols.insert(UINT_MAX-1); // TODO what colour here????
+                    new_cols.insert(first_col_to_use_); // TODO what colour here????
                 }
 
                 for (const std::pair<unsigned, unsigned> &part_col_pair: cols) {
@@ -285,7 +287,7 @@ namespace kofola {
                 }
 
                 //auto succ = std::make_pair(std::make_pair(state_A, state_B), new_cols);
-                auto succ = std::make_unique<inclusion_mstate>();
+                auto succ = std::make_shared<inclusion_mstate>();
                 succ->state_ = std::make_pair(state_A, state_B);
                 spot::acc_cond::mark_t spot_cols(new_cols.begin(), new_cols.end());
                 succ->acc_ = spot_cols;

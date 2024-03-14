@@ -9,28 +9,39 @@
 // spot
 #include <spot/twa/twa.hh>
 
+#define INCLUSION 1
+#define HYPERLTL_MC_EMPTINESS 2
+
 namespace kofola
 {
     class emptiness_check {
     public:
-        emptiness_check(abstract_successor *as);
+        emptiness_check(abstract_successor *as, int type);
 
         bool empty();
 
         /// performs emptiness check: whether aut_A⊆aut_B using tarjan's algo
-        void tarjan_is_empty(const std::unique_ptr<abstract_successor::mstate> &src_mstate);
+        void tarjan_is_empty(const std::shared_ptr<abstract_successor::mstate> &src_mstate);
 
     private:
         abstract_successor *abstr_succ_;
+        int type_;
 
         const int UNDEFINED = -1;
 
+        struct shared_ptr_comparator {
+            template<typename T>
+            bool operator()(const std::shared_ptr<T>& lhs, const std::shared_ptr<T>& rhs) const {
+                return *lhs < *rhs;
+            }
+        };
+
         /// tarjan variables
-        std::map<abstract_successor::mstate, signed> dfs_num_;
-        std::map<abstract_successor::mstate, bool> on_stack_;
+        std::map<std::shared_ptr<abstract_successor::mstate>, signed, shared_ptr_comparator> dfs_num_;
+        std::map<std::shared_ptr<abstract_successor::mstate>, bool, shared_ptr_comparator> on_stack_;
         signed index_ = 0;
-        std::stack<abstract_successor::mstate> tarjan_stack_;
-        std::stack<abstract_successor::mstate> SCCs_;
+        std::stack<std::shared_ptr<abstract_successor::mstate>> tarjan_stack_;
+        std::stack<std::shared_ptr<abstract_successor::mstate>> SCCs_;
         /// end of tarjan variables
 
         /// to stop searching when counter-example

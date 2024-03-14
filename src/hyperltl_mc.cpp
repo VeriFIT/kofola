@@ -29,16 +29,11 @@ namespace kofola {
 
         while(!(parsed_hyperltl_f->q_list.empty())) {
             q = parsed_hyperltl_f->q_list.back();
-            parsed_hyperltl_f->q_list.pop_back();
 
-            if(q.type == static_cast<unsigned int>(QuantificationType::Exists) && !parsed_hyperltl_f->q_list.empty()) {
-                use_last_n_kripke_structs(q.trace_vars.size());
-                built_aut_ = existential_projection(q.trace_vars);
-            }
-            else if(q.type == static_cast<unsigned int>(QuantificationType::Exists) && parsed_hyperltl_f->q_list.empty()) {
+            if(q.type == static_cast<unsigned int>(QuantificationType::Exists) && parsed_hyperltl_f->q_list.size() == 1) {
                 use_last_n_kripke_structs(q.trace_vars.size());
 
-                emptiness_check emptiness_checker(this);
+                emptiness_check emptiness_checker(this, HYPERLTL_MC_EMPTINESS);
 
                 if(emptiness_checker.empty())
                     sat = false;
@@ -46,6 +41,12 @@ namespace kofola {
                     sat = true;
 
                 break;
+            }
+
+            parsed_hyperltl_f->q_list.pop_back();
+            if(q.type == static_cast<unsigned int>(QuantificationType::Exists) && !parsed_hyperltl_f->q_list.empty()) {
+                use_last_n_kripke_structs(q.trace_vars.size());
+                built_aut_ = existential_projection(q.trace_vars);
             }
             else if(q.type == static_cast<unsigned int>(QuantificationType::Forall) && parsed_hyperltl_f->q_list.empty()) {
                 // n-fold self composition and inclusion,
@@ -133,8 +134,8 @@ namespace kofola {
         return built_aut_->get_acceptance().accepting(cond);
     }
 
-    std::vector<std::unique_ptr<hyperltl_mc_mstate>> hyperltl_mc::get_succs_internal(std::vector<unsigned> src, std::vector<std::string> exist_trac_vars) {
-        std::vector<std::unique_ptr<hyperltl_mc_mstate>> res;
+    std::vector<std::shared_ptr<hyperltl_mc_mstate>> hyperltl_mc::get_succs_internal(std::vector<unsigned> src, std::vector<std::string> exist_trac_vars) {
+        std::vector<std::shared_ptr<hyperltl_mc_mstate>> res;
 
         std::vector<unsigned> system_src_states(src.begin(), src.end() - 1);
         std::vector<std::vector<unsigned>> sets_of_sys_succs = system_successors(system_src_states);
@@ -154,7 +155,7 @@ namespace kofola {
                 to_prod.emplace_back(aut_dst);
                 auto product = prod(to_prod);
                 for(const auto& mstate: product) {
-                    auto ptr = std::make_unique<hyperltl_mc_mstate>();
+                    auto ptr = std::make_shared<hyperltl_mc_mstate>();
                     ptr->state_ = mstate; ptr->acc_ = t.acc; ptr->trans_cond_ = restricted;
                     res.emplace_back(std::move(ptr));
                 }
@@ -164,8 +165,8 @@ namespace kofola {
         return res;
     }
 
-    std::vector<std::unique_ptr<abstr_succ::abstract_successor::mstate>> hyperltl_mc::get_initial_states() {
-        std::vector<std::unique_ptr<abstract_successor::mstate>> res;
+    std::vector<std::shared_ptr<abstract_successor::mstate>> hyperltl_mc::get_initial_states() {
+        std::vector<std::shared_ptr<abstract_successor::mstate>> res;
 
         std::vector<unsigned> init_aut = {built_aut_->get_init_state_number()};
         auto sys_init = get_systems_init();
@@ -174,7 +175,7 @@ namespace kofola {
         to_prod.emplace_back(init_aut);
         auto initial_macrostates = prod(to_prod);
         for(auto init: initial_macrostates) {
-            auto ptr = std::make_unique<hyperltl_mc_mstate>();
+            auto ptr = std::make_shared<hyperltl_mc_mstate>();
             ptr->state_ = init;
             res.emplace_back(std::move(ptr));
         }
@@ -183,10 +184,10 @@ namespace kofola {
     }
 
 
-    std::vector<std::unique_ptr<abstr_succ::abstract_successor::mstate>> hyperltl_mc::get_succs(const std::unique_ptr<abstract_successor::mstate> &src) {
+    std::vector<std::shared_ptr<abstract_successor::mstate>> hyperltl_mc::get_succs(const std::shared_ptr<abstract_successor::mstate> &src) {
         auto casted_src = dynamic_cast<hyperltl_mc_mstate*>(src.get());
         auto succs = get_succs_internal(casted_src->state_, this->parsed_hyperltl_f_->q_list.front().trace_vars);
-        std::vector<std::unique_ptr<abstract_successor::mstate>> res;
+        std::vector<std::shared_ptr<abstract_successor::mstate>> res;
 
         for (auto& succ : succs) {
             res.emplace_back(std::move(succ));

@@ -337,9 +337,9 @@ int main(int argc, char *argv[])
         kofola::hyperltl_mc mc(parsed_hyperltl_f, kripke_structs);
         end = clock();
         double time_taken = 1000 * double(end - start) / double(CLOCKS_PER_SEC);
-        std::cout << "Time taken by program is : " << std::fixed
+        std::cout << std::fixed
              << time_taken << std::setprecision(5);
-        std::cout << " ms " << std::endl;
+        std::cout << std::endl;
         //auto stop = std::chrono::high_resolution_clock::now();
         //auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
         //std::cout << duration.count() << std::endl;

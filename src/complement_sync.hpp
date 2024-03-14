@@ -428,6 +428,6 @@ namespace cola
         std::map<unsigned int, unsigned int> get_part_col_offset();
 
         ///
-        void  set_acc_cond();
+        size_t  set_acc_cond();
     };
 }

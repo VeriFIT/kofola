@@ -1891,7 +1891,7 @@ namespace cola {
         return part_col_offset_;
     }
 
-    void cola::tnba_complement::set_acc_cond() {
+    size_t cola::tnba_complement::set_acc_cond() {
         num_colours_ = RESERVED_COLOURS;
         int rr_colour = -1;     // colour for round robin
         int sh_br_colour = -2;  // colour for shared breakpoint
@@ -1933,6 +1933,8 @@ namespace cola {
 
         final_code_ = alg_acc_code;
         DEBUG_PRINT_LN("final code: " + std::to_string(final_code_));
+
+        return num_colours_;
     }
 }
 
