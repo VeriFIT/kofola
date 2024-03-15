@@ -6,6 +6,7 @@
 #include <spot/twaalgos/hoa.hh>
 #include <spot/twaalgos/genem.hh>
 
+#include <iomanip>
 #include <map>
 
 namespace kofola {
@@ -14,8 +15,12 @@ namespace kofola {
     built_aut_(parsed_hyperltl_f->aut),
     kripke_structs_(std::move(kripke_structs))
     {
+        // TODO if only forall*, then existential is better
         //mark_redundant_aps_formula();
         Quantification q;
+        clock_t start, end;
+
+        // double exist = 0.0, nfold = 0.0, incl = 0.0, comp = 0.0, emptiness = 0.0;
 
         one_system_only_ = (kripke_structs_.size() == 1);
         if(one_system_only_) {
@@ -33,7 +38,11 @@ namespace kofola {
             if(q.type == static_cast<unsigned int>(QuantificationType::Exists) && parsed_hyperltl_f->q_list.size() == 1) {
                 use_last_n_kripke_structs(q.trace_vars.size());
 
+                //start = clock();
                 emptiness_check emptiness_checker(this, HYPERLTL_MC_EMPTINESS);
+                //end = clock();
+                //double time_taken = 1000 * double(end - start) / double(CLOCKS_PER_SEC);
+                //emptiness += time_taken;
 
                 if(emptiness_checker.empty())
                     sat = false;
@@ -45,8 +54,12 @@ namespace kofola {
 
             parsed_hyperltl_f->q_list.pop_back();
             if(q.type == static_cast<unsigned int>(QuantificationType::Exists) && !parsed_hyperltl_f->q_list.empty()) {
+                //start = clock();
                 use_last_n_kripke_structs(q.trace_vars.size());
                 built_aut_ = existential_projection(q.trace_vars);
+                //end = clock();
+                //double time_taken = 1000 * double(end - start) / double(CLOCKS_PER_SEC);
+                //exist += time_taken;
             }
             else if(q.type == static_cast<unsigned int>(QuantificationType::Forall) && parsed_hyperltl_f->q_list.empty()) {
                 // n-fold self composition and inclusion,
@@ -54,7 +67,17 @@ namespace kofola {
                 // perform emptiness check on the fly
                 use_last_n_kripke_structs(q.trace_vars.size());
 
+                //std::cout << "exist: " << built_aut_->num_states() << std::endl;
+                //start = clock();
                 auto aut_A = n_fold_self_composition(q.trace_vars);
+                //end = clock();
+                //double time_taken = 1000 * double(end - start) / double(CLOCKS_PER_SEC);
+                //nfold += time_taken;
+                //std::cout << "nfold: " << aut_A->num_states() << std::endl;
+                //std::cout << "kofola compl: " << kofola::complement_tela(built_aut_)->num_states() << std::endl;
+                //std::cout << "spot compl: " << spot::complement(built_aut_)->num_states() << std::endl;
+
+                //start = clock();
                 kofola::inclusion_check inclusion_checker(aut_A, built_aut_);
                 // spot::print_hoa(std::cout, aut_A); spot::print_hoa(std::cout, built_aut_);
 
@@ -62,18 +85,58 @@ namespace kofola {
                     sat = true;
                 else
                     sat = false;
+                //end = clock();
+                //time_taken = 1000 * double(end - start) / double(CLOCKS_PER_SEC);
+                //incl += time_taken;
 
                 break;
             }
             else {
-                // TODO when innermost, the formula can be negated only ??
-                //built_aut_ = ;
                 kofola::OPTIONS.output_type = "buchi";
+                //start = clock();
                 built_aut_ = kofola::complement_tela(built_aut_);
+                //end = clock();
+                //double time_taken = 1000 * double(end - start) / double(CLOCKS_PER_SEC);
+                //comp += time_taken;
+
+                //start = clock();
                 built_aut_ = existential_projection(q.trace_vars);
+                //end = clock();
+                //time_taken = 1000 * double(end - start) / double(CLOCKS_PER_SEC);
+                //exist += time_taken;
+
+                //start = clock();
                 built_aut_ = kofola::complement_tela(built_aut_);
+                //end = clock();
+                //time_taken = 1000 * double(end - start) / double(CLOCKS_PER_SEC);
+                //comp += time_taken;
             }
         }
+
+//        std::cout << "Existential: \n";
+//        std::cout << std::fixed
+//                  << exist << std::setprecision(5);
+//        std::cout << std::endl;
+//
+//        std::cout << "N-fold: \n";
+//        std::cout << std::fixed
+//                  << nfold << std::setprecision(5);
+//        std::cout << std::endl;
+//
+//        std::cout << "Inclusion: \n";
+//        std::cout << std::fixed
+//                  << incl << std::setprecision(5);
+//        std::cout << std::endl;
+//
+//        std::cout << "Complementation: \n";
+//        std::cout << std::fixed
+//                  << comp << std::setprecision(5);
+//        std::cout << std::endl;
+//
+//        std::cout << "Emptiness: \n";
+//        std::cout << std::fixed
+//                  << emptiness << std::setprecision(5);
+//        std::cout << std::endl;
 
         if((!sat && !parsed_hyperltl_f_->negate) || (sat && parsed_hyperltl_f_->negate))
             std::cout << "UNSAT\n";
@@ -174,7 +237,7 @@ namespace kofola {
         std::vector<std::vector<unsigned>> to_prod = sys_init;
         to_prod.emplace_back(init_aut);
         auto initial_macrostates = prod(to_prod);
-        for(auto init: initial_macrostates) {
+        for(const auto& init: initial_macrostates) {
             auto ptr = std::make_shared<hyperltl_mc_mstate>();
             ptr->state_ = init;
             res.emplace_back(std::move(ptr));

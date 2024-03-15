@@ -317,6 +317,8 @@ int main(int argc, char *argv[])
         std::vector<spot::kripke_graph_ptr> kripke_structs;
         kofola::parsed_hyperltl_form_ptr parsed_hyperltl_f;
 
+        clock_t start, end, start_conv, end_conv;
+
         for(auto filename: options.filenames) {
             if(filename.find(".hoa") != std::string::npos) {
                 spot::automaton_stream_parser parser(filename, opts);
@@ -325,15 +327,22 @@ int main(int argc, char *argv[])
                 kripke_structs.emplace_back(parsed_aut->ks);
             }
             else if(filename.find(".hq") != std::string::npos) {
+
+                //start_conv = clock();
                 auto hyperltl_parser = kofola::hyperltl_formula_processor(filename);
                 parsed_hyperltl_f = hyperltl_parser.parse_hyperltl_formula();
+                //end_conv = clock();
+                //double time_taken = 1000 * double(end_conv - start_conv) / double(CLOCKS_PER_SEC);
+                //std::cout << "LTL2NBA: \n";
+                //std::cout << std::fixed
+                //          << time_taken << std::setprecision(5);
+                //std::cout << std::endl;
             }
         }
 
         // perform model checking
-        clock_t start, end;
-        //auto start = std::chrono::high_resolution_clock::now();
         start = clock();
+        //auto start = std::chrono::high_resolution_clock::now();
         kofola::hyperltl_mc mc(parsed_hyperltl_f, kripke_structs);
         end = clock();
         double time_taken = 1000 * double(end - start) / double(CLOCKS_PER_SEC);
