@@ -375,7 +375,6 @@ int main(int argc, char *argv[])
 //            else {
 //                printf("A ⊆ B does not hold!\n");
 //            }
-
             kofola::inclusion_check inclusion_checker(aut_A, aut_B);
             if(inclusion_checker.inclusion()) {
                 printf("A ⊆ B holds!\n");

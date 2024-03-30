@@ -40,6 +40,8 @@ namespace kofola {
 
         std::vector<std::shared_ptr<abstract_successor::mstate>> get_initial_states() override;
 
+        bool subsum_less(const std::shared_ptr<abstract_successor::mstate> a, const std::shared_ptr<abstract_successor::mstate> b) override;
+
         std::vector<std::shared_ptr<abstract_successor::mstate>> get_succs(const std::shared_ptr<abstract_successor::mstate> &src) override;
 
         std::vector<std::shared_ptr<hyperltl_mc_mstate>> get_succs_internal(std::vector<unsigned> src, std::vector<std::string> exist_trac_vars);
@@ -54,8 +56,8 @@ class  hyperltl_mc_mstate : public abstract_successor::mstate {
         }
 
         bool eq(const abstract_successor::mstate& rhs) const override {
-            const auto *rhs_incl_ms = dynamic_cast<const hyperltl_mc_mstate*>(&rhs);
-            return (state_ == rhs_incl_ms->state_);
+            const auto *rhs_hypetltlmc_ms = dynamic_cast<const hyperltl_mc_mstate*>(&rhs);
+            return (state_ == rhs_hypetltlmc_ms->state_);
         }
 
         bool lt(const abstract_successor::mstate& rhs) const override {

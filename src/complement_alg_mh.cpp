@@ -40,6 +40,15 @@ public: // METHODS
   virtual const std::set<unsigned>& get_breakpoint() const override { return this->breakpoint_; }
   virtual void set_breakpoint(const std::set<unsigned>& breakpoint) override { this->breakpoint_ = get_set_intersection(breakpoint, this->states_); }
 
+virtual bool subsum_less(const mstate& rhs, const std::set<unsigned>&  glob_reached) override {
+    auto rhs_mh = dynamic_cast<const mstate_mh*>(&rhs);
+
+    auto S_subs = std::includes(states_.begin(), states_.end(), rhs_mh->states_.begin(), rhs_mh->states_.end());
+    auto B_subs = std::includes(breakpoint_.begin(), breakpoint_.end(), rhs_mh->breakpoint_.begin(), rhs_mh->breakpoint_.end());
+
+    return (S_subs && B_subs);
+};
+
   friend class kofola::complement_mh;
 }; // mstate_mh }}}
 

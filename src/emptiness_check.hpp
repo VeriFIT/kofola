@@ -21,11 +21,12 @@ namespace kofola
         bool empty();
 
         /// performs emptiness check: whether aut_A⊆aut_B using tarjan's algo
-        void tarjan_is_empty(const std::shared_ptr<abstract_successor::mstate> &src_mstate);
+        void tarjan_is_empty(const std::shared_ptr<abstract_successor::mstate> &src_mstate, spot::acc_cond::mark_t path_cond);
 
     private:
         abstract_successor *abstr_succ_;
         int type_;
+        unsigned cnt_ = 0;
 
         const int UNDEFINED = -1;
 
@@ -40,9 +41,11 @@ namespace kofola
         std::map<std::shared_ptr<abstract_successor::mstate>, signed, shared_ptr_comparator> dfs_num_;
         std::map<std::shared_ptr<abstract_successor::mstate>, bool, shared_ptr_comparator> on_stack_;
         signed index_ = 0;
-        std::stack<std::shared_ptr<abstract_successor::mstate>> tarjan_stack_;
+        std::vector<std::shared_ptr<abstract_successor::mstate>> tarjan_stack_;
         std::stack<std::shared_ptr<abstract_successor::mstate>> SCCs_;
         /// end of tarjan variables
+
+        std::vector<std::shared_ptr<abstract_successor::mstate>> empty_lang_states_;
 
         /// to stop searching when counter-example
         bool decided_ = false;

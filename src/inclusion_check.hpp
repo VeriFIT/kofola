@@ -49,10 +49,17 @@ namespace kofola {
         spot::acc_cond::acc_code acc_cond_;
         unsigned int first_col_to_use_;
 
+        std::unordered_map<unsigned, std::vector<unsigned>> dir_simul_;
+        unsigned offset_ = 0;
+
     public:
         inclusion_check(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B);
 
+        void compute_simulation(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B);
+
         cola::tnba_complement init_compl_aut_b(const spot::twa_graph_ptr &aut_B);
+
+        spot::twa_graph_ptr aut_union(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B);
 
         bool inclusion();
 
@@ -67,6 +74,8 @@ namespace kofola {
 
         /// returns set of all successors for given intersect_mstate
         std::vector<std::shared_ptr<abstract_successor::mstate>> get_succs(const std::shared_ptr<abstract_successor::mstate> &src) override;
+
+        bool subsum_less(const std::shared_ptr<abstract_successor::mstate> a, const std::shared_ptr<abstract_successor::mstate> b) override;
 
         bool is_accepting(spot::acc_cond::mark_t inf_cond) override;
 

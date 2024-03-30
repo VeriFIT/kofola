@@ -26,21 +26,95 @@ namespace kofola {
         aut_B_compl_.select_algorithms();
         DEBUG_PRINT_LN("algorithms selected");
 
+        compute_simulation(aut_A_, aut_B);
+
         // get initial uberstates
         auto init_vec{aut_B_compl_.get_initial_uberstates()};
         for (unsigned state: init_vec) {
-            auto ptr = std::make_shared<inclusion_mstate>();
-            ptr->state_ = {init_A, state};
+            if(!(dir_simul_.count(init_A) && std::find(dir_simul_[init_A].begin(), dir_simul_[init_A].end(), state) != dir_simul_[init_A].end())) {
+                auto ptr = std::make_shared<inclusion_mstate>();
+                ptr->state_ = {init_A, state};
 
-            init_states_.emplace_back(std::move(ptr));
-            intersect_states_.insert({{init_A, state},
-                                      {}});
+                init_states_.emplace_back(std::move(ptr));
+                intersect_states_.insert({{init_A, state},
+                                          {}});
+            }
         }
 
         // setting accepting cond to acc of complement & Inf(color of aut_A=UINTMAX-1)
         first_col_to_use_ = static_cast<unsigned int>(aut_B_compl_.set_acc_cond());
         acc_cond_ = aut_B_compl_.get_final_acc_code();
         acc_cond_ &= spot::acc_cond::acc_code::inf({first_col_to_use_});
+
+        aut_union(aut_A, aut_B);
+    }
+
+    spot::twa_graph_ptr inclusion_check::aut_union(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B) {
+        auto res = spot::make_twa_graph(aut_A->get_dict());
+        res->copy_ap_of(aut_A);
+        res->set_acceptance(aut_A->acc());
+        offset_ = aut_A->num_states();
+
+        unsigned init_a;
+        unsigned init_b;
+        unsigned new_st;
+
+        res->copy_state_names_from(aut_A);
+        for(unsigned i = 0; i < aut_A->num_states(); i++) {
+            new_st = res->new_state();
+            if(i == aut_A->get_init_state_number()) {
+                init_a = new_st;
+            }
+            for(const auto& t: aut_A->out(i)) {
+                res->new_edge(new_st, t.dst, t.cond, t.acc);
+            }
+        }
+
+        for(unsigned i = 0; i < aut_B->num_states(); i++) {
+            new_st = res->new_state();
+            if(i == aut_B->get_init_state_number()) {
+                init_b = new_st;
+            }
+            for(const auto& t: aut_B->out(i)) {
+                res->new_edge(new_st, t.dst, t.cond, t.acc);
+            }
+        }
+
+        new_st = res->new_state();
+        res->new_edge(new_st, init_a, bdd_true());
+        res->new_edge(new_st, init_b, bdd_true());
+        res->set_init_state(new_st);
+
+        return res;
+    }
+
+    void inclusion_check::compute_simulation(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B) {
+        auto uni = aut_union(aut_A, aut_B);
+        // spot::print_hoa(std::cout, uni);
+
+        auto reduced = spot::simulation(uni, -1);
+        auto x = reduced->get_named_prop<std::vector<unsigned>>("simulated-states");
+        auto orig_to_new = *x;
+
+        for(unsigned i = 1; i < offset_ + 1; i++) {
+            for(unsigned j = offset_ + 1; j < orig_to_new.size(); j++) {
+                if(orig_to_new[i] == orig_to_new[j] && orig_to_new[i] != -1) {
+                    dir_simul_[i - 1].emplace_back(j - offset_ - 1);
+                }
+            }
+        }
+
+//        for(unsigned i = 1; i < ; i++) {
+//            // bdd_printset(implications[i]); std::cout << "\n";
+//            for(unsigned j = offset_ + 1; j < implications.size(); j++) {
+//                bool i_impl_j = bdd_implies(implications[i], implications[j]);
+//                if(i_impl_j) {
+//                    dir_simul_[i - 1].emplace_back(j - offset_ - 1);
+//                    // std::cout << i << ", " << j - offset_ << "\n";
+//                }
+//            }
+//        }
+
     }
 
     cola::tnba_complement inclusion_check::init_compl_aut_b(const spot::twa_graph_ptr &aut_B) {
@@ -97,7 +171,7 @@ namespace kofola {
                     kofola::has_value("merge_iwa", "yes", kofola::OPTIONS.params),
                     kofola::has_value("merge_det", "yes", kofola::OPTIONS.params));
 
-            if (decomposed.size() > 0) {
+            if (!decomposed.empty()) {
                 std::vector<spot::twa_graph_ptr> part_res;
 
                 spot::postprocessor p_pre;
@@ -177,6 +251,13 @@ namespace kofola {
         }
 
         return std::make_pair(res, msupport);
+    }
+
+    bool inclusion_check::subsum_less(const std::shared_ptr<abstract_successor::mstate> a, const std::shared_ptr<abstract_successor::mstate> b) {
+        auto casted_a = dynamic_cast<inclusion_mstate*>(a.get());
+        auto casted_b = dynamic_cast<inclusion_mstate*>(b.get());
+
+        return (casted_a->state_.first == casted_b->state_.first && aut_B_compl_.subsum_less(casted_a->state_.second, casted_b->state_.second));
     }
 
     std::vector<std::shared_ptr<abstract_successor::mstate>> inclusion_check::get_succs(const std::shared_ptr<abstract_successor::mstate> &src) {
@@ -287,14 +368,17 @@ namespace kofola {
                 }
 
                 //auto succ = std::make_pair(std::make_pair(state_A, state_B), new_cols);
-                auto succ = std::make_shared<inclusion_mstate>();
-                succ->state_ = std::make_pair(state_A, state_B);
-                spot::acc_cond::mark_t spot_cols(new_cols.begin(), new_cols.end());
-                succ->acc_ = spot_cols;
-                cartesian_prod.emplace_back(std::move(succ));
+                if(!(dir_simul_.count(state_A) && std::find(dir_simul_[state_A].begin(), dir_simul_[state_A].end(), state_B) != dir_simul_[state_A].end())) {
+                    auto succ = std::make_shared<inclusion_mstate>();
+                    succ->state_ = std::make_pair(state_A, state_B);
+                    spot::acc_cond::mark_t spot_cols(new_cols.begin(), new_cols.end());
+                    succ->acc_ = spot_cols;
+                    cartesian_prod.emplace_back(std::move(succ));
 
-                //auto it_bool_pair =
-                intersect_states_.insert({{state_A, state_B},{}});
+                    //auto it_bool_pair =
+                    intersect_states_.insert({{state_A, state_B},
+                                              {}});
+                }
                 /*if (it_bool_pair.second) { // the successor state is new
                     todo_.push({state_A, succ_state_B});
                 }*/

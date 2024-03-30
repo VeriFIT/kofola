@@ -110,6 +110,8 @@ public: // TYPES
     /// clear breakpoint
     virtual void clear_breakpoint() { this->set_breakpoint(std::set<unsigned>()); };
 
+    virtual bool subsum_less(const mstate& rhs, const std::set<unsigned>&  glob_reached) { return this->eq(rhs); };
+
     /// virtual destructor (to allow deletion via pointer)
     virtual ~mstate() { }
   }; // mstate }}}

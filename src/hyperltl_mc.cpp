@@ -5,6 +5,8 @@
 #include <utility>
 #include <spot/twaalgos/hoa.hh>
 #include <spot/twaalgos/genem.hh>
+#include <spot/twaalgos/randomgraph.hh>
+#include <spot/misc/random.hh>
 
 #include <iomanip>
 #include <map>
@@ -73,7 +75,7 @@ namespace kofola {
                 //end = clock();
                 //double time_taken = 1000 * double(end - start) / double(CLOCKS_PER_SEC);
                 //nfold += time_taken;
-                //std::cout << "nfold: " << aut_A->num_states() << std::endl;
+
                 //std::cout << "kofola compl: " << kofola::complement_tela(built_aut_)->num_states() << std::endl;
                 //std::cout << "spot compl: " << spot::complement(built_aut_)->num_states() << std::endl;
 
@@ -212,6 +214,7 @@ namespace kofola {
                 restricted = bdd_restrict(restricted, to_restrict);
             }
 
+
             if (restricted != bddfalse) {
                 auto to_prod = sets_of_sys_succs;
                 std::vector<unsigned> aut_dst = {t.dst};
@@ -246,6 +249,12 @@ namespace kofola {
         return res;
     }
 
+    bool hyperltl_mc::subsum_less(const std::shared_ptr<abstract_successor::mstate> a, const std::shared_ptr<abstract_successor::mstate> b) {
+        auto casted_a = dynamic_cast<hyperltl_mc_mstate*>(a.get());
+        auto casted_b = dynamic_cast<hyperltl_mc_mstate*>(b.get());
+
+        return casted_a->eq(*casted_b);
+    }
 
     std::vector<std::shared_ptr<abstract_successor::mstate>> hyperltl_mc::get_succs(const std::shared_ptr<abstract_successor::mstate> &src) {
         auto casted_src = dynamic_cast<hyperltl_mc_mstate*>(src.get());
@@ -352,7 +361,6 @@ namespace kofola {
         auto pair = bdd_newpair();
         bdd_setpairs(pair, old_aps.data(), new_aps.data(), old_aps.size());
         auto res = bdd_replace(remove_bdd_vars(cond, new_domain), pair);
-
         return res;
     }
 

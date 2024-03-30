@@ -11,7 +11,7 @@ namespace kofola {
 
     void hyperltl_formula_processor::preprocess(parsed_hyperltl_form_ptr &formula_to_preproc) {
         if(formula_to_preproc->q_list.front().type == static_cast<unsigned int>(QuantificationType::Exists) &&
-                formula_to_preproc->q_list.size() >= 2) {
+                formula_to_preproc->q_list.size() % 2 == 0) {
             for (auto &q: formula_to_preproc->q_list) {
                 if (q.type == static_cast<unsigned int>(QuantificationType::Exists))
                     q.type = static_cast<unsigned int>(QuantificationType::Forall);
@@ -93,12 +93,12 @@ namespace kofola {
             file >> trace_var;
             trace_var.pop_back(); // remove '.' following the trace variable
             // when alternation, keep order of quantifiers
-            if(res->q_list.empty() || q.type != res->q_list.front().type) {
+            if(res->q_list.empty() || q.type != res->q_list.back().type) {
                 q.trace_vars.emplace_back(trace_var);
                 res->q_list.emplace_back(q);
             }
             else {
-                res->q_list.front().trace_vars.emplace_back(trace_var);
+                res->q_list.back().trace_vars.emplace_back(trace_var);
             }
             res->qantifiers++;
         }

@@ -33,28 +33,56 @@ namespace kofola {
 
         for(const auto& init: init_states) {
             if (dfs_num_.at(init) == UNDEFINED) {
-                tarjan_is_empty(init);
-                if(decided_)
+                tarjan_is_empty(init, spot::acc_cond::mark_t());
+                if(decided_) {
+                    std::cout << cnt_ << "\n";
                     return empty_;
+                }
             }
         }
 
+        std::cout << cnt_ << "\n";
         return empty_;
     }
 
-    void emptiness_check::tarjan_is_empty(const std::shared_ptr<abstract_successor::mstate> &src_mstate) {
+    void emptiness_check::tarjan_is_empty(const std::shared_ptr<abstract_successor::mstate> &src_mstate, spot::acc_cond::mark_t path_cond) {
         /// STRONGCONNECT
+        cnt_++;
+        if(abstr_succ_->is_accepting(path_cond)) {
+            auto tmp = spot::acc_cond::mark_t();
+            for (auto it = tarjan_stack_.rbegin(); it != tarjan_stack_.rend(); ++it) {
+                const auto& s = *it;
+                if (abstr_succ_->is_accepting(tmp) && abstr_succ_->subsum_less(s, src_mstate)) {
+                    decided_ = true;
+                    empty_ = false;
+                    return;
+                }
+                tmp |= s->get_acc();
+            }
+        }
+
         SCCs_.push(src_mstate);
         dfs_num_[src_mstate] = index_;
         index_++;
-        tarjan_stack_.push(src_mstate);
+        tarjan_stack_.push_back(src_mstate);
         on_stack_[src_mstate] = true;
 
         auto succs = abstr_succ_->get_succs(src_mstate);
-        if(succs.empty())
-            return;
 
         for (auto &dst_mstate: succs) {
+            // checking emptiness of curr dst_mstate
+            bool is_empty = false;
+            for(const auto& empty_state: empty_lang_states_) {
+                if(abstr_succ_->subsum_less(dst_mstate, empty_state)) {
+                    is_empty = true;
+                    break;
+                }
+            }
+            if(is_empty)
+                continue;
+            // end of checking emptiness
+
+            // init structures
             if(dfs_num_.count(dst_mstate) == 0)
             {
                 dfs_num_.insert({dst_mstate, UNDEFINED});
@@ -63,13 +91,14 @@ namespace kofola {
 
             if (dfs_num_[dst_mstate] == UNDEFINED)
             {
-                tarjan_is_empty(dst_mstate);
+                tarjan_is_empty( dst_mstate, (path_cond | dst_mstate->get_acc()) );
 
                 if(decided_)
                     return;
             } else if(on_stack_[dst_mstate]) {
                 spot::acc_cond::mark_t cond = dst_mstate->get_acc();
 
+                // merge acc. marks
                 std::shared_ptr<abstract_successor::mstate> tmp;
                 do {
                     tmp = SCCs_.top(); SCCs_.pop();
@@ -82,7 +111,7 @@ namespace kofola {
                         return;
                     }
                 } while(dfs_num_[tmp] > dfs_num_[dst_mstate]);
-                dst_mstate->set_encountered(true);
+                dst_mstate->set_encountered(true); // mark visited root
                 tmp->set_acc(cond);
                 SCCs_.push(tmp);
             }
@@ -93,8 +122,9 @@ namespace kofola {
             std::shared_ptr<abstract_successor::mstate> tmp;
 
             do {
-                tmp = tarjan_stack_.top(); tarjan_stack_.pop();
+                tmp = tarjan_stack_.back(); tarjan_stack_.pop_back();
                 on_stack_[tmp] = false;
+                empty_lang_states_.emplace_back(tmp); // when here, each state has empty language, otherwise we would have ended
             } while (src_mstate != tmp);
         }
     }

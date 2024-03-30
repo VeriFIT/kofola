@@ -37,6 +37,8 @@ namespace kofola {
         virtual std::vector<std::shared_ptr<mstate>> get_succs(const std::shared_ptr<abstract_successor::mstate> &src) = 0;
 
         virtual bool is_accepting(spot::acc_cond::mark_t cond) = 0;
+
+        virtual bool subsum_less(const std::shared_ptr<abstract_successor::mstate> a, const std::shared_ptr<abstract_successor::mstate> b) = 0;
     }; // abstract_complement_alg }}}
 
     bool operator==(const abstract_successor::mstate& lhs,

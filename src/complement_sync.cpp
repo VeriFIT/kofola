@@ -1269,6 +1269,12 @@ namespace cola {
         return scc_to_pred_sccs_map;
     } // create_scc_to_pred_sccs_map() }}}
 
+    bool cola::tnba_complement::subsum_less(unsigned a, unsigned b) {
+        auto uber_a = num_to_uberstate(a);
+        auto uber_b = num_to_uberstate(b);
+
+        return uber_a.subsum_less(uber_b);
+    }
 
     /// gets all successors of an uberstate wrt a vector of algorithms and a
     /// symbol
