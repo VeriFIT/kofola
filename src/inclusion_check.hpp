@@ -57,6 +57,8 @@ namespace kofola {
 
         void compute_simulation(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B);
 
+        void print_mstate(const std::shared_ptr<abstract_successor::mstate> a) override;
+
         cola::tnba_complement init_compl_aut_b(const spot::twa_graph_ptr &aut_B);
 
         spot::twa_graph_ptr aut_union(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B);

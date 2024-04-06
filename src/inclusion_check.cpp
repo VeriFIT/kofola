@@ -253,6 +253,14 @@ namespace kofola {
         return std::make_pair(res, msupport);
     }
 
+    void inclusion_check::print_mstate(const std::shared_ptr<abstract_successor::mstate> a) {
+        auto casted_a = dynamic_cast<inclusion_mstate*>(a.get());
+
+        std::cout << casted_a->acc_ << "\n";
+        std::cout << casted_a->trans_cond_ << "\n";
+        std::cout << casted_a->state_.first << ", " << std::to_string(aut_B_compl_.num_to_uberstate(casted_a->state_.second)) << "\n=================\n";
+    }
+
     bool inclusion_check::subsum_less(const std::shared_ptr<abstract_successor::mstate> a, const std::shared_ptr<abstract_successor::mstate> b) {
         auto casted_a = dynamic_cast<inclusion_mstate*>(a.get());
         auto casted_b = dynamic_cast<inclusion_mstate*>(b.get());
@@ -373,6 +381,7 @@ namespace kofola {
                     succ->state_ = std::make_pair(state_A, state_B);
                     spot::acc_cond::mark_t spot_cols(new_cols.begin(), new_cols.end());
                     succ->acc_ = spot_cols;
+                    succ->trans_cond_ = letter;
                     cartesian_prod.emplace_back(std::move(succ));
 
                     //auto it_bool_pair =

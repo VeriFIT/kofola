@@ -47,19 +47,21 @@ namespace kofola {
 
     void emptiness_check::tarjan_is_empty(const std::shared_ptr<abstract_successor::mstate> &src_mstate, spot::acc_cond::mark_t path_cond) {
         /// STRONGCONNECT
+        abstr_succ_->print_mstate(src_mstate);
         cnt_++;
-        if(abstr_succ_->is_accepting(path_cond)) {
-            auto tmp = spot::acc_cond::mark_t();
-            for (auto it = tarjan_stack_.rbegin(); it != tarjan_stack_.rend(); ++it) {
-                const auto& s = *it;
-                if (abstr_succ_->is_accepting(tmp) && abstr_succ_->subsum_less(s, src_mstate)) {
-                    decided_ = true;
-                    empty_ = false;
-                    return;
-                }
-                tmp |= s->get_acc();
-            }
-        }
+//        if(abstr_succ_->is_accepting(path_cond)) {
+//            auto tmp = spot::acc_cond::mark_t();
+//            for (auto it = tarjan_stack_.rbegin(); it != tarjan_stack_.rend(); ++it) {
+//                const auto& s = *it;
+//                if (abstr_succ_->is_accepting(tmp) && abstr_succ_->subsum_less(s, src_mstate)) {
+//                    abstr_succ_->subsum_less(s, src_mstate);
+//                    decided_ = true;
+//                    empty_ = false;
+//                    return;
+//                }
+//                tmp |= s->get_acc();
+//            }
+//        }
 
         SCCs_.push(src_mstate);
         dfs_num_[src_mstate] = index_;
@@ -108,6 +110,8 @@ namespace kofola {
                     if(abstr_succ_->is_accepting(cond)){
                         decided_ = true;
                         empty_ = false;
+                        abstr_succ_->print_mstate(dst_mstate);
+
                         return;
                     }
                 } while(dfs_num_[tmp] > dfs_num_[dst_mstate]);

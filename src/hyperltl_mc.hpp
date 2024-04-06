@@ -45,6 +45,10 @@ namespace kofola {
         std::vector<std::shared_ptr<abstract_successor::mstate>> get_succs(const std::shared_ptr<abstract_successor::mstate> &src) override;
 
         std::vector<std::shared_ptr<hyperltl_mc_mstate>> get_succs_internal(std::vector<unsigned> src, std::vector<std::string> exist_trac_vars);
+
+        void print_mstate(const std::shared_ptr<abstract_successor::mstate> a) override {
+            return;
+        };
     };
 
 class  hyperltl_mc_mstate : public abstract_successor::mstate {

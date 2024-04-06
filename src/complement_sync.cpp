@@ -1272,6 +1272,7 @@ namespace cola {
     bool cola::tnba_complement::subsum_less(unsigned a, unsigned b) {
         auto uber_a = num_to_uberstate(a);
         auto uber_b = num_to_uberstate(b);
+        std::cout << std::to_string(uber_a) << ", " << std::to_string(uber_b) << "\n";
 
         return uber_a.subsum_less(uber_b);
     }

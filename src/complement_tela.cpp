@@ -21,6 +21,8 @@
 // Spot
 #include <spot/twaalgos/postproc.hh>
 #include <spot/twaalgos/product.hh>
+#include <spot/twaalgos/complete.hh>
+
 // standard library
 #include <queue>
 
