@@ -110,7 +110,7 @@ namespace kofola {
                     if(abstr_succ_->is_accepting(cond)){
                         decided_ = true;
                         empty_ = false;
-                        abstr_succ_->print_mstate(dst_mstate);
+                        //abstr_succ_->print_mstate(dst_mstate);
 
                         return;
                     }
