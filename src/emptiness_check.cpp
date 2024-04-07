@@ -35,13 +35,13 @@ namespace kofola {
             if (dfs_num_.at(init) == UNDEFINED) {
                 tarjan_is_empty(init, spot::acc_cond::mark_t());
                 if(decided_) {
-                    std::cout << "---" << cnt_ << "---";
+                    std::cout << cnt_ << "\n";
                     return empty_;
                 }
             }
         }
 
-        std::cout << "---" << cnt_ << "---";
+        std::cout << cnt_ << "\n";
         return empty_;
     }
 
