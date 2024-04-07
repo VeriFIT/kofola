@@ -226,7 +226,7 @@ int process_args(int argc, char *argv[], kofola::options* params)
 	                                         "'merge-iwa=yes;preproc-reduction=high;raw-output'",
 	                                         {"params"});
 
-	try {
+    try {
 		parser.ParseCLI(argc, argv);
 	}
 	catch (const args::Completion& e) {
@@ -375,7 +375,13 @@ int main(int argc, char *argv[])
 //            else {
 //                printf("A ⊆ B does not hold!\n");
 //            }
-            kofola::inclusion_check inclusion_checker(aut_A, aut_B);
+            bool use_early = false;
+            bool use_dir_sim = false;
+            if(options.params.count("early_sim") != 0 && options.params["early_sim"] == "yes")
+                use_early = true;
+            if(options.params.count("dir_sim_inclusion") != 0 && options.params["dir_sim_inclusion"] == "yes")
+                use_dir_sim = true;
+            kofola::inclusion_check inclusion_checker(aut_A, aut_B, use_early, use_dir_sim);
             if(inclusion_checker.inclusion()) {
                 printf("A ⊆ B holds!\n");
             }

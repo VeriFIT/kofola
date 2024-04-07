@@ -16,7 +16,7 @@ namespace kofola
 {
     class emptiness_check {
     public:
-        emptiness_check(abstract_successor *as, int type);
+        emptiness_check(abstract_successor *as, int type, bool use_early_subsums);
 
         bool empty();
 
@@ -50,6 +50,8 @@ namespace kofola
         /// to stop searching when counter-example
         bool decided_ = false;
         bool empty_ = true;
+
+        bool use_early_subsums_ = true;
     };
 }
 

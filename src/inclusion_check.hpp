@@ -49,11 +49,13 @@ namespace kofola {
         spot::acc_cond::acc_code acc_cond_;
         unsigned int first_col_to_use_;
 
+        bool use_early_subsums_ = true;
+
         std::unordered_map<unsigned, std::vector<unsigned>> dir_simul_;
         unsigned offset_ = 0;
 
     public:
-        inclusion_check(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B);
+        inclusion_check(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B, bool use_early_subsums, bool use_dir_sim);
 
         void compute_simulation(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B);
 

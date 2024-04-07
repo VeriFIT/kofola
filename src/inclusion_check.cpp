@@ -12,8 +12,8 @@
 #include <spot/twaalgos/complete.hh>
 
 namespace kofola {
-    inclusion_check::inclusion_check(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B)
-    : aut_B_compl_(init_compl_aut_b(aut_B)){
+    inclusion_check::inclusion_check(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B, bool use_early_subsums, bool use_dir_sim)
+    : aut_B_compl_(init_compl_aut_b(aut_B)), use_early_subsums_(use_early_subsums){
         auto si_A = spot::scc_info(aut_A, spot::scc_info_options::ALL);
         auto preprocessed_aut_A = kofola::saturate(aut_A, si_A);
         preprocessed_aut_A->prop_state_acc(false);
@@ -26,7 +26,8 @@ namespace kofola {
         aut_B_compl_.select_algorithms();
         DEBUG_PRINT_LN("algorithms selected");
 
-        compute_simulation(aut_A_, aut_B);
+        if(use_dir_sim)
+            compute_simulation(aut_A_, aut_B);
 
         // get initial uberstates
         auto init_vec{aut_B_compl_.get_initial_uberstates()};
@@ -45,8 +46,6 @@ namespace kofola {
         first_col_to_use_ = static_cast<unsigned int>(aut_B_compl_.set_acc_cond());
         acc_cond_ = aut_B_compl_.get_final_acc_code();
         acc_cond_ &= spot::acc_cond::acc_code::inf({first_col_to_use_});
-
-        aut_union(aut_A, aut_B);
     }
 
     spot::twa_graph_ptr inclusion_check::aut_union(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B) {
@@ -126,7 +125,7 @@ namespace kofola {
     }
 
     bool inclusion_check::inclusion() {
-        emptiness_check emptiness_checker(this, INCLUSION);
+        emptiness_check emptiness_checker(this, INCLUSION, use_early_subsums_);
         auto res = emptiness_checker.empty();
         return res;
     }

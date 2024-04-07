@@ -19,8 +19,8 @@
 #include <utility>
 
 namespace kofola {
-    emptiness_check::emptiness_check(abstract_successor *as, int type):
-    abstr_succ_(as), type_(type)
+    emptiness_check::emptiness_check(abstract_successor *as, int type, bool use_early_subsums):
+    abstr_succ_(as), type_(type), use_early_subsums_(use_early_subsums)
     {
     }
 
@@ -35,13 +35,13 @@ namespace kofola {
             if (dfs_num_.at(init) == UNDEFINED) {
                 tarjan_is_empty(init, spot::acc_cond::mark_t());
                 if(decided_) {
-                    std::cout << cnt_ << "\n";
+                    std::cout << "---" << cnt_ << "---";
                     return empty_;
                 }
             }
         }
 
-        std::cout << cnt_ << "\n";
+        std::cout << "---" << cnt_ << "---";
         return empty_;
     }
 
@@ -49,17 +49,19 @@ namespace kofola {
         /// STRONGCONNECT
         // abstr_succ_->print_mstate(src_mstate);
         cnt_++;
-        if(abstr_succ_->is_accepting(path_cond)) {
-            auto tmp = spot::acc_cond::mark_t();
-            for (auto it = tarjan_stack_.rbegin(); it != tarjan_stack_.rend(); ++it) {
-                const auto& s = *it;
-                if (abstr_succ_->is_accepting(tmp) && abstr_succ_->subsum_less(s, src_mstate)) {
-                    abstr_succ_->subsum_less(s, src_mstate);
-                    decided_ = true;
-                    empty_ = false;
-                    return;
+        if(use_early_subsums_) {
+            if (abstr_succ_->is_accepting(path_cond)) {
+                auto tmp = spot::acc_cond::mark_t();
+                for (auto it = tarjan_stack_.rbegin(); it != tarjan_stack_.rend(); ++it) {
+                    const auto &s = *it;
+                    if (abstr_succ_->is_accepting(tmp) && abstr_succ_->subsum_less(s, src_mstate)) {
+                        abstr_succ_->subsum_less(s, src_mstate);
+                        decided_ = true;
+                        empty_ = false;
+                        return;
+                    }
+                    tmp |= s->get_acc();
                 }
-                tmp |= s->get_acc();
             }
         }
 
@@ -73,15 +75,17 @@ namespace kofola {
 
         for (auto &dst_mstate: succs) {
             // checking emptiness of curr dst_mstate
-            bool is_empty = false;
-            for(const auto& empty_state: empty_lang_states_) {
-                if(abstr_succ_->subsum_less(dst_mstate, empty_state)) {
-                    is_empty = true;
-                    break;
+            if(use_early_subsums_) {
+                bool is_empty = false;
+                for (const auto &empty_state: empty_lang_states_) {
+                    if (abstr_succ_->subsum_less(dst_mstate, empty_state)) {
+                        is_empty = true;
+                        break;
+                    }
                 }
+                if (is_empty)
+                    continue;
             }
-            if(is_empty)
-                continue;
             // end of checking emptiness
 
             // init structures
@@ -111,7 +115,6 @@ namespace kofola {
                         decided_ = true;
                         empty_ = false;
                         //abstr_succ_->print_mstate(dst_mstate);
-
                         return;
                     }
                 } while(dfs_num_[tmp] > dfs_num_[dst_mstate]);
