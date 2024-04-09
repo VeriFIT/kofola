@@ -119,6 +119,7 @@ namespace kofola {
     cola::tnba_complement inclusion_check::init_compl_aut_b(const spot::twa_graph_ptr &aut_B) {
         preprocessed_orig_aut_B_ = preprocess(aut_B);
 
+        kofola::OPTIONS.output_type = "tgba";
         spot::scc_info si_B(preprocessed_orig_aut_B_, spot::scc_info_options::ALL);
         cola::tnba_complement comp(preprocessed_orig_aut_B_, si_B);
         return comp;

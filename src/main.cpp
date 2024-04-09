@@ -368,25 +368,34 @@ int main(int argc, char *argv[])
             parsed_aut_B = parser_B.parse(dict);
             if (parsed_aut_B->format_errors(std::cerr)) { return EXIT_FAILURE; }
             spot::twa_graph_ptr aut_B = parsed_aut_B->aut;
-            
-//            if(!aut_A->intersects(spot::complement(aut_B))) {
-//                printf("A ⊆ B holds!\n");
-//            }
-//            else {
-//                printf("A ⊆ B does not hold!\n");
-//            }
+
+
             bool use_early = false;
             bool use_dir_sim = false;
             if(options.params.count("early_sim") != 0 && options.params["early_sim"] == "yes")
                 use_early = true;
             if(options.params.count("dir_sim_inclusion") != 0 && options.params["dir_sim_inclusion"] == "yes")
                 use_dir_sim = true;
+
             kofola::inclusion_check inclusion_checker(aut_A, aut_B, use_early, use_dir_sim);
-            if(inclusion_checker.inclusion()) {
-                printf("A ⊆ B holds!\n");
+            bool kofola_res = inclusion_checker.inclusion();
+
+            if(options.params.count("incl_correctness") != 0 && options.params["incl_correctness"] == "yes") {
+                bool spot_res = !aut_A->intersects(spot::complement(aut_B));
+                if(spot_res == kofola_res) {
+                    printf("PASS\n");
+                }
+                else {
+                    printf("ERR!\n");
+                }
             }
             else {
-                printf("A ⊆ B does not hold!\n");
+                if(kofola_res) {
+                    printf("A ⊆ B holds!\n");
+                }
+                else {
+                    printf("A ⊆ B does not hold!\n");
+                }
             }
 
         }

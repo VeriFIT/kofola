@@ -122,7 +122,10 @@ spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 		spot::postprocessor p_post;
 		if ("buchi" == kofola::OPTIONS.output_type) {
 			p_post.set_type(spot::postprocessor::Buchi);
-		} else {
+		}
+        else if("tgba" == kofola::OPTIONS.output_type) {
+            p_post.set_type(spot::postprocessor::GeneralizedBuchi);
+        } else {
 			p_post.set_type(spot::postprocessor::Generic);
 		}
 
