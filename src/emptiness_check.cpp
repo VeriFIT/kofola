@@ -33,7 +33,7 @@ namespace kofola {
 
         for(const auto& init: init_states) {
             if (dfs_num_.at(init) == UNDEFINED) {
-                tarjan_is_empty(init, spot::acc_cond::mark_t());
+                couvrer_edited(init, spot::acc_cond::mark_t());
                 if(decided_) {
                     std::cout << cnt_ << "\n";
                     return empty_;
@@ -43,6 +43,94 @@ namespace kofola {
 
         std::cout << cnt_ << "\n";
         return empty_;
+    }
+
+    void emptiness_check::couvrer_edited(const std::shared_ptr<abstract_successor::mstate> &src_mstate, spot::acc_cond::mark_t path_cond) {
+        /// STRONGCONNECT
+        cnt_++;
+        // abstr_succ_->print_mstate(src_mstate);
+        //if(use_early_subsums_) {
+            if (abstr_succ_->is_accepting(path_cond)) {
+                auto tmp = spot::acc_cond::mark_t();
+                for (auto it = tarjan_stack_.rbegin(); it != tarjan_stack_.rend(); ++it) {
+                    const auto &s = *it;
+                    if (abstr_succ_->is_accepting(tmp) && abstr_succ_->subsum_less(s, src_mstate)) {
+                        decided_ = true;
+                        empty_ = false;
+                        return;
+                    }
+                    tmp |= s->get_acc();
+                }
+            }
+        //}
+
+        // new approach
+        auto tmp = spot::acc_cond::mark_t();
+        for (auto it = tarjan_stack_.rbegin(); it != tarjan_stack_.rend(); ++it) {
+            const auto &s = *it;
+            if (tmp == 0 && abstr_succ_->subsum_less(src_mstate, s)) {
+                dfs_num_[src_mstate] = POSTPONE;
+                return;
+            }
+            tmp |= s->get_acc();
+        }
+        // end new approach
+
+        SCCs_.push(src_mstate);
+        dfs_num_[src_mstate] = index_;
+        index_++;
+        tarjan_stack_.push_back(src_mstate);
+        on_stack_[src_mstate] = true;
+
+        auto succs = abstr_succ_->get_succs(src_mstate);
+        for (auto &dst_mstate: succs) {
+            // init structures
+            if(dfs_num_.count(dst_mstate) == 0)
+            {
+                dfs_num_.insert({dst_mstate, UNDEFINED});
+                on_stack_.insert({dst_mstate, false});
+            }
+
+            if (dfs_num_[dst_mstate] == UNDEFINED || dfs_num_[dst_mstate] == POSTPONE)
+            {
+                couvrer_edited( dst_mstate, (path_cond | dst_mstate->get_acc()) );
+                if(dfs_num_[dst_mstate] == POSTPONE)
+                    dfs_num_[src_mstate] = POSTPONE;
+
+                if(decided_)
+                    return;
+            } else if(on_stack_[dst_mstate]) {
+                spot::acc_cond::mark_t cond = dst_mstate->get_acc();
+
+                // merge acc. marks
+                std::shared_ptr<abstract_successor::mstate> tmp;
+                do {
+                    tmp = SCCs_.top(); SCCs_.pop();
+                    bool root_encountered = dst_mstate->get_encountered();
+                    if(root_encountered || dfs_num_[tmp] > dfs_num_[dst_mstate])
+                        cond = (cond |= tmp->get_acc());
+                    if(abstr_succ_->is_accepting(cond)){
+                        decided_ = true;
+                        empty_ = false;
+                        //abstr_succ_->print_mstate(dst_mstate);
+                        return;
+                    }
+                } while(dfs_num_[tmp] > dfs_num_[dst_mstate]);
+                dst_mstate->set_encountered(true); // mark visited root
+                tmp->set_acc(cond);
+                SCCs_.push(tmp);
+            }
+        }
+
+        if (SCCs_.top() == (src_mstate)) {
+            SCCs_.pop();
+            std::shared_ptr<abstract_successor::mstate> tmp;
+
+            do {
+                tmp = tarjan_stack_.back(); tarjan_stack_.pop_back();
+                on_stack_[tmp] = false;
+            } while (src_mstate != tmp);
+        }
     }
 
     void emptiness_check::tarjan_is_empty(const std::shared_ptr<abstract_successor::mstate> &src_mstate, spot::acc_cond::mark_t path_cond) {
@@ -55,7 +143,6 @@ namespace kofola {
                 for (auto it = tarjan_stack_.rbegin(); it != tarjan_stack_.rend(); ++it) {
                     const auto &s = *it;
                     if (abstr_succ_->is_accepting(tmp) && abstr_succ_->subsum_less(s, src_mstate)) {
-                        abstr_succ_->subsum_less(s, src_mstate);
                         decided_ = true;
                         empty_ = false;
                         return;

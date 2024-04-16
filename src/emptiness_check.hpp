@@ -20,6 +20,8 @@ namespace kofola
 
         bool empty();
 
+        void couvrer_edited(const std::shared_ptr<abstract_successor::mstate> &src_mstate, spot::acc_cond::mark_t path_cond);
+
         /// performs emptiness check: whether aut_A⊆aut_B using tarjan's algo
         void tarjan_is_empty(const std::shared_ptr<abstract_successor::mstate> &src_mstate, spot::acc_cond::mark_t path_cond);
 
@@ -29,6 +31,7 @@ namespace kofola
         unsigned cnt_ = 0;
 
         const int UNDEFINED = -1;
+        const int POSTPONE = -2;
 
         struct shared_ptr_comparator {
             template<typename T>
