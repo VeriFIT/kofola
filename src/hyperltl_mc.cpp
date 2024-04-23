@@ -41,7 +41,7 @@ namespace kofola {
                 use_last_n_kripke_structs(q.trace_vars.size());
 
                 //start = clock();
-                emptiness_check emptiness_checker(this, HYPERLTL_MC_EMPTINESS, true);
+                emptiness_check emptiness_checker(this, HYPERLTL_MC_EMPTINESS, true, true);
                 //end = clock();
                 //double time_taken = 1000 * double(end - start) / double(CLOCKS_PER_SEC);
                 //emptiness += time_taken;
@@ -80,7 +80,7 @@ namespace kofola {
                 //std::cout << "spot compl: " << spot::complement(built_aut_)->num_states() << std::endl;
 
                 //start = clock();
-                kofola::inclusion_check inclusion_checker(aut_A, built_aut_, true, true);
+                kofola::inclusion_check inclusion_checker(aut_A, built_aut_, true, true, true);
                 // spot::print_hoa(std::cout, aut_A); spot::print_hoa(std::cout, built_aut_);
 
                 if(inclusion_checker.inclusion())
@@ -247,13 +247,6 @@ namespace kofola {
         }
 
         return res;
-    }
-
-    bool hyperltl_mc::subsum_less(const std::shared_ptr<abstract_successor::mstate> a, const std::shared_ptr<abstract_successor::mstate> b) {
-        auto casted_a = dynamic_cast<hyperltl_mc_mstate*>(a.get());
-        auto casted_b = dynamic_cast<hyperltl_mc_mstate*>(b.get());
-
-        return casted_a->eq(*casted_b);
     }
 
     std::vector<std::shared_ptr<abstract_successor::mstate>> hyperltl_mc::get_succs(const std::shared_ptr<abstract_successor::mstate> &src) {

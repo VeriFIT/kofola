@@ -371,13 +371,16 @@ int main(int argc, char *argv[])
 
 
             bool use_early = false;
+			bool use_early_plus = false;
             bool use_dir_sim = false;
             if(options.params.count("early_sim") != 0 && options.params["early_sim"] == "yes")
                 use_early = true;
-            if(options.params.count("dir_sim_inclusion") != 0 && options.params["dir_sim_inclusion"] == "yes")
+            if(options.params.count("early_plus_sim") != 0 && options.params["early_plus_sim"] == "yes")
+                use_early_plus = true;
+			if(options.params.count("dir_sim_inclusion") != 0 && options.params["dir_sim_inclusion"] == "yes")
                 use_dir_sim = true;
 
-            kofola::inclusion_check inclusion_checker(aut_A, aut_B, use_early, use_dir_sim);
+            kofola::inclusion_check inclusion_checker(aut_A, aut_B, use_early, use_dir_sim, use_early_plus);
             bool kofola_res = inclusion_checker.inclusion();
 
             if(options.params.count("incl_correctness") != 0 && options.params["incl_correctness"] == "yes") {

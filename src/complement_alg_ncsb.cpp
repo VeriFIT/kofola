@@ -42,6 +42,26 @@ public: // METHODS
   virtual const std::set<unsigned>& get_breakpoint() const override { return this->breakpoint_; }
   virtual void set_breakpoint(const std::set<unsigned>& breakpoint) override { this->breakpoint_ = get_set_intersection(breakpoint, this->check_); }
 
+  virtual bool subsum_less_early(const mstate& rhs, const std::set<unsigned>&  glob_reached) override {
+    auto rhs_ncsb = dynamic_cast<const mstate_ncsb*>(&rhs);
+
+    auto check_subs = std::includes(check_.begin(), check_.end(), rhs_ncsb->check_.begin(), rhs_ncsb->check_.end());
+    auto safe_subs = std::includes(safe_.begin(), safe_.end(), rhs_ncsb->safe_.begin(), rhs_ncsb->safe_.end());
+    auto B_subs = std::includes(breakpoint_.begin(), breakpoint_.end(), rhs_ncsb->breakpoint_.begin(), rhs_ncsb->breakpoint_.end());
+
+
+    return (check_subs && safe_subs && B_subs);
+  };
+
+  virtual bool subsum_less_early_plus(const mstate& rhs, const std::set<unsigned>&  glob_reached) override {
+    auto rhs_ncsb = dynamic_cast<const mstate_ncsb*>(&rhs);
+
+    auto check_subs = std::includes(check_.begin(), check_.end(), rhs_ncsb->check_.begin(), rhs_ncsb->check_.end());
+    auto safe_subs = std::includes(safe_.begin(), safe_.end(), rhs_ncsb->safe_.begin(), rhs_ncsb->safe_.end());
+
+    return (check_subs && safe_subs);
+  };
+
   friend class kofola::complement_ncsb;
 }; // mstate_ncsb }}}
 

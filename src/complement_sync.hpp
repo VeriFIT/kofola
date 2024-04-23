@@ -233,10 +233,21 @@ namespace cola
 
             uberstate& operator=(const uberstate& us) = delete;
 
-            bool subsum_less(const uberstate& b)
+            bool subsum_less_early(const uberstate& b)
             {
                 for(unsigned i = 0; i < part_macrostates_.size(); i++) {
-                    if(!(std::includes(this->reached_states_.begin(), this->reached_states_.end(), b.reached_states_.begin(), b.reached_states_.end()) && this->part_macrostates_[i]->subsum_less(*(b.part_macrostates_[i]), reached_states_))) {
+                    if(!(std::includes(this->reached_states_.begin(), this->reached_states_.end(), b.reached_states_.begin(), b.reached_states_.end()) && this->part_macrostates_[i]->subsum_less_early(*(b.part_macrostates_[i]), reached_states_))) {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            bool subsum_less_early_plus(const uberstate& b)
+            {
+                for(unsigned i = 0; i < part_macrostates_.size(); i++) {
+                    if(!(std::includes(this->reached_states_.begin(), this->reached_states_.end(), b.reached_states_.begin(), b.reached_states_.end()) && this->part_macrostates_[i]->subsum_less_early_plus(*(b.part_macrostates_[i]), reached_states_))) {
                         return false;
                     }
                 }
@@ -373,7 +384,8 @@ namespace cola
                 const spot::scc_info&           si,
                 const kofola::ReachableVector&  reach_vec);
 
-        bool subsum_less(unsigned a, unsigned b);
+        bool subsum_less_early(unsigned a, unsigned b);
+        bool subsum_less_early_plus(unsigned a, unsigned b);
 
         /// gets all successors of an uberstate wrt a vector of algorithms and a
         /// symbol

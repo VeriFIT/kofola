@@ -12,8 +12,8 @@
 #include <spot/twaalgos/complete.hh>
 
 namespace kofola {
-    inclusion_check::inclusion_check(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B, bool use_early_subsums, bool use_dir_sim)
-    : aut_B_compl_(init_compl_aut_b(aut_B)), use_early_subsums_(use_early_subsums){
+    inclusion_check::inclusion_check(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B, bool use_early_subsums, bool use_dir_sim, bool use_early_plus_subsums)
+    : aut_B_compl_(init_compl_aut_b(aut_B)), use_early_subsums_(use_early_subsums), use_early_plus_subsums_(use_early_plus_subsums){
         auto si_A = spot::scc_info(aut_A, spot::scc_info_options::ALL);
         auto preprocessed_aut_A = kofola::saturate(aut_A, si_A);
         preprocessed_aut_A->prop_state_acc(false);
@@ -126,7 +126,7 @@ namespace kofola {
     }
 
     bool inclusion_check::inclusion() {
-        emptiness_check emptiness_checker(this, INCLUSION, use_early_subsums_);
+        emptiness_check emptiness_checker(this, INCLUSION, use_early_subsums_, use_early_plus_subsums_);
         auto res = emptiness_checker.empty();
         return res;
     }
@@ -257,15 +257,22 @@ namespace kofola {
         auto casted_a = dynamic_cast<inclusion_mstate*>(a.get());
 
         std::cout << casted_a->acc_ << "\n";
-        std::cout << casted_a->trans_cond_ << "\n";
-        std::cout << casted_a->state_.first << ", " << std::to_string(aut_B_compl_.num_to_uberstate(casted_a->state_.second)) << "\n=================\n";
+        std::cout << casted_a->state_.first << ", " << std::to_string(aut_B_compl_.num_to_uberstate(casted_a->state_.second));
+        std::cout << std::endl << "==================" << std::endl; 
     }
 
-    bool inclusion_check::subsum_less(const std::shared_ptr<abstract_successor::mstate> a, const std::shared_ptr<abstract_successor::mstate> b) {
+    bool inclusion_check::subsum_less_early(const std::shared_ptr<abstract_successor::mstate> a, const std::shared_ptr<abstract_successor::mstate> b) {
         auto casted_a = dynamic_cast<inclusion_mstate*>(a.get());
         auto casted_b = dynamic_cast<inclusion_mstate*>(b.get());
 
-        return (casted_a->state_.first == casted_b->state_.first && aut_B_compl_.subsum_less(casted_a->state_.second, casted_b->state_.second));
+        return (casted_a->state_.first == casted_b->state_.first && aut_B_compl_.subsum_less_early(casted_a->state_.second, casted_b->state_.second));
+    }
+
+    bool inclusion_check::subsum_less_early_plus(const std::shared_ptr<abstract_successor::mstate> a, const std::shared_ptr<abstract_successor::mstate> b) {
+        auto casted_a = dynamic_cast<inclusion_mstate*>(a.get());
+        auto casted_b = dynamic_cast<inclusion_mstate*>(b.get());
+
+        return (casted_a->state_.first == casted_b->state_.first && aut_B_compl_.subsum_less_early_plus(casted_a->state_.second, casted_b->state_.second));
     }
 
     std::vector<std::shared_ptr<abstract_successor::mstate>> inclusion_check::get_succs(const std::shared_ptr<abstract_successor::mstate> &src) {

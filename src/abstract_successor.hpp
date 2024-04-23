@@ -38,7 +38,9 @@ namespace kofola {
 
         virtual bool is_accepting(spot::acc_cond::mark_t cond) = 0;
 
-        virtual bool subsum_less(const std::shared_ptr<abstract_successor::mstate> a, const std::shared_ptr<abstract_successor::mstate> b) = 0;
+        virtual bool subsum_less_early(const std::shared_ptr<abstract_successor::mstate> a, const std::shared_ptr<abstract_successor::mstate> b) {return a->eq(*b);};
+
+        virtual bool subsum_less_early_plus(const std::shared_ptr<abstract_successor::mstate> a, const std::shared_ptr<abstract_successor::mstate> b) {return a->eq(*b);};
 
         virtual void print_mstate(const std::shared_ptr<abstract_successor::mstate> a) = 0;
     }; // abstract_complement_alg }}}
