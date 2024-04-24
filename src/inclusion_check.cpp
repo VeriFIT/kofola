@@ -32,13 +32,21 @@ namespace kofola {
         // get initial uberstates
         auto init_vec{aut_B_compl_.get_initial_uberstates()};
         for (unsigned state: init_vec) {
-            if(!(dir_simul_.count(init_A) && std::find(dir_simul_[init_A].begin(), dir_simul_[init_A].end(), state) != dir_simul_[init_A].end())) {
+            auto uberstate = aut_B_compl_.num_to_uberstate(state);
+            auto B_reach_set = uberstate.get_reach_set();
+            std::set<unsigned> A_B_intersect;
+
+            if(dir_simul_.count(init_A)) {
+                set_intersection(dir_simul_[init_A].begin(), dir_simul_[init_A].end(), B_reach_set.begin(), B_reach_set.end(),
+                            std::inserter(A_B_intersect, A_B_intersect.begin()));
+            }
+            if(A_B_intersect.empty()) {
                 auto ptr = std::make_shared<inclusion_mstate>();
                 ptr->state_ = {init_A, state};
 
                 init_states_.emplace_back(std::move(ptr));
                 intersect_states_.insert({{init_A, state},
-                                          {}});
+                                        {}});
             }
         }
 
@@ -382,8 +390,17 @@ namespace kofola {
                     //}
                 }
 
+
+                auto uberstate = aut_B_compl_.num_to_uberstate(state_B);
+                auto B_reach_set = uberstate.get_reach_set();
+                std::set<unsigned> A_B_intersect;
+                if(dir_simul_.count(state_A)) {
+                    set_intersection(dir_simul_[state_A].begin(), dir_simul_[state_A].end(), B_reach_set.begin(), B_reach_set.end(),
+                            std::inserter(A_B_intersect, A_B_intersect.begin()));
+                }
+
                 //auto succ = std::make_pair(std::make_pair(state_A, state_B), new_cols);
-                if(!(dir_simul_.count(state_A) && std::find(dir_simul_[state_A].begin(), dir_simul_[state_A].end(), state_B) != dir_simul_[state_A].end())) {
+                if(A_B_intersect.empty()) {
                     auto succ = std::make_shared<inclusion_mstate>();
                     succ->state_ = std::make_pair(state_A, state_B);
                     spot::acc_cond::mark_t spot_cols(new_cols.begin(), new_cols.end());
