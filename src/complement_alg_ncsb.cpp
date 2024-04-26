@@ -45,10 +45,10 @@ public: // METHODS
   virtual bool subsum_less_early(const mstate& rhs, const std::set<unsigned>&  glob_reached) override {
     auto rhs_ncsb = dynamic_cast<const mstate_ncsb*>(&rhs);
 
-    std::set<unsigned> C_and_B;
-    set_union(check_.begin(), check_.end(), breakpoint_.begin() , breakpoint_.end(), std::inserter(C_and_B, C_and_B.begin()));
+    std::set<unsigned> S_and_B;
+    set_union(safe_.begin(), safe_.end(), breakpoint_.begin() , breakpoint_.end(), std::inserter(S_and_B, S_and_B.begin()));
 
-    auto B_subs = std::includes(C_and_B.begin(), C_and_B.end(), rhs_ncsb->breakpoint_.begin(), rhs_ncsb->breakpoint_.end());
+    auto B_subs = std::includes(S_and_B.begin(), S_and_B.end(), rhs_ncsb->breakpoint_.begin(), rhs_ncsb->breakpoint_.end());
 
     return (B_subs);
   };
