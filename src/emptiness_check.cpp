@@ -142,10 +142,8 @@ namespace kofola {
         if(use_early_subsums_) {
             if (abstr_succ_->is_accepting(path_cond)) {
                 auto cond = src_mstate->get_acc();
-                abstr_succ_->print_mstate(src_mstate);
                 for (auto it = dfs_acc_stack_.rbegin(); it != dfs_acc_stack_.rend(); ++it) {
                     const auto &s = (*it).first;
-                    abstr_succ_->print_mstate(s);
                     if (abstr_succ_->is_accepting(cond) && abstr_succ_->subsum_less_early(s, src_mstate)) {
                         decided_ = true;
                         empty_ = false;
