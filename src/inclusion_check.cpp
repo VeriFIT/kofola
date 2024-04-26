@@ -12,8 +12,8 @@
 #include <spot/twaalgos/complete.hh>
 
 namespace kofola {
-    inclusion_check::inclusion_check(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B, bool use_early_subsums, bool use_dir_sim, bool use_early_plus_subsums)
-    : aut_B_compl_(init_compl_aut_b(aut_B)), use_early_subsums_(use_early_subsums), use_early_plus_subsums_(use_early_plus_subsums){
+    inclusion_check::inclusion_check(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B)
+    : aut_B_compl_(init_compl_aut_b(aut_B)){
         auto si_A = spot::scc_info(aut_A, spot::scc_info_options::ALL);
         auto preprocessed_aut_A = kofola::saturate(aut_A, si_A);
         preprocessed_aut_A->prop_state_acc(false);
@@ -26,7 +26,7 @@ namespace kofola {
         aut_B_compl_.select_algorithms();
         DEBUG_PRINT_LN("algorithms selected");
 
-        if(use_dir_sim)
+        if(kofola::OPTIONS.params.count("dir_sim_inclusion") != 0 && kofola::OPTIONS.params["dir_sim_inclusion"] == "yes")
             compute_simulation(aut_A_, aut_B);
 
         // get initial uberstates
@@ -110,18 +110,6 @@ namespace kofola {
                 }
             }
         }
-
-//        for(unsigned i = 1; i < ; i++) {
-//            // bdd_printset(implications[i]); std::cout << "\n";
-//            for(unsigned j = offset_ + 1; j < implications.size(); j++) {
-//                bool i_impl_j = bdd_implies(implications[i], implications[j]);
-//                if(i_impl_j) {
-//                    dir_simul_[i - 1].emplace_back(j - offset_ - 1);
-//                    // std::cout << i << ", " << j - offset_ << "\n";
-//                }
-//            }
-//        }
-
     }
 
     cola::tnba_complement inclusion_check::init_compl_aut_b(const spot::twa_graph_ptr &aut_B) {
@@ -134,7 +122,7 @@ namespace kofola {
     }
 
     bool inclusion_check::inclusion() {
-        emptiness_check emptiness_checker(this, INCLUSION, use_early_subsums_, use_early_plus_subsums_);
+        emptiness_check emptiness_checker(this);
         auto res = emptiness_checker.empty();
         return res;
     }

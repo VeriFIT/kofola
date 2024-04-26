@@ -56,7 +56,7 @@ namespace kofola {
         unsigned offset_ = 0;
 
     public:
-        inclusion_check(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B, bool use_early_subsums, bool use_dir_sim, bool use_early_plus_subsums);
+        inclusion_check(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B);
 
         void compute_simulation(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B);
 

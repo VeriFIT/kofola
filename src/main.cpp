@@ -370,17 +370,20 @@ int main(int argc, char *argv[])
             spot::twa_graph_ptr aut_B = parsed_aut_B->aut;
 
 
-            bool use_early = false;
-			bool use_early_plus = false;
-            bool use_dir_sim = false;
-            if(options.params.count("early_sim") != 0 && options.params["early_sim"] == "yes")
-                use_early = true;
-            if(options.params.count("early_plus_sim") != 0 && options.params["early_plus_sim"] == "yes")
-                use_early_plus = true;
-			if(options.params.count("dir_sim_inclusion") != 0 && options.params["dir_sim_inclusion"] == "yes")
-                use_dir_sim = true;
+            // bool use_early = false;
+			// bool use_early_plus = false;
+            // bool use_dir_sim = false;
+			// bool use_tough_opt = false;
+            // if(options.params.count("early_sim") != 0 && options.params["early_sim"] == "yes")
+            //     use_early = true;
+            // if(options.params.count("early_plus_sim") != 0 && options.params["early_plus_sim"] == "yes")
+            //     use_early_plus = true;
+			// if(options.params.count("dir_sim_inclusion") != 0 && options.params["dir_sim_inclusion"] == "yes")
+            //     use_dir_sim = true;
+			// if(options.params.count("use_tough_opt") != 0 && options.params["use_tough_opt"] == "yes")
+            //     use_tough_opt = true;
 
-            kofola::inclusion_check inclusion_checker(aut_A, aut_B, use_early, use_dir_sim, use_early_plus);
+            kofola::inclusion_check inclusion_checker(aut_A, aut_B);
             bool kofola_res = inclusion_checker.inclusion();
 
             if(options.params.count("incl_correctness") != 0 && options.params["incl_correctness"] == "yes") {
