@@ -47,6 +47,7 @@ namespace kofola
         std::vector<std::shared_ptr<abstract_successor::mstate>> tarjan_stack_;
         std::stack<std::shared_ptr<abstract_successor::mstate>> SCCs_;
         /// end of tarjan variables
+        std::vector<std::pair<std::shared_ptr<abstract_successor::mstate>, spot::acc_cond::mark_t>> dfs_acc_stack_;
 
         std::vector<std::shared_ptr<abstract_successor::mstate>> empty_lang_states_;
 

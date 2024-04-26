@@ -142,14 +142,16 @@ namespace kofola {
         if(use_early_subsums_) {
             if (abstr_succ_->is_accepting(path_cond)) {
                 auto cond = src_mstate->get_acc();
-                for (auto it = tarjan_stack_.rbegin(); it != tarjan_stack_.rend(); ++it) {
-                    const auto &s = *it;
+                abstr_succ_->print_mstate(src_mstate);
+                for (auto it = dfs_acc_stack_.rbegin(); it != dfs_acc_stack_.rend(); ++it) {
+                    const auto &s = (*it).first;
+                    abstr_succ_->print_mstate(s);
                     if (abstr_succ_->is_accepting(cond) && abstr_succ_->subsum_less_early(s, src_mstate)) {
                         decided_ = true;
                         empty_ = false;
                         return;
                     }
-                    cond |= s->get_acc();
+                    cond |= (*it).second;
                 }
             }
         }
@@ -174,6 +176,7 @@ namespace kofola {
         }
 
         SCCs_.push(src_mstate);
+        dfs_acc_stack_.emplace_back(src_mstate, src_mstate->get_acc());
         dfs_num_[src_mstate] = index_;
         index_++;
         tarjan_stack_.push_back(src_mstate);
@@ -238,6 +241,7 @@ namespace kofola {
 
             do {
                 tmp = tarjan_stack_.back(); tarjan_stack_.pop_back();
+                dfs_acc_stack_.pop_back();
                 on_stack_[tmp] = false;
                 empty_lang_states_.emplace_back(tmp); // when here, each state has empty language, otherwise we would have ended
             } while (src_mstate != tmp);

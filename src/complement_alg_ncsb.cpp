@@ -49,8 +49,9 @@ public: // METHODS
     set_union(safe_.begin(), safe_.end(), breakpoint_.begin() , breakpoint_.end(), std::inserter(S_and_B, S_and_B.begin()));
 
     auto B_subs = std::includes(S_and_B.begin(), S_and_B.end(), rhs_ncsb->breakpoint_.begin(), rhs_ncsb->breakpoint_.end());
+    auto S_subs = std::includes(this->safe_.begin(), this->safe_.end(), rhs_ncsb->safe_.begin(), rhs_ncsb->safe_.end());
 
-    return (B_subs);
+    return (B_subs && S_subs);
   };
 
   friend class kofola::complement_ncsb;
