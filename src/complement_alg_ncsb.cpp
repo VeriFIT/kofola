@@ -46,10 +46,9 @@ public: // METHODS
     auto rhs_ncsb = dynamic_cast<const mstate_ncsb*>(&rhs);
 
     std::set<unsigned> C_and_B;
-    set_union(check_.begin(), check_.end(), safe_.begin() , safe_.end(), std::inserter(C_and_B, C_and_B.begin()));
+    set_union(check_.begin(), check_.end(), breakpoint_.begin() , breakpoint_.end(), std::inserter(C_and_B, C_and_B.begin()));
 
     auto B_subs = std::includes(C_and_B.begin(), C_and_B.end(), rhs_ncsb->breakpoint_.begin(), rhs_ncsb->breakpoint_.end());
-
 
     return (B_subs);
   };
