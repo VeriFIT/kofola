@@ -25,13 +25,17 @@ namespace kofola
         /// performs emptiness check: whether aut_A⊆aut_B using tarjan's algo
         void tarjan_is_empty(const std::shared_ptr<abstract_successor::mstate> &src_mstate, spot::acc_cond::mark_t path_cond);
 
+        bool simulation_prunning(const std::shared_ptr<abstract_successor::mstate> & src_mstate);
+        bool empty_lang(const std::shared_ptr<abstract_successor::mstate> &dst_mstate);
+        bool merge_acc_marks(const std::shared_ptr<abstract_successor::mstate> &dst_mstate);
+        void remove_SCC(const std::shared_ptr<abstract_successor::mstate> & src_mstate);
+        bool check_simul_less(const std::shared_ptr<abstract_successor::mstate> &dst_mstate);
+
     private:
         abstract_successor *abstr_succ_;
-        int type_;
         unsigned cnt_ = 0;
 
         const int UNDEFINED = -1;
-        const int POSTPONE = -2;
 
         struct shared_ptr_comparator {
             template<typename T>
@@ -55,8 +59,7 @@ namespace kofola
         bool decided_ = false;
         bool empty_ = true;
 
-        bool use_early_subsums_ = true;
-        bool use_early_plus_subsums_ = true;
+        std::map<std::shared_ptr<abstract_successor::mstate>,std::set<std::shared_ptr<abstract_successor::mstate>>> state_jumps_to_cutoffs_; // for the new approach
     };
 }
 
