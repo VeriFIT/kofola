@@ -138,7 +138,7 @@ namespace kofola {
                     continue;
             }
 
-            if (dfs_num_[dst_mstate] == UNDEFINED || dfs_num_[dst_mstate] == POSTPONE)
+            if (dfs_num_[dst_mstate] == UNDEFINED || (dfs_num_[dst_mstate] == POSTPONE && dfs_num_[src_mstate] != POSTPONE))
             {
                 couvrer_edited( dst_mstate, (path_cond | dst_mstate->get_acc()) );
                 if(dfs_num_[dst_mstate] == POSTPONE)

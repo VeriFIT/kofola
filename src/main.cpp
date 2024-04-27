@@ -389,7 +389,7 @@ int main(int argc, char *argv[])
             if(options.params.count("incl_correctness") != 0 && options.params["incl_correctness"] == "yes") {
                 bool spot_res = !aut_A->intersects(spot::complement(aut_B));
                 if(spot_res == kofola_res) {
-                    printf("PASS\n");
+                    printf("PASS!\n");
                 }
                 else {
                     printf("ERR!\n");
