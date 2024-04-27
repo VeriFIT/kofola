@@ -104,6 +104,8 @@ namespace kofola {
                 for(auto &jumping_dst_mstate: state_jumps_to_cutoffs_[dst_mstate]) {
                     if(dfs_num_[jumping_dst_mstate] == UNDEFINED && !check_simul_less(jumping_dst_mstate))
                         couvrer_edited( jumping_dst_mstate, (path_cond | jumping_dst_mstate->get_acc()) );
+                    if(decided_)
+                        return;
                 }
             } else if(on_stack_[dst_mstate]) {
                 if(merge_acc_marks(dst_mstate))
