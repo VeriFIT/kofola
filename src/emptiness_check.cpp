@@ -101,7 +101,7 @@ namespace kofola {
                     return;
             }
             else if(dfs_num_[dst_mstate] != UNDEFINED && state_jumps_to_cutoffs_.count(dst_mstate) != 0) {
-                if(merge_acc_marks(dst_mstate))
+                if(on_stack_[dst_mstate] && merge_acc_marks(dst_mstate))
                     return;
 
                 for(auto &jumping_dst_mstate: state_jumps_to_cutoffs_[dst_mstate]) {
@@ -110,9 +110,8 @@ namespace kofola {
                     if(decided_)
                         return;
                 }
-            } else if(on_stack_[dst_mstate]) {
-                if(merge_acc_marks(dst_mstate))
-                    return;
+            } else if(on_stack_[dst_mstate] && on_stack_[dst_mstate]) {
+                return;
             }
         }
 
