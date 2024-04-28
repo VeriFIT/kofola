@@ -97,16 +97,16 @@ namespace kofola {
 
     void inclusion_check::compute_simulation(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B) {
         auto uni = aut_union(aut_A, aut_B);
-        // spot::print_hoa(std::cout, uni);
+//        spot::print_hoa(std::cout, uni);
 
         auto reduced = spot::simulation(uni, -1);
         auto x = reduced->get_named_prop<std::vector<unsigned>>("simulated-states");
         auto orig_to_new = *x;
 
-        for(unsigned i = 1; i < offset_ + 1; i++) {
-            for(unsigned j = offset_ + 1; j < orig_to_new.size(); j++) {
+        for(unsigned i = 0; i < offset_; i++) {
+            for(unsigned j = offset_; j < orig_to_new.size() - 1; j++) {
                 if(orig_to_new[i] == orig_to_new[j] && orig_to_new[i] != -1) {
-                    dir_simul_[i - 1].emplace_back(j - offset_ - 1);
+                    dir_simul_[i].emplace_back(j - offset_);
                 }
             }
         }
