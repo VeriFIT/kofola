@@ -103,7 +103,7 @@ namespace kofola {
                     return;
             }
             else if(dfs_num_[dst_mstate] != UNDEFINED) {
-                if(merge_acc_marks(dst_mstate) && on_stack_[dst_mstate])
+                if(on_stack_[dst_mstate] && merge_acc_marks(dst_mstate))
                     return;
 
                 if(state_jumps_to_cutoffs_.count(dst_mstate) == 0 || !on_stack_[simulating_.top()])
