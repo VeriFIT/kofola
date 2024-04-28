@@ -97,9 +97,10 @@ namespace kofola {
 
     void inclusion_check::compute_simulation(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B) {
         auto uni = aut_union(aut_A, aut_B);
-//        spot::print_hoa(std::cout, uni);
+        // spot::print_hoa(std::cout, uni);
 
-        auto reduced = spot::simulation(uni, -1);
+        std::vector<bdd> implications;
+        auto reduced = spot::simulation(uni, &implications);
         auto x = reduced->get_named_prop<std::vector<unsigned>>("simulated-states");
         auto orig_to_new = *x;
 
