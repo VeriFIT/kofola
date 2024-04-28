@@ -55,8 +55,6 @@ namespace kofola
 
         std::vector<std::shared_ptr<abstract_successor::mstate>> empty_lang_states_;
 
-        std::stack<std::shared_ptr<abstract_successor::mstate>> simulating_;
-
         /// to stop searching when counter-example
         bool decided_ = false;
         bool empty_ = true;
