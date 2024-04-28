@@ -100,18 +100,18 @@ namespace kofola {
                 if(decided_)
                     return;
             }
-            else if(dfs_num_[dst_mstate] != UNDEFINED && state_jumps_to_cutoffs_.count(dst_mstate) != 0) {
-                if(on_stack_[dst_mstate] && merge_acc_marks(dst_mstate))
+            else if(dfs_num_[dst_mstate] != UNDEFINED && on_stack_[dst_mstate]) {
+                if(merge_acc_marks(dst_mstate))
                     return;
 
+                if(state_jumps_to_cutoffs_.count(dst_mstate) == 0)
+                    continue;
                 for(auto &jumping_dst_mstate: state_jumps_to_cutoffs_[dst_mstate]) {
                     if(dfs_num_[jumping_dst_mstate] == UNDEFINED && !check_simul_less(jumping_dst_mstate))
                         couvrer_edited( jumping_dst_mstate, (path_cond | jumping_dst_mstate->get_acc()) );
                     if(decided_)
                         return;
                 }
-            } else if(on_stack_[dst_mstate] && merge_acc_marks(dst_mstate)) {
-                return;
             }
         }
 
