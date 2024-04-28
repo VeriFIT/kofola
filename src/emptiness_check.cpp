@@ -53,9 +53,11 @@ namespace kofola {
         for (auto it = dfs_acc_stack_.rbegin(); it != dfs_acc_stack_.rend() && cond == 0; ++it) {
             const auto &s = (*it).first;
             if (abstr_succ_->subsum_less_early(dst_mstate, s)) {
+                simulating_.push(s);
                 for (auto it2 = dfs_acc_stack_.rbegin(); it2 != dfs_acc_stack_.rend() && (*it2).first != s; ++it2) {
-                    if(state_jumps_to_cutoffs_.count(s) == 0) state_jumps_to_cutoffs_.insert({s, {dst_mstate}}); // init
-                    else state_jumps_to_cutoffs_[s].insert(dst_mstate);
+                    auto s_between = (*it2).first;
+                    if(state_jumps_to_cutoffs_.count(s_between) == 0) state_jumps_to_cutoffs_.insert({s_between, {dst_mstate}}); // init
+                    else state_jumps_to_cutoffs_[s_between].insert(dst_mstate);
                 }
                 return true;
             }
@@ -100,11 +102,11 @@ namespace kofola {
                 if(decided_)
                     return;
             }
-            else if(dfs_num_[dst_mstate] != UNDEFINED && on_stack_[dst_mstate]) {
-                if(merge_acc_marks(dst_mstate))
+            else if(dfs_num_[dst_mstate] != UNDEFINED) {
+                if(merge_acc_marks(dst_mstate) && on_stack_[dst_mstate])
                     return;
 
-                if(state_jumps_to_cutoffs_.count(dst_mstate) == 0)
+                if(state_jumps_to_cutoffs_.count(dst_mstate) == 0 || !on_stack_[simulating_.top()])
                     continue;
                 for(auto &jumping_dst_mstate: state_jumps_to_cutoffs_[dst_mstate]) {
                     if(dfs_num_[jumping_dst_mstate] == UNDEFINED && !check_simul_less(jumping_dst_mstate))
@@ -169,6 +171,8 @@ namespace kofola {
 
         do {
             tmp = tarjan_stack_.back(); tarjan_stack_.pop_back();
+            if(simulating_.top() == tmp)
+                simulating_.pop();
             dfs_acc_stack_.pop_back();
             on_stack_[tmp] = false;
             empty_lang_states_.emplace_back(tmp); // when here, each state has empty language, otherwise we would have ended
