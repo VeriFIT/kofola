@@ -106,7 +106,7 @@ namespace kofola {
 
         for(unsigned i = 0; i < offset_; i++) {
             for(unsigned j = offset_; j < orig_to_new.size() - 1; j++) {
-                if(orig_to_new[i] == orig_to_new[j] && orig_to_new[i] != -1) {
+                if(orig_to_new[i] == orig_to_new[j] && orig_to_new[i] >= offset_ && orig_to_new[i] != -1) {
                     dir_simul_[i].emplace_back(j - offset_);
                 }
             }
