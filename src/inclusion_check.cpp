@@ -83,7 +83,7 @@ namespace kofola {
                 init_b = new_st;
             }
             for(const auto& t: aut_B->out(i)) {
-                res->new_edge(new_st, t.dst, t.cond, t.acc);
+                res->new_edge(new_st, offset_ + t.dst, t.cond, t.acc);
             }
         }
 
@@ -96,18 +96,19 @@ namespace kofola {
     }
 
     void inclusion_check::compute_simulation(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B) {
-        auto uni = aut_union(aut_A, aut_B);
+        auto uni = aut_union(aut_B, aut_A);
         // spot::print_hoa(std::cout, uni);
 
-        std::vector<bdd> implications;
-        auto reduced = spot::simulation(uni, &implications);
+        // std::vector<bdd> implications;
+        auto reduced = spot::simulation(uni);
+        //spot::print_hoa(std::cout, reduced);
         auto x = reduced->get_named_prop<std::vector<unsigned>>("simulated-states");
         auto orig_to_new = *x;
 
-        for(unsigned i = 0; i < offset_; i++) {
-            for(unsigned j = offset_; j < orig_to_new.size() - 1; j++) {
-                if(orig_to_new[i] == orig_to_new[j] && orig_to_new[i] >= offset_ && orig_to_new[i] != -1) {
-                    dir_simul_[i].emplace_back(j - offset_);
+        for(unsigned i = offset_; i < orig_to_new.size() - 1; i++) {
+            for(unsigned j = 0; j < offset_; j++) {
+                if(orig_to_new[i] == orig_to_new[j] && orig_to_new[i] < offset_ && orig_to_new[i] != -1) {
+                    dir_simul_[i - offset_].emplace_back(j);
                 }
             }
         }
