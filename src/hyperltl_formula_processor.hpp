@@ -1,3 +1,14 @@
+/**
+ * @file hyperltl_formula_processor.hpp
+ * @author Ondrej Alexaj (xalexa09@stud.fit.vutbr.cz)
+ * @brief Declarations for hyperltl formula processing
+ * @version 0.1
+ * @date 2024-05-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #pragma once
 
 // kofola
@@ -31,7 +42,7 @@ namespace kofola {
         unsigned qantifiers;
         std::list<Quantification> q_list; /// the order corresponds with the textual form on the input
         std::map<std::string, AP_trace> aps_map; /// to map formula automaton APs "{ap}_{trace}" -> (ap,trace) with ap being the system AP
-        bool negate;
+        bool negate; /// before returning SAT or UNSAT, negate the answer (if negate = true)
     };
     typedef std::shared_ptr<parsed_hyperltl_form> parsed_hyperltl_form_ptr;
 
@@ -39,16 +50,16 @@ namespace kofola {
     {
         std::string filename_;
         public:
+            /// constructor, takes file where is the hyperltl formula
             hyperltl_formula_processor(const std::string& file);
 
+            /// to know if the negation should be on the top level, based on the quantifiers types and alternations
             void preprocess(parsed_hyperltl_form_ptr &formula_to_preproc);
 
-            /**
-             * @brief For the string "{ap}_{trace}" creates struct 'AP_trace'
-             *
-             * */
+            /// For the string "{ap}_{trace}" creates struct 'AP_trace'
             AP_trace parse_formula_AP(std::string input_ap);
 
+            /// creates and fills structure with info about hyperltl formula
             parsed_hyperltl_form_ptr parse_hyperltl_formula();
     };
 }

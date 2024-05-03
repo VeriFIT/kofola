@@ -1,3 +1,14 @@
+/**
+ * @file abstract_successor.cpp
+ * @author Ondrej Alexaj (xalexa09@stud.fit.vutbr.cz)
+ * @brief neccessary methods for abstract_successor
+ * @version 0.1
+ * @date 2024-05-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #include "abstract_successor.hpp"
 
 namespace kofola {

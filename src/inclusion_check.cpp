@@ -1,3 +1,14 @@
+/**
+ * @file inclusion_check.cpp
+ * @author Ondrej Alexaj (xalexa09@stud.fit.vutbr.cz)
+ * @brief implementation of on the fly inclusion checking
+ * @version 0.1
+ * @date 2024-05-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 // kofola
 #include "inclusion_check.hpp"
 #include "kofola.hpp"
@@ -26,10 +37,10 @@ namespace kofola {
         aut_B_compl_.select_algorithms();
         DEBUG_PRINT_LN("algorithms selected");
 
-        if(kofola::OPTIONS.params.count("dir_sim_inclusion") != 0 && kofola::OPTIONS.params["dir_sim_inclusion"] == "yes")
+        if(kofola::OPTIONS.params.count("dir_sim") != 0 && kofola::OPTIONS.params["dir_sim"] == "yes")
             compute_simulation(aut_A_, aut_B);
 
-        // get initial uberstates
+        // store initial uberstates
         auto init_vec{aut_B_compl_.get_initial_uberstates()};
         for (unsigned state: init_vec) {
             auto uberstate = aut_B_compl_.num_to_uberstate(state);
@@ -50,7 +61,7 @@ namespace kofola {
             }
         }
 
-        // setting accepting cond to acc of complement & Inf(color of aut_A=UINTMAX-1)
+        // setting accepting cond to acc of complement & Inf(the first unused color by aut_B_compl)
         first_col_to_use_ = static_cast<unsigned int>(aut_B_compl_.set_acc_cond());
         acc_cond_ = aut_B_compl_.get_final_acc_code();
         acc_cond_ &= spot::acc_cond::acc_code::inf({first_col_to_use_});
@@ -87,6 +98,7 @@ namespace kofola {
             }
         }
 
+        // creating initial state such that it has transitions to both initial states of A and B respectively
         new_st = res->new_state();
         res->new_edge(new_st, init_a, bdd_true());
         res->new_edge(new_st, init_b, bdd_true());
@@ -97,16 +109,16 @@ namespace kofola {
 
     void inclusion_check::compute_simulation(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B) {
         auto uni = aut_union(aut_B, aut_A);
-        // spot::print_hoa(std::cout, uni);
+        //spot::print_hoa(std::cout, uni);
 
-        // std::vector<bdd> implications;
         auto reduced = spot::simulation(uni);
-        //spot::print_hoa(std::cout, reduced);
-        auto x = reduced->get_named_prop<std::vector<unsigned>>("simulated-states");
+        auto x = reduced->get_named_prop<std::vector<unsigned>>("simulated-states"); // to know which states were merged where
         auto orig_to_new = *x;
 
+        // [...,last_of_B,...,last_of_A]
         for(unsigned i = offset_; i < orig_to_new.size() - 1; i++) {
             for(unsigned j = 0; j < offset_; j++) {
+                //if state of A merged to state of B => simulated, not considering transition prunning (-1 in condition)
                 if(orig_to_new[i] == orig_to_new[j] && orig_to_new[i] < offset_ && orig_to_new[i] != -1) {
                     dir_simul_[i - offset_].emplace_back(j);
                 }
@@ -230,13 +242,17 @@ namespace kofola {
         aut_to_compl = p.run(aut_reduced);
 
         //spot::print_hoa(std::cerr, aut_to_compl);
+
+        /// complete to avoid sink state in complement
         spot::complete_here(aut_to_compl);
+
         //spot::print_hoa(std::cerr, aut_to_compl);
 
         return aut_to_compl;
     }
 
     std::pair<bdd, bdd> inclusion_check::symbols_from_A(const spot::twa_graph_ptr &aut_A) {
+        // taken from complement_sync
         bdd res = bddfalse;
         bdd msupport = bddtrue;
 
@@ -263,6 +279,7 @@ namespace kofola {
         auto casted_a = dynamic_cast<inclusion_mstate*>(a.get());
         auto casted_b = dynamic_cast<inclusion_mstate*>(b.get());
 
+        // between states of A only identity
         return (casted_a->state_.first == casted_b->state_.first && aut_B_compl_.subsum_less_early(casted_a->state_.second, casted_b->state_.second));
     }
 
@@ -270,6 +287,7 @@ namespace kofola {
         auto casted_a = dynamic_cast<inclusion_mstate*>(a.get());
         auto casted_b = dynamic_cast<inclusion_mstate*>(b.get());
 
+        // between states of A only identity
         return (casted_a->state_.first == casted_b->state_.first && aut_B_compl_.subsum_less_early_plus(casted_a->state_.second, casted_b->state_.second));
     }
 
@@ -302,17 +320,6 @@ namespace kofola {
 
                 const cola::tnba_complement::uberstate &us_B = aut_B_compl_.num_to_uberstate(casted_src->state_.second);
                 succs_B = aut_B_compl_.get_succ_uberstates(us_B, letter);
-                //for(auto state_orig_B: us_B.get_reach_set())
-                //{
-                //    auto part_succ = get_all_successors(preprocessed_orig_aut_B_, std::set<unsigned>{state_orig_B}, letter);
-                //    if(part_succ.empty())
-                //    {
-                //        aut_B.handle_sink_state();
-                //        auto sink_state = aut_B.get_sink_state();
-                //        succs_B.push_back({sink_state, {}});
-                //    }
-//
-                //}
             }
             else
             {
@@ -336,7 +343,7 @@ namespace kofola {
     bool inclusion_check::is_transition_acc(const spot::twa_graph_ptr &aut_A, unsigned src, unsigned dst, const bdd &symbol) {
         for (const auto &t: aut_A->out(src)) {
             if (dst == t.dst && bdd_implies(symbol, t.cond)) {
-                if (t.acc) { return true; } // TODO is it valid???
+                if (t.acc) { return true; } 
                 else return false;
             }
         }
@@ -348,6 +355,7 @@ namespace kofola {
     inclusion_check::get_cartesian_prod(unsigned aut_A_src, std::set<unsigned> &states_A,
                                         cola::tnba_complement::vec_state_taggedcol &states_B, const bdd &letter) {
         std::vector<std::shared_ptr<inclusion_mstate>> cartesian_prod;
+        // COMPUTATION OF COLORS IS TAKEN FROM complement_sync.cpp
 
         auto vec_acc_cond = aut_B_compl_.get_vec_acc_cond();
         auto part_col_offset = aut_B_compl_.get_part_col_offset();

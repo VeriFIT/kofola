@@ -1,3 +1,14 @@
+/**
+ * @file hyperltl_formula_processor.cpp
+ * @author Ondrej Alexaj (xalexa09@stud.fit.vutbr.cz)
+ * @brief Implementation of hyperltl formula processing
+ * @version 0.1
+ * @date 2024-05-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #include "hyperltl_formula_processor.hpp"
 
 // Spot
@@ -10,6 +21,8 @@ namespace kofola {
     }
 
     void hyperltl_formula_processor::preprocess(parsed_hyperltl_form_ptr &formula_to_preproc) {
+        // we can reverse the order of universal/existential quantifiers in order to obtain inclusion instead of whole complementation
+        // to do so, we double negate the formula, and the outermost negation only negates the answer
         if(formula_to_preproc->q_list.front().type == static_cast<unsigned int>(QuantificationType::Exists) &&
                 formula_to_preproc->q_list.size() % 2 == 0) {
             for (auto &q: formula_to_preproc->q_list) {
@@ -19,7 +32,7 @@ namespace kofola {
                     q.type = static_cast<unsigned int>(QuantificationType::Exists);
             }
 
-            formula_to_preproc->negate = true;
+            formula_to_preproc->negate = true; // negate the answer
         }
     }
 

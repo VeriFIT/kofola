@@ -319,36 +319,46 @@ int main(int argc, char *argv[])
 
         clock_t start, end, start_conv, end_conv;
 
-        for(auto filename: options.filenames) {
-            if(filename.find(".hoa") != std::string::npos) {
-                spot::automaton_stream_parser parser(filename, opts);
-                spot::parsed_aut_ptr parsed_aut = parser.parse(dict);
+		try {		
+			for(auto filename: options.filenames) {
+				if(filename.find(".hoa") != std::string::npos) {
+					spot::automaton_stream_parser parser(filename, opts);
+					spot::parsed_aut_ptr parsed_aut = parser.parse(dict);
 
-                kripke_structs.emplace_back(parsed_aut->ks);
-            }
-            else if(filename.find(".hq") != std::string::npos) {
+					kripke_structs.emplace_back(parsed_aut->ks);
+				}
+				else if(filename.find(".hq") != std::string::npos) {
 
-                //start_conv = clock();
-                auto hyperltl_parser = kofola::hyperltl_formula_processor(filename);
-                parsed_hyperltl_f = hyperltl_parser.parse_hyperltl_formula();
-                //end_conv = clock();
-                //double time_taken = 1000 * double(end_conv - start_conv) / double(CLOCKS_PER_SEC);
-                //std::cout << "LTL2NBA: \n";
-                //std::cout << std::fixed
-                //          << time_taken << std::setprecision(5);
-                //std::cout << std::endl;
-            }
-        }
+					//start_conv = clock();
+					auto hyperltl_parser = kofola::hyperltl_formula_processor(filename);
+					parsed_hyperltl_f = hyperltl_parser.parse_hyperltl_formula();
+					//end_conv = clock();
+					//double time_taken = 1000 * double(end_conv - start_conv) / double(CLOCKS_PER_SEC);
+					//std::cout << "LTL2NBA: \n";
+					//std::cout << std::fixed
+					//          << time_taken << std::setprecision(5);
+					//std::cout << std::endl;
+				}
+				else {
+					throw std::runtime_error("invalid file format: " + filename);
+				}
+			}
 
-        // perform model checking
-        start = clock();
-        //auto start = std::chrono::high_resolution_clock::now();
-        kofola::hyperltl_mc mc(parsed_hyperltl_f, kripke_structs);
-        end = clock();
-        double time_taken = 1000 * double(end - start) / double(CLOCKS_PER_SEC);
-        std::cout << std::fixed
-             << time_taken << std::setprecision(5);
-        std::cout << std::endl;
+
+			// perform model checking
+			start = clock();
+			//auto start = std::chrono::high_resolution_clock::now();
+			kofola::hyperltl_mc mc(parsed_hyperltl_f, kripke_structs);
+			end = clock();
+			double time_taken = 1000 * double(end - start) / double(CLOCKS_PER_SEC);
+			std::cout << std::fixed
+				<< time_taken << std::setprecision(5);
+			std::cout << std::endl;
+		}
+		catch (const std::exception& ex) {
+			std::cerr << "Error: " << ex.what() << "\n";
+			return EXIT_FAILURE;
+		}
         //auto stop = std::chrono::high_resolution_clock::now();
         //auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
         //std::cout << duration.count() << std::endl;
@@ -369,23 +379,10 @@ int main(int argc, char *argv[])
             if (parsed_aut_B->format_errors(std::cerr)) { return EXIT_FAILURE; }
             spot::twa_graph_ptr aut_B = parsed_aut_B->aut;
 
-
-            // bool use_early = false;
-			// bool use_early_plus = false;
-            // bool use_dir_sim = false;
-			// bool use_tough_opt = false;
-            // if(options.params.count("early_sim") != 0 && options.params["early_sim"] == "yes")
-            //     use_early = true;
-            // if(options.params.count("early_plus_sim") != 0 && options.params["early_plus_sim"] == "yes")
-            //     use_early_plus = true;
-			// if(options.params.count("dir_sim_inclusion") != 0 && options.params["dir_sim_inclusion"] == "yes")
-            //     use_dir_sim = true;
-			// if(options.params.count("use_tough_opt") != 0 && options.params["use_tough_opt"] == "yes")
-            //     use_tough_opt = true;
-
             kofola::inclusion_check inclusion_checker(aut_A, aut_B);
             bool kofola_res = inclusion_checker.inclusion();
 
+			// to test correctness against spot
             if(options.params.count("incl_correctness") != 0 && options.params["incl_correctness"] == "yes") {
                 bool spot_res = !aut_A->intersects(spot::complement(aut_B));
                 if(spot_res == kofola_res) {
@@ -397,10 +394,10 @@ int main(int argc, char *argv[])
             }
             else {
                 if(kofola_res) {
-                    printf("A ⊆ B holds!\n");
+                    printf("Holds!\n");
                 }
                 else {
-                    printf("A ⊆ B does not hold!\n");
+                    printf("Does not hold!\n");
                 }
             }
 

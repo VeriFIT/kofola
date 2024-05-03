@@ -1,3 +1,14 @@
+/**
+ * @file abstract_successor.hpp
+ * @author Ondrej Alexaj (xalexa09@stud.fit.vutbr.cz)
+ * @brief Declaration and definitions of abstract successor
+ * @version 0.1
+ * @date 2024-05-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #pragma  once
 
 #include <spot/twa/twa.hh>
@@ -5,13 +16,15 @@
 #include <vector>
 
 namespace kofola {
+    /// abstract class for emptiness check procedure to obtain successors in different scenarios
     class abstract_successor
     {
     public:
+        /// abstract class for the macrostate used by the abstract_successor
         class mstate { // {{{
         protected:
-            spot::acc_cond::mark_t acc_;
-            bdd trans_cond_;
+            spot::acc_cond::mark_t acc_; /// acc. marks on transition incoming to the state
+            bdd trans_cond_; /// transition condition to come to this state
             bool encountered_ = false; /// to avoid incoming transition to the root
         public: // METHODS
             spot::acc_cond::mark_t get_acc() {return acc_; }

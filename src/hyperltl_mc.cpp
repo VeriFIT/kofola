@@ -1,3 +1,14 @@
+/**
+ * @file hyperltl_mc.cpp
+ * @author Ondrej Alexaj (xalexa09@stud.fit.vutbr.cz)
+ * @brief Implementation of hyperltl model checking.
+ * @version 0.1
+ * @date 2024-05-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #include "hyperltl_mc.hpp"
 #include "inclusion_check.hpp"
 #include "emptiness_check.hpp"
@@ -17,7 +28,6 @@ namespace kofola {
     built_aut_(parsed_hyperltl_f->aut),
     kripke_structs_(std::move(kripke_structs))
     {
-        // TODO if only forall*, then existential is better
         //mark_redundant_aps_formula();
         Quantification q;
         clock_t start, end;
@@ -37,6 +47,7 @@ namespace kofola {
         while(!(parsed_hyperltl_f->q_list.empty())) {
             q = parsed_hyperltl_f->q_list.back();
 
+            // existential and not outermost
             if(q.type == static_cast<unsigned int>(QuantificationType::Exists) && parsed_hyperltl_f->q_list.size() == 1) {
                 use_last_n_kripke_structs(q.trace_vars.size());
 
@@ -55,6 +66,7 @@ namespace kofola {
             }
 
             parsed_hyperltl_f->q_list.pop_back();
+            //existential and outermost => on the fly emptiness
             if(q.type == static_cast<unsigned int>(QuantificationType::Exists) && !parsed_hyperltl_f->q_list.empty()) {
                 //start = clock();
                 use_last_n_kripke_structs(q.trace_vars.size());
@@ -63,6 +75,7 @@ namespace kofola {
                 //double time_taken = 1000 * double(end - start) / double(CLOCKS_PER_SEC);
                 //exist += time_taken;
             }
+            // universal and outermost => inclusion
             else if(q.type == static_cast<unsigned int>(QuantificationType::Forall) && parsed_hyperltl_f->q_list.empty()) {
                 // n-fold self composition and inclusion,
                 // although when there is only seq. of existential, we can
@@ -93,6 +106,7 @@ namespace kofola {
 
                 break;
             }
+            // universal sequence and not outermost => two complementations
             else {
                 kofola::OPTIONS.output_type = "buchi";
                 //start = clock();
@@ -171,7 +185,7 @@ namespace kofola {
     std::vector<std::vector<unsigned>> hyperltl_mc::system_successors(std::vector<unsigned> src) {
         std::vector<std::vector<unsigned>> res;
 
-        // obtain kripke states reprs
+        // obtain kripke states representations
         for(unsigned i = 0; i < src.size(); i++) {
             auto ks_num = src[i];
             auto ks_s = curr_kripke_structs_[i]->state_from_number(ks_num);
@@ -214,7 +228,7 @@ namespace kofola {
                 restricted = bdd_restrict(restricted, to_restrict);
             }
 
-
+            // after applying condition from system , if we can continue
             if (restricted != bddfalse) {
                 auto to_prod = sets_of_sys_succs;
                 std::vector<unsigned> aut_dst = {t.dst};
@@ -294,10 +308,10 @@ namespace kofola {
         unsigned spot_state = projected->new_state();
         projected->set_init_state(spot_state);
 
-        std::map<mc_macrostate, unsigned> used_states;
+        std::map<mc_macrostate, unsigned> used_states; // to track states generated already and their spot state 
         for(const auto& init_mstate: initial_macrostates) {
             macrostates_spotstate.emplace(std::make_pair(init_mstate, spot_state));
-            used_states[init_mstate] = spot_state;
+            used_states[init_mstate] = spot_state; // mapping each init state to one
         }
 
         std::pair<mc_macrostate, unsigned> s;
@@ -310,6 +324,7 @@ namespace kofola {
             unsigned new_aut_src = s.second;
 
             auto succs = get_succs_internal(src_mstate, exist_trac_vars);
+            // mark and store new successors
             for(const auto& mstate: succs) {
                 if(used_states.count(mstate->state_) == 0) {
                     spot_state = projected->new_state();
@@ -332,12 +347,13 @@ namespace kofola {
         std::vector<int> new_aps;
         std::vector<int> old_aps;
 
-        std::vector<int> new_domain;
+        std::vector<int> new_domain; // to store APs not related to trace_var
 
-        bool has_eq;
+        bool has_eq; // to know if AP in system state has its equivalen for trace_var in aut, if not it is kept
         for(const auto &system_ap: curr_kripke_structs_[ith_sys]->ap()) {
             has_eq = false;
             for(const auto &composed_ap: composed->ap()) {
+                // there is atomic prop in aut such that {ap}_{trace_var} for ap in system
                 if(parsed_hyperltl_f_->aps_map[composed_ap.ap_name()].atomic_prop ==  system_ap.ap_name() &&
                         parsed_hyperltl_f_->aps_map[composed_ap.ap_name()].trace_var == trace_var) {
                     new_aps.emplace_back(composed->get_dict()->var_map[composed_ap]);
@@ -353,7 +369,8 @@ namespace kofola {
 
         auto pair = bdd_newpair();
         bdd_setpairs(pair, old_aps.data(), new_aps.data(), old_aps.size());
-        auto res = bdd_replace(remove_bdd_vars(cond, new_domain), pair);
+        auto res = bdd_replace(remove_bdd_vars(cond, new_domain), pair); // first remove new domain, then replace system bdd vars 
+                                                                         // with bdd vars from aut
         return res;
     }
 
@@ -377,6 +394,7 @@ namespace kofola {
     spot::twa_graph_ptr hyperltl_mc::n_fold_self_composition(std::vector<std::string> trac_vars) {
         auto dict = spot::make_bdd_dict();
         auto self_composition = spot::make_twa_graph(built_aut_->get_dict());
+        // neccessary?
         for(unsigned i = 0; i < curr_kripke_structs_.size(); i++) {
             for (const auto &system_ap: curr_kripke_structs_[i]->ap()) {
                 self_composition->register_ap("{" + system_ap.ap_name() + "}_{" + trac_vars[i] + "}");
@@ -394,7 +412,7 @@ namespace kofola {
         std::map<std::vector<unsigned>, unsigned> used_states;
         for(const auto& init_self_comp_state: all_comb_init) {
             macrostates_spotstate.emplace(std::make_pair(init_self_comp_state, spot_state));
-            used_states[init_self_comp_state] = spot_state;
+            used_states[init_self_comp_state] = spot_state;// mapping each init state to one
         }
 
 
@@ -406,27 +424,32 @@ namespace kofola {
             auto src_state_vec = s.first;
             unsigned new_aut_src = s.second;
 
-            std::vector<std::vector<unsigned>> to_cross_prod;
+            std::vector<std::vector<unsigned>> to_prod; // stores vectors of system states for product to be computed
             std::vector<std::vector<unsigned>> succs;
             bdd trans = bddtrue;
 
+            // for each state in src, the condition for transition is computed
             for(unsigned i = 0; i < src_state_vec.size(); i++) {
                 auto ks_num = src_state_vec[i];
                 auto ks_s = curr_kripke_structs_[i]->state_from_number(ks_num);
 
-                auto transl_aps = get_bdd_pair_system_to_aut(trac_vars[i], self_composition, ks_s->cond(), i); // conjunction of aps of all states;
+                // translate aps from system to aut (with respect to trace variables left)
+                auto transl_aps = get_bdd_pair_system_to_aut(trac_vars[i], self_composition, ks_s->cond(), i); 
+                // conjunction of aps of all states;
                 trans = bdd_and(trans, transl_aps);
 
                 std::vector<unsigned> partial_res;
+                // compute successors of state of system ks_s
                 for (auto t: curr_kripke_structs_[i]->succ(ks_s))
                 {
                     auto tmp = t->dst();
                     partial_res.emplace_back(curr_kripke_structs_[i]->state_number(tmp));
                 }
-                to_cross_prod.emplace_back(partial_res);
+                to_prod.emplace_back(partial_res);
             }
 
-            auto all_succs = prod(to_cross_prod);
+            auto all_succs = prod(to_prod);
+            // mark and store new successors
             for(const auto& succ: all_succs) {
                 if(used_states.count(succ) == 0) {
                     spot_state = self_composition->new_state();
