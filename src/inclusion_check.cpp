@@ -291,6 +291,30 @@ namespace kofola {
         return (casted_a->state_.first == casted_b->state_.first && aut_B_compl_.subsum_less_early_plus(casted_a->state_.second, casted_b->state_.second));
     }
 
+    cola::tnba_complement::vec_state_taggedcol inclusion_check::get_successors_compl(unsigned compl_state, bdd letter) {
+        cola::tnba_complement::vec_state_taggedcol succs_B;
+
+        // no succs yet
+        if(compl_state_storage_.count(compl_state) == 0){
+            compl_state_storage_.insert({compl_state,{}});
+        }
+        // find if there are defined
+        for(auto &successors: compl_state_storage_[compl_state]) {
+            bdd symb = successors.second;
+            if(symb == letter) {
+                succs_B = successors.first;
+            }
+        }
+        // if not computed yet, compute
+        if(succs_B.empty()) {
+            const cola::tnba_complement::uberstate &us_B = aut_B_compl_.num_to_uberstate(compl_state);
+            succs_B = aut_B_compl_.get_succ_uberstates(us_B, letter);
+            compl_state_storage_[compl_state] = {{succs_B, letter}};
+        }
+
+        return succs_B;
+    }
+
     std::vector<std::shared_ptr<abstract_successor::mstate>> inclusion_check::get_succs(const std::shared_ptr<abstract_successor::mstate> &src) {
         std::vector<std::shared_ptr<inclusion_mstate>> cartesian_prod;
         std::vector<std::shared_ptr<abstract_successor::mstate>> result;
@@ -318,15 +342,7 @@ namespace kofola {
 
             if(!aut_B_compl_.get_is_sink_created() || compl_state != aut_B_compl_.get_sink_state())
             {
-                if(compl_state_storage_.count(compl_state) == 0){
-                    compl_state_storage_.insert({compl_state,{}});
-                    const cola::tnba_complement::uberstate &us_B = aut_B_compl_.num_to_uberstate(compl_state);
-                    succs_B = aut_B_compl_.get_succ_uberstates(us_B, letter); 
-                    compl_state_storage_[compl_state] = succs_B;
-                }
-                else {
-                    succs_B = compl_state_storage_[compl_state];
-                }
+                succs_B = get_successors_compl(compl_state, letter);
             }
             else
             {

@@ -61,7 +61,7 @@ namespace kofola {
         /// is not used, should be deleted 
         std::map<intersect_mstate , vec_state_col> intersect_states_;
         /// to not generate redundantly new instances
-        std::map<unsigned, cola::tnba_complement::vec_state_taggedcol> compl_state_storage_;
+        std::map<unsigned, std::vector<std::pair<cola::tnba_complement::vec_state_taggedcol, bdd>>> compl_state_storage_;
 
         std::vector<std::shared_ptr<kofola::inclusion_mstate>> init_states_;
         spot::twa_graph_ptr aut_A_;
@@ -106,6 +106,9 @@ namespace kofola {
 
         /// implements getter fot initial states, so the emptiness check can obtain them
         std::vector<std::shared_ptr<abstract_successor::mstate>> get_initial_states() override;
+
+        /// get successors for complement from compl_state over letter
+        cola::tnba_complement::vec_state_taggedcol get_successors_compl(unsigned compl_state, bdd letter);
 
         /// returns set of all successors (inclusion macrostates) for given inclusion macrostate, for the need of emptiness check
         std::vector<std::shared_ptr<abstract_successor::mstate>> get_succs(const std::shared_ptr<abstract_successor::mstate> &src) override;
