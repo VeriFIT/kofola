@@ -157,7 +157,7 @@ namespace kofola {
             if(empty_lang(dst_mstate))
                 continue;
 
-            // init structures
+            // init structure
             if(dfs_num_.count(dst_mstate) == 0)
             {
                 dfs_num_.insert({dst_mstate, UNDEFINED});
@@ -183,7 +183,6 @@ namespace kofola {
     void emptiness_check::remove_SCC(const std::shared_ptr<abstract_successor::mstate> & src_mstate) {
         SCCs_.pop();
         std::shared_ptr<abstract_successor::mstate> tmp;
-
         do {
             tmp = tarjan_stack_.back(); tarjan_stack_.pop_back();
             dfs_acc_stack_.pop_back();

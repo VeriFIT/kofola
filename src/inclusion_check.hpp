@@ -33,7 +33,7 @@ namespace kofola {
         /// equality of inclusion macrostates
         bool eq(const abstract_successor::mstate& rhs) const override {
             const auto *rhs_incl_ms = dynamic_cast<const inclusion_mstate*>(&rhs);
-            return (state_ == rhs_incl_ms->state_ && acc_ == rhs_incl_ms->acc_);
+            return (state_ == rhs_incl_ms->state_);
         }
 
         /// ordering of inclusion macrostate
@@ -60,6 +60,8 @@ namespace kofola {
         spot::twa_graph_ptr preprocessed_orig_aut_B_;
         /// is not used, should be deleted 
         std::map<intersect_mstate , vec_state_col> intersect_states_;
+        /// to not generate redundantly new instances
+        std::map<unsigned, cola::tnba_complement::vec_state_taggedcol> compl_state_storage_;
 
         std::vector<std::shared_ptr<kofola::inclusion_mstate>> init_states_;
         spot::twa_graph_ptr aut_A_;
@@ -78,7 +80,7 @@ namespace kofola {
         /// constructor that stores automata such that aut_A subset aut_B can be decided (calling inclusion() method should follow)
         inclusion_check(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B);
 
-        /// @brief Decide which states from aut_B simulate states in aut_A
+        /// decide which states from aut_B simulate states in aut_A
         void compute_simulation(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B);
 
         /// for debugging purposes only

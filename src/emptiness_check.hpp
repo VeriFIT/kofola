@@ -36,10 +36,12 @@ namespace kofola
 
         /// implements the edited Gaiser and Schwoon algorithm suggested in the thesis
         /// path_cond can be omitted
+        /// TODO too deep of a recursion can cause mem. problems, rewrite to iteration
         void gs_edited(const std::shared_ptr<abstract_successor::mstate> &src_mstate, spot::acc_cond::mark_t path_cond);
 
         /// implements Gaiser and Schwoon algorithm, with the possibility of subsumptions usage
         /// path_cond can be omitted
+        /// TODO too deep of a recursion can cause mem. problems, rewrite to iteration
         void gs(const std::shared_ptr<abstract_successor::mstate> &src_mstate, spot::acc_cond::mark_t path_cond);
 
         /// decides whether there is a state p on the searchpath such that src_mstate is simul. (early or +1) less than p,
@@ -87,7 +89,7 @@ namespace kofola
         bool decided_ = false;
         bool empty_ = true;
 
-        std::map<std::shared_ptr<abstract_successor::mstate>,std::set<std::shared_ptr<abstract_successor::mstate>>> state_jumps_to_cutoffs_; /// for the new approach
+        std::map<std::shared_ptr<abstract_successor::mstate>,std::set<std::shared_ptr<abstract_successor::mstate>>> state_jumps_to_cutoffs_; /// for the new approach to jump to cut off states
     };
 }
 

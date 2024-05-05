@@ -299,6 +299,7 @@ namespace kofola {
 
         // extract A state and compl.B state from intersection macrostate to compute successors
         unsigned state_of_A = casted_src->state_.first;
+        unsigned compl_state = casted_src->state_.second;
 
         auto tmp_bdds = symbols_from_A(aut_A_);
         bdd msupport = tmp_bdds.second;
@@ -315,18 +316,24 @@ namespace kofola {
             std::set<unsigned> succs_A = get_all_successors(aut_A_, std::set<unsigned>{state_of_A}, letter);
             cola::tnba_complement::vec_state_taggedcol succs_B;
 
-            if(!aut_B_compl_.get_is_sink_created() || casted_src->state_.second != aut_B_compl_.get_sink_state())
+            if(!aut_B_compl_.get_is_sink_created() || compl_state != aut_B_compl_.get_sink_state())
             {
-
-                const cola::tnba_complement::uberstate &us_B = aut_B_compl_.num_to_uberstate(casted_src->state_.second);
-                succs_B = aut_B_compl_.get_succ_uberstates(us_B, letter);
+                if(compl_state_storage_.count(compl_state) == 0){
+                    compl_state_storage_.insert({compl_state,{}});
+                    const cola::tnba_complement::uberstate &us_B = aut_B_compl_.num_to_uberstate(compl_state);
+                    succs_B = aut_B_compl_.get_succ_uberstates(us_B, letter); 
+                    compl_state_storage_[compl_state] = succs_B;
+                }
+                else {
+                    succs_B = compl_state_storage_[compl_state];
+                }
             }
             else
             {
                 succs_B.push_back({aut_B_compl_.get_sink_state(), {}});
             }
-
-            if(!succs_A.empty())
+            
+            if(!succs_A.empty() && !succs_B.empty())
             {
                 cartesian_prod = get_cartesian_prod(state_of_A, succs_A, succs_B,
                                                     letter);
