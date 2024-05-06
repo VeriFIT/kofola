@@ -17,6 +17,7 @@
 #include "complement_alg_rank2.hpp"
 #include "ranking.hpp"
 #include "util.hpp"
+#include <optional>
 
 using namespace kofola;
 using mstate_set = abstract_complement_alg::mstate_set;
