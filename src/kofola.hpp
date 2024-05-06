@@ -167,7 +167,6 @@ namespace kofola
     const bdd&                        symbol)
   { // {{{
     std::set<unsigned> successors;
-
     for (unsigned s : current_states) {
       for (const auto &t : aut->out(s)) {
           DEBUG_PRINT_LN("reference symbol: " + std::to_string(t.cond));

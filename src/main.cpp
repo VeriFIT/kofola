@@ -222,8 +222,8 @@ int process_args(int argc, char *argv[], kofola::options* params)
 	args::Flag debug_flag(misc_group, "debug", "output debugging information", {'d', "debug"});
 	args::ValueFlag<std::string> params_flag(misc_group, "params",
 	                                         "string with ';'-separated parameters of the form 'key=value' "
-	                                         "(or just 'key' for yes/no flags), e.g., "
-	                                         "'merge-iwa=yes;preproc-reduction=high;raw-output'",
+	                                         "(or just 'key' for yes/no flags), e.g. for inclusion, "
+	                                         "'early_sim=yes;early_plus_sim=yes;dir_sim=yes;gfee=yes;'",
 	                                         {"params"});
 
     try {
