@@ -21,35 +21,45 @@ namespace kofola {
     using intersect_mstate = std::pair<unsigned, unsigned>;
 
     /// class for macrostate used within inclusion procedure
-    class  inclusion_mstate : public abstract_successor::mstate {
+    class  inclusion_mstate {
     private:
         intersect_mstate state_;
+        spot::acc_cond::mark_t acc_; /// acc. marks on transition incoming to the state
+        bdd trans_cond_; /// transition condition to come to this state
+        bool encountered_ = false;
     public:
         inclusion_mstate() {
             ;
         }
 
+        spot::acc_cond::mark_t get_acc() {return acc_; }
+        void set_acc(spot::acc_cond::mark_t new_acc) {acc_ = new_acc; }
+
+        void set_encountered(bool val) {encountered_ = val;}
+        bool get_encountered() {return encountered_;}
+
         /// equality of inclusion macrostates
-        bool eq(const abstract_successor::mstate& rhs) const override {
+        bool eq(const inclusion_mstate& rhs) const {
             const auto *rhs_incl_ms = dynamic_cast<const inclusion_mstate*>(&rhs);
             return (state_ == rhs_incl_ms->state_);
         }
 
         /// ordering of inclusion macrostate
-        bool lt(const abstract_successor::mstate& rhs) const override {
+        bool lt(const inclusion_mstate& rhs) const {
             const auto *rhs_incl_ms = dynamic_cast<const inclusion_mstate*>(&rhs);
             if(state_ != rhs_incl_ms->state_) {return state_ < rhs_incl_ms->state_;}
 
             return false;
         }
 
-        ~inclusion_mstate() override {}
+        ~inclusion_mstate() {}
 
         friend class inclusion_check;
     };
 
     /// main class for on the fly inclussion procedure
-    class inclusion_check : public abstract_successor {
+    // class inclusion_check : public abstract_successor {
+    class inclusion_check {
         /// target of a transition (including colours tagged by partition index)
         using state_col = std::pair<intersect_mstate, std::set<unsigned>>;
         /// vec_state_col where colours are tagged by their partition
@@ -64,11 +74,14 @@ namespace kofola {
 
         std::vector<std::shared_ptr<kofola::inclusion_mstate>> init_states_;
         spot::twa_graph_ptr aut_A_;
+        bdd msupport_;
+        bdd n_s_compat_;
         cola::tnba_complement aut_B_compl_;
         /// acc_cond that should be satisfied for inclusion to not hold
         spot::acc_cond::acc_code acc_cond_;
         /// acc mark for aut_A
         unsigned int first_col_to_use_;
+        std::set<unsigned> infs_from_compl_;
 
         /// maps state of aut_A to states of aut_B that direct simulate it
         std::unordered_map<unsigned, std::vector<unsigned>> dir_simul_;
@@ -83,7 +96,7 @@ namespace kofola {
         void compute_simulation(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B);
 
         /// for debugging purposes only
-        void print_mstate(const std::shared_ptr<abstract_successor::mstate> a) override;
+        void print_mstate(const std::shared_ptr<inclusion_mstate> a);
 
         /// to obtain cola::tnba_complement instance in the constructor
         cola::tnba_complement init_compl_aut_b(const spot::twa_graph_ptr &aut_B);
@@ -104,22 +117,22 @@ namespace kofola {
         std::pair<bdd, bdd> symbols_from_A(const spot::twa_graph_ptr &aut_A);
 
         /// implements getter fot initial states, so the emptiness check can obtain them
-        std::vector<std::shared_ptr<abstract_successor::mstate>> get_initial_states() override;
+        std::vector<std::shared_ptr<inclusion_mstate>> get_initial_states();
 
         /// get successors for complement from compl_state over letter
         cola::tnba_complement::vec_state_taggedcol get_successors_compl(unsigned compl_state, bdd letter);
 
         /// returns set of all successors (inclusion macrostates) for given inclusion macrostate, for the need of emptiness check
-        std::vector<std::shared_ptr<abstract_successor::mstate>> get_succs(const std::shared_ptr<abstract_successor::mstate> &src) override;
+        std::vector<std::shared_ptr<inclusion_mstate>> get_succs(const std::shared_ptr<inclusion_mstate> &src);
 
         /// returns true if a is early simul. less than b
-        bool subsum_less_early(const std::shared_ptr<abstract_successor::mstate> a, const std::shared_ptr<abstract_successor::mstate> b) override;
+        bool subsum_less_early(const std::shared_ptr<inclusion_mstate> a, const std::shared_ptr<inclusion_mstate> b);
 
         /// returns true if a is early+1 simul. less than b
-        bool subsum_less_early_plus(const std::shared_ptr<abstract_successor::mstate> a, const std::shared_ptr<abstract_successor::mstate> b) override;
+        bool subsum_less_early_plus(const std::shared_ptr<inclusion_mstate> a, const std::shared_ptr<inclusion_mstate> b);
 
         /// returns true when the provided mark_t satisfies acc_cond_, for the need of emptiness check
-        bool is_accepting(spot::acc_cond::mark_t inf_cond) override;
+        bool is_accepting(spot::acc_cond::mark_t inf_cond);
 
         /// decides whether the transition from src to dst over symbol is accepting in aut_A
         bool is_transition_acc(const spot::twa_graph_ptr &aut_A, unsigned src, unsigned dst, const bdd &symbol);
@@ -131,4 +144,7 @@ namespace kofola {
                            const bdd &letter);
 
     };
+
+    bool operator<(const inclusion_mstate& lhs,
+                   const inclusion_mstate& rhs);
 }

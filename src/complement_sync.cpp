@@ -139,8 +139,8 @@ namespace cola {
         this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
 
         // if (this->decomp_options_.iw_sim || this->decomp_options_.det_sim) {
-        this->reduce_and_compute_simulation();
-        // }
+        // this->reduce_and_compute_simulation(); // TODO it is commented for finding slow code
+        // } 
 
         this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
         this->aut_ = kofola::saturate(this->aut_, this->si_);
@@ -1193,7 +1193,7 @@ namespace cola {
             const uberstate *us_new = this->num_to_uberstate_map_[this->cnt_state_].get();
             assert(*ptr == *us_new);
             auto jt_bool_pair = this->uberstate_to_num_map_.insert({us_new, this->cnt_state_});
-            assert(jt_bool_pair.second);    // insertion happened
+            //assert(jt_bool_pair.second);    // insertion happened
             ++this->cnt_state_;
             DEBUG_PRINT_LN("inserted as " + std::to_string(jt_bool_pair.first->second));
             return jt_bool_pair.first->second;
@@ -1904,7 +1904,7 @@ namespace cola {
         return part_col_offset_;
     }
 
-    size_t cola::tnba_complement::set_acc_cond() {
+    std::set<unsigned> cola::tnba_complement::set_acc_cond() {
         num_colours_ = RESERVED_COLOURS;
         int rr_colour = -1;     // colour for round robin
         int sh_br_colour = -2;  // colour for shared breakpoint
@@ -1921,6 +1921,7 @@ namespace cola {
                 if (sh_br_colour < 0) {
                     sh_br_colour = num_colours_;
                     ++num_colours_;
+                    used_infs_.insert(static_cast<unsigned>(sh_br_colour));
                     alg_acc_code &= spot::acc_cond::acc_code::inf({static_cast<unsigned>(sh_br_colour)});
                 }
 
@@ -1929,11 +1930,13 @@ namespace cola {
                 if (rr_colour < 0) {  // the first round robin
                     rr_colour = num_colours_;
                     ++num_colours_;
+                    used_infs_.insert(static_cast<unsigned>(rr_colour));
                     alg_acc_code &= spot::acc_cond::acc_code::inf({static_cast<unsigned>(rr_colour)});
                 }
 
                 part_col_offset_[i] = rr_colour;
             } else {
+                used_infs_.insert(i+1);
                 cond_code <<= num_colours_;
                 alg_acc_code &= cond_code;
                 part_col_offset_[i] = num_colours_;
@@ -1946,8 +1949,8 @@ namespace cola {
 
         final_code_ = alg_acc_code;
         DEBUG_PRINT_LN("final code: " + std::to_string(final_code_));
-
-        return num_colours_;
+        // std::cout << std::to_string(final_code_) << "\n";
+        return used_infs_;
     }
 }
 

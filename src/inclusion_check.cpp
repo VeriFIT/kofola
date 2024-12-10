@@ -22,14 +22,24 @@
 #include <spot/twaalgos/complete.hh>
 
 namespace kofola {
+    bool operator<(const inclusion_mstate& lhs,
+                   const inclusion_mstate& rhs) {
+            return lhs.lt(rhs);
+    }
+
     inclusion_check::inclusion_check(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B)
     : aut_B_compl_(init_compl_aut_b(aut_B)){
-        auto si_A = spot::scc_info(aut_A, spot::scc_info_options::ALL);
-        auto preprocessed_aut_A = kofola::saturate(aut_A, si_A);
-        preprocessed_aut_A->prop_state_acc(false);
-        aut_A_ = preprocessed_aut_A;
+        // auto si_A = spot::scc_info(aut_A, spot::scc_info_options::ALL);
+        // auto preprocessed_aut_A = kofola::saturate(aut_A, si_A);
+        // preprocessed_aut_A->prop_state_acc(false);
+        // aut_A_ = preprocessed_aut_A;
+        aut_A_ = aut_A;
+        // spot::complete_here(aut_A_);
+        auto tmp_bdds = symbols_from_A(aut_A_);
+        msupport_ = tmp_bdds.second;
+        n_s_compat_ = tmp_bdds.first;
 
-        unsigned init_A = preprocessed_aut_A->get_init_state_number();
+        unsigned init_A = aut_A_->get_init_state_number();
 
         DEBUG_PRINT_LN("selecting algorithms");
         // creates a vector of algorithms, for every SCC of aut one
@@ -61,7 +71,8 @@ namespace kofola {
         }
 
         // setting accepting cond to acc of complement & Inf(the first unused color by aut_B_compl)
-        first_col_to_use_ = static_cast<unsigned int>(aut_B_compl_.set_acc_cond());
+        infs_from_compl_ = (aut_B_compl_.set_acc_cond());
+        first_col_to_use_ = infs_from_compl_.size() + 1;
         acc_cond_ = aut_B_compl_.get_final_acc_code();
         acc_cond_ &= spot::acc_cond::acc_code::inf({first_col_to_use_});
     }
@@ -102,7 +113,7 @@ namespace kofola {
         res->new_edge(new_st, init_a, bdd_true());
         res->new_edge(new_st, init_b, bdd_true());
         res->set_init_state(new_st);
-
+        
         return res;
     }
 
@@ -126,11 +137,12 @@ namespace kofola {
     }
 
     cola::tnba_complement inclusion_check::init_compl_aut_b(const spot::twa_graph_ptr &aut_B) {
-        preprocessed_orig_aut_B_ = preprocess(aut_B);
+        // preprocessed_orig_aut_B_ = preprocess(aut_B);
+        // spot::complete_here(aut_B);
 
         kofola::OPTIONS.output_type = "tgba";
-        spot::scc_info si_B(preprocessed_orig_aut_B_, spot::scc_info_options::ALL);
-        cola::tnba_complement comp(preprocessed_orig_aut_B_, si_B);
+        spot::scc_info si_B(aut_B, spot::scc_info_options::ALL);
+        cola::tnba_complement comp(aut_B, si_B);
         return comp;
     }
 
@@ -144,8 +156,8 @@ namespace kofola {
         return acc_cond_.accepting(inf_cond);
     }
 
-    std::vector<std::shared_ptr<abstract_successor::mstate>> inclusion_check::get_initial_states() {
-        std::vector<std::shared_ptr<abstract_successor::mstate>> base_mstates;
+    std::vector<std::shared_ptr<inclusion_mstate>> inclusion_check::get_initial_states() {
+        std::vector<std::shared_ptr<inclusion_mstate>> base_mstates;
 
         for (auto& init : init_states_) {
             base_mstates.emplace_back(std::move(init));
@@ -155,83 +167,8 @@ namespace kofola {
     }
 
     spot::twa_graph_ptr inclusion_check::preprocess(const spot::twa_graph_ptr &aut) {
-        spot::twa_graph_ptr aut_reduced;
+        spot::twa_graph_ptr aut_reduced = aut;
         std::vector<bdd> implications;
-        spot::twa_graph_ptr aut_tmp = nullptr;
-        if (aut_tmp)
-            aut_reduced = aut_tmp;
-        else
-            aut_reduced = aut;
-
-        spot::scc_info scc(aut_reduced, spot::scc_info_options::ALL);
-
-        if (kofola::has_value("postponed", "yes", kofola::OPTIONS.params)) { // postponed procedure
-            // saturation
-            if (kofola::has_value("saturate", "yes", kofola::OPTIONS.params)) {
-                aut_reduced = kofola::saturate(aut_reduced, scc);
-                spot::scc_info scc_sat(aut_reduced, spot::scc_info_options::ALL);
-                scc = scc_sat;
-            }
-
-            // decompose source automaton - TODO: this should be done properly
-            cola::decomposer decomp(aut_reduced);
-            auto decomposed = decomp.run(
-                    true,
-                    kofola::has_value("merge_iwa", "yes", kofola::OPTIONS.params),
-                    kofola::has_value("merge_det", "yes", kofola::OPTIONS.params));
-
-            if (!decomposed.empty()) {
-                std::vector<spot::twa_graph_ptr> part_res;
-
-                spot::postprocessor p_pre;
-                p_pre.set_type(spot::postprocessor::Buchi);
-                p_pre.set_level(spot::postprocessor::High);
-
-                spot::postprocessor p_post;
-                p_post.set_type(spot::postprocessor::Generic);
-                if (kofola::has_value("low_red_interm", "yes", kofola::OPTIONS.params)) {
-                    p_post.set_level(spot::postprocessor::Low);
-                } else {
-                    p_post.set_level(spot::postprocessor::High);
-                }
-
-                // comparison for priority queue - smallest automata should be at top
-                auto aut_cmp = [](const auto &lhs, const auto &rhs) { return lhs->num_states() > rhs->num_states(); };
-                std::priority_queue<spot::twa_graph_ptr,
-                        std::vector<spot::twa_graph_ptr>, decltype(aut_cmp)> aut_queue(aut_cmp);
-                for (auto aut: decomposed) {
-                    // if (decomp_options.scc_compl_high)
-                    //   p.set_level(spot::postprocessor::High);
-                    // else
-                    //   p.set_level(spot::postprocessor::Low);
-                    // complement each automaton
-                    auto aut_preprocessed = p_pre.run(aut);
-                    spot::scc_info part_scc(aut_preprocessed, spot::scc_info_options::ALL);
-
-                    auto res = kofola::complement_sync(aut_preprocessed);
-                    // postprocessing for each automaton
-                    // part_res.push_back(p_post.run(dec_aut));
-                    aut_queue.push(p_post.run(res));
-                }
-
-                assert(!aut_queue.empty());
-                while (aut_queue.size() > 1) { // until single aut remains
-                    auto first_aut = aut_queue.top();
-                    aut_queue.pop();
-                    DEBUG_PRINT_LN("first_aut size = " + std::to_string(first_aut->num_states()));
-                    auto second_aut = aut_queue.top();
-                    aut_queue.pop();
-                    DEBUG_PRINT_LN("second_aut size = " + std::to_string(second_aut->num_states()));
-                    auto result = spot::product(first_aut, second_aut);
-                    result = p_post.run(result);
-                    aut_queue.push(result);
-                }
-
-                return aut_queue.top();
-            } else {
-                assert(false);
-            }
-        }
 
         // make sure the input is a BA
         spot::postprocessor p;
@@ -243,11 +180,13 @@ namespace kofola {
         //spot::print_hoa(std::cerr, aut_to_compl);
 
         /// complete to avoid sink state in complement
-        spot::complete_here(aut_to_compl);
+        // spot::complete_here(aut_to_compl);
+        spot::complete_here(aut_reduced);
 
         //spot::print_hoa(std::cerr, aut_to_compl);
 
-        return aut_to_compl;
+        // return aut_to_compl;
+        return aut_reduced;
     }
 
     std::pair<bdd, bdd> inclusion_check::symbols_from_A(const spot::twa_graph_ptr &aut_A) {
@@ -266,7 +205,7 @@ namespace kofola {
         return std::make_pair(res, msupport);
     }
 
-    void inclusion_check::print_mstate(const std::shared_ptr<abstract_successor::mstate> a) {
+    void inclusion_check::print_mstate(const std::shared_ptr<inclusion_mstate> a) {
         auto casted_a = dynamic_cast<inclusion_mstate*>(a.get());
 
         std::cout << casted_a->acc_ << "\n";
@@ -274,17 +213,17 @@ namespace kofola {
         std::cout << std::endl << "==================" << std::endl; 
     }
 
-    bool inclusion_check::subsum_less_early(const std::shared_ptr<abstract_successor::mstate> a, const std::shared_ptr<abstract_successor::mstate> b) {
-        auto casted_a = dynamic_cast<inclusion_mstate*>(a.get());
-        auto casted_b = dynamic_cast<inclusion_mstate*>(b.get());
+    bool inclusion_check::subsum_less_early(const std::shared_ptr<inclusion_mstate> a, const std::shared_ptr<inclusion_mstate> b) {
+        auto casted_a = a;
+        auto casted_b = b;
 
         // between states of A only identity
         return (casted_a->state_.first == casted_b->state_.first && aut_B_compl_.subsum_less_early(casted_a->state_.second, casted_b->state_.second));
     }
 
-    bool inclusion_check::subsum_less_early_plus(const std::shared_ptr<abstract_successor::mstate> a, const std::shared_ptr<abstract_successor::mstate> b) {
-        auto casted_a = dynamic_cast<inclusion_mstate*>(a.get());
-        auto casted_b = dynamic_cast<inclusion_mstate*>(b.get());
+    bool inclusion_check::subsum_less_early_plus(const std::shared_ptr<inclusion_mstate> a, const std::shared_ptr<inclusion_mstate> b) {
+        auto casted_a = a;
+        auto casted_b = b;
 
         // between states of A only identity
         return (casted_a->state_.first == casted_b->state_.first && aut_B_compl_.subsum_less_early_plus(casted_a->state_.second, casted_b->state_.second));
@@ -292,56 +231,66 @@ namespace kofola {
 
     cola::tnba_complement::vec_state_taggedcol inclusion_check::get_successors_compl(unsigned compl_state, bdd letter) {
         cola::tnba_complement::vec_state_taggedcol succs_B;
-
+        
         // no succs yet
         if(compl_state_storage_.count(compl_state) == 0){
             compl_state_storage_.insert({compl_state,{}});
         }
+
         // find if there are defined
         for(auto &successors: compl_state_storage_[compl_state]) {
             bdd symb = successors.second;
-            if(symb == letter) {
+            if(bdd_implies(letter, symb)) {
                 succs_B = successors.first;
             }
         }
         // if not computed yet, compute
         if(succs_B.empty()) {
+            // std::cout << std::to_string(compl_state) << " , " << std::to_string(letter) << "\n";
             const cola::tnba_complement::uberstate &us_B = aut_B_compl_.num_to_uberstate(compl_state);
             succs_B = aut_B_compl_.get_succ_uberstates(us_B, letter);
-            compl_state_storage_[compl_state] = {{succs_B, letter}};
+            compl_state_storage_[compl_state].emplace_back(std::pair(succs_B, letter));
         }
 
         return succs_B;
     }
 
-    std::vector<std::shared_ptr<abstract_successor::mstate>> inclusion_check::get_succs(const std::shared_ptr<abstract_successor::mstate> &src) {
+    std::vector<std::shared_ptr<inclusion_mstate>> inclusion_check::get_succs(const std::shared_ptr<inclusion_mstate> &src) {
         std::vector<std::shared_ptr<inclusion_mstate>> cartesian_prod;
-        std::vector<std::shared_ptr<abstract_successor::mstate>> result;
+        std::vector<std::shared_ptr<inclusion_mstate>> result;
 
         auto casted_src = dynamic_cast<inclusion_mstate*>(src.get());
 
         // extract A state and compl.B state from intersection macrostate to compute successors
         unsigned state_of_A = casted_src->state_.first;
         unsigned compl_state = casted_src->state_.second;
+        
+        bdd all = n_s_compat_;
+        struct BDDComparator {
+            bool operator()(const bdd& a, const bdd& b) const {
+                return a.id() < b.id();
+            }
+        };
 
-        auto tmp_bdds = symbols_from_A(aut_A_);
-        bdd msupport = tmp_bdds.second;
-        bdd n_s_compat = tmp_bdds.first;
-        bdd all = n_s_compat;
+        auto spot_s_A = aut_A_->state_from_number(state_of_A);
+        std::map<bdd, std::set<unsigned>,BDDComparator> cond_to_states;
+        for (auto i: aut_A_->succ(spot_s_A)) {
+            if (cond_to_states.count(i->cond()) == 0)
+                cond_to_states[i->cond()] = {};
+        
+            cond_to_states[i->cond()].emplace(aut_A_->state_number(i->dst()));
+        }
 
-        // iterate over all symbols
-        while (all != bddfalse) {
-            bdd letter = bdd_satoneset(all, msupport, bddfalse);
-            all -= letter;
+        for (auto const& i: cond_to_states) {
+            get_successors_compl(compl_state, i.first);
+            std::set<unsigned> succs_A = i.second;
+            if(succs_A.empty())
+                continue;
 
-            DEBUG_PRINT_LN("symbol: " + std::to_string(letter));
-
-            std::set<unsigned> succs_A = get_all_successors(aut_A_, std::set<unsigned>{state_of_A}, letter);
             cola::tnba_complement::vec_state_taggedcol succs_B;
-
             if(!aut_B_compl_.get_is_sink_created() || compl_state != aut_B_compl_.get_sink_state())
             {
-                succs_B = get_successors_compl(compl_state, letter);
+                succs_B = get_successors_compl(compl_state, i.first);
             }
             else
             {
@@ -351,14 +300,12 @@ namespace kofola {
             if(!succs_A.empty() && !succs_B.empty())
             {
                 cartesian_prod = get_cartesian_prod(state_of_A, succs_A, succs_B,
-                                                    letter);
+                                                    i.first);
                 for (auto& succ : cartesian_prod) {
-                    // Downcast the shared pointer to hyperltl_mc_mstate
                     result.emplace_back(std::move(succ));
                 }
             }
         }
-
         return result;
     }
 
@@ -377,8 +324,9 @@ namespace kofola {
     inclusion_check::get_cartesian_prod(unsigned aut_A_src, std::set<unsigned> &states_A,
                                         cola::tnba_complement::vec_state_taggedcol &states_B, const bdd &letter) {
         std::vector<std::shared_ptr<inclusion_mstate>> cartesian_prod;
-        // COMPUTATION OF COLORS IS TAKEN FROM complement_sync.cpp
+        // COMPUTATION OF COLORS IS TAKEN FROM complement_sync.cpp might be better to create method in the complement_sync class
 
+        // TODO the following two lines should not be called everytime this function is called !!!!
         auto vec_acc_cond = aut_B_compl_.get_vec_acc_cond();
         auto part_col_offset = aut_B_compl_.get_part_col_offset();
 
@@ -388,8 +336,11 @@ namespace kofola {
                 auto cols = state_cols.second;
                 std::set<unsigned> new_cols;
 
+                if(aut_B_compl_.get_is_sink_created() && state_B == aut_B_compl_.get_sink_state()){
+                    new_cols = infs_from_compl_; // TODO go to next iteration after the next if for A
+                }
                 if (is_transition_acc(aut_A_, aut_A_src, state_A, letter)) {
-                    new_cols.insert(first_col_to_use_); // TODO what colour here????
+                    new_cols.insert(first_col_to_use_); // accepting mark of A
                 }
 
                 for (const std::pair<unsigned, unsigned> &part_col_pair: cols) {
@@ -412,14 +363,13 @@ namespace kofola {
 
 
                 auto uberstate = aut_B_compl_.num_to_uberstate(state_B);
-                auto B_reach_set = uberstate.get_reach_set();
+                auto B_reach_set = uberstate.get_reach_set(); // (H,(C,S,B),...) -- B_reach_set is H
                 std::set<unsigned> A_B_intersect;
                 if(dir_simul_.count(state_A)) {
                     set_intersection(dir_simul_[state_A].begin(), dir_simul_[state_A].end(), B_reach_set.begin(), B_reach_set.end(),
                             std::inserter(A_B_intersect, A_B_intersect.begin()));
                 }
 
-                //auto succ = std::make_pair(std::make_pair(state_A, state_B), new_cols);
                 if(A_B_intersect.empty()) {
                     auto succ = std::make_shared<inclusion_mstate>();
                     succ->state_ = std::make_pair(state_A, state_B);
@@ -432,9 +382,6 @@ namespace kofola {
                     intersect_states_.insert({{state_A, state_B},
                                               {}});
                 }
-                /*if (it_bool_pair.second) { // the successor state is new
-                    todo_.push({state_A, succ_state_B});
-                }*/
             }
         }
 

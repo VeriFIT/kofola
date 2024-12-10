@@ -29,13 +29,13 @@
 #include <utility>
 
 namespace kofola {
-    emptiness_check::emptiness_check(abstract_successor *as):
-    abstr_succ_(as)
+    emptiness_check::emptiness_check(inclusion_check *incl_checker):
+    incl_checker_(incl_checker)
     {
     }
 
     bool emptiness_check::empty() {
-        auto init_states = abstr_succ_->get_initial_states();
+        auto init_states = incl_checker_->get_initial_states();
         for (const auto& state: init_states) {
             dfs_num_.insert({state, UNDEFINED});
             on_stack_.insert({state, false});
@@ -43,27 +43,28 @@ namespace kofola {
 
         for(const auto& init: init_states) {
             if (dfs_num_.at(init) == UNDEFINED) {
+                bool empty;
                 if(kofola::OPTIONS.params.count("gfee") != 0 && kofola::OPTIONS.params["gfee"] == "yes")
-                    gs_edited(init, spot::acc_cond::mark_t());
+                    empty = gs_edited(init);
                 else
-                    gs(init, spot::acc_cond::mark_t());
-                if(decided_) {
-                    // std::cout << cnt_ << "\n"; // for benchmarks
-                    return empty_;
+                    empty = gs(init);
+                if(!empty){
+                    std::cout << cnt_ << "\n";
+                    return false;
                 }
             }
         }
 
-        // std::cout << cnt_ << "\n"; // for benchmarks
-        return empty_;
+        std::cout << cnt_ << "\n"; // for benchmarks
+        return true;
     }
 
-    bool emptiness_check::check_simul_less(const std::shared_ptr<abstract_successor::mstate> &dst_mstate) {
+    bool emptiness_check::check_simul_less(const std::shared_ptr<inclusion_mstate> &dst_mstate) {
         auto cond = dst_mstate->get_acc();
         // traversing 'stack' in reversed order, while according to theorem in thesis, the cond has to be 0
         for (auto it = dfs_acc_stack_.rbegin(); it != dfs_acc_stack_.rend() && cond == 0; ++it) {
             const auto &s = (*it).first;
-            if (abstr_succ_->subsum_less_early(dst_mstate, s)) {
+            if (incl_checker_->subsum_less_early(dst_mstate, s)) {
                 for (auto it2 = dfs_acc_stack_.rbegin(); it2 != dfs_acc_stack_.rend() && (*it2).first != s; ++it2) {
                     auto s_between = (*it2).first;
                     // marking destinations of jumps from the states between s and dst_mstate
@@ -79,109 +80,195 @@ namespace kofola {
         return false;
     }
 
-    void emptiness_check::gs_edited(const std::shared_ptr<abstract_successor::mstate> &src_mstate, spot::acc_cond::mark_t path_cond) {
-        //cnt_++;
+    bool emptiness_check::gs_edited(std::shared_ptr<inclusion_mstate> src_mstate) {
+        cnt_ = 1;
+        // stacks to replace recursion
+        std::stack<std::shared_ptr<inclusion_mstate>> src_mstates;
+        src_mstates.push(nullptr); // default
+        std::stack<std::vector<std::shared_ptr<inclusion_mstate>>> successors;
+        successors.push({}); // default
+        std::stack<spot::acc_cond::mark_t> path_conds;
+        path_conds.push({}); // default
+        auto succs = incl_checker_->get_succs(src_mstate);
+        auto path_cond = spot::acc_cond::mark_t();
+
         // early(+1) simul can decide nonemptiness
-        if(abstr_succ_->is_accepting(path_cond) && simulation_prunning(src_mstate))
-            return;
+        if(incl_checker_->is_accepting(path_cond) && simulation_prunning(src_mstate))
+           return false;
 
-        SCCs_.push(src_mstate);
-        dfs_acc_stack_.emplace_back(src_mstate, src_mstate->get_acc());
-        dfs_num_[src_mstate] = index_;
-        index_++;
-        tarjan_stack_.push_back(src_mstate);
-        on_stack_[src_mstate] = true;
+        update_structures(src_mstate);
 
-        auto succs = abstr_succ_->get_succs(src_mstate);
-        for (auto &dst_mstate: succs) {
-            // checking emptiness of curr dst_mstate
-            if(empty_lang(dst_mstate))
-                continue;
+        while(src_mstate != nullptr) {
+            bool recursion_like = false;
+            while(!succs.empty()) {
+                auto dst_mstate = succs.back();
+                succs.pop_back();
 
-            // init structures
-            if(dfs_num_.count(dst_mstate) == 0)
-            {
-                dfs_num_.insert({dst_mstate, UNDEFINED});
-                on_stack_.insert({dst_mstate, false});
-            }
-            // dfs_num_ initialised for dst_mstate
-
-            if (dfs_num_[dst_mstate] == UNDEFINED && !check_simul_less(dst_mstate))
-            {
-                gs_edited( dst_mstate, (path_cond | dst_mstate->get_acc()) );
-                if(decided_)
-                    return;
-            }
-            else if(dfs_num_[dst_mstate] != UNDEFINED) {
-                if(on_stack_[dst_mstate] && merge_acc_marks(dst_mstate))
-                    return;
-
-                // new approach
-                if(state_jumps_to_cutoffs_.count(dst_mstate) == 0) // if there are some jumps
+                if(empty_lang(dst_mstate))
                     continue;
-                for(auto &jumping_dst_mstate: state_jumps_to_cutoffs_[dst_mstate]) {
-                    // same scenarios as for the exploration in original GS alg.
-                    if(dfs_num_[jumping_dst_mstate] == UNDEFINED && !check_simul_less(jumping_dst_mstate))
-                        gs_edited( jumping_dst_mstate, (path_cond | jumping_dst_mstate->get_acc()) );
-                    else if(on_stack_[jumping_dst_mstate] && merge_acc_marks(jumping_dst_mstate))
-                        return;
-                    if(decided_)
-                        return;
+
+                // init structure
+                if(dfs_num_.count(dst_mstate) == 0)
+                {
+                    dfs_num_.insert({dst_mstate, UNDEFINED});
+                    on_stack_.insert({dst_mstate, false});
                 }
-                // end of new appraoch
+                // dfs_num_ initialised for dst_mstate
+
+                if (dfs_num_[dst_mstate] == UNDEFINED && !check_simul_less(dst_mstate))
+                {
+                    // recursion nesting
+                    cnt_++;
+                    path_conds.push(path_cond);
+                    path_cond |= dst_mstate->get_acc();
+                    src_mstates.push(src_mstate);
+                    src_mstate = dst_mstate;
+                    successors.push(succs);
+                    succs = incl_checker_->get_succs(src_mstate);
+
+                    update_structures(src_mstate); 
+                    
+                    recursion_like = true; // to be able to 'jump'
+                    break; 
+                } else if(dfs_num_[dst_mstate] != UNDEFINED) {
+                    if(on_stack_[dst_mstate] && merge_acc_marks(dst_mstate))
+                        return false;
+
+                    // new approach
+                    if(state_jumps_to_cutoffs_.count(dst_mstate) == 0) // if there are some jumps
+                        continue;
+                    for (auto it = state_jumps_to_cutoffs_[dst_mstate].begin(); it != state_jumps_to_cutoffs_[dst_mstate].end();) {
+                        auto &jumping_dst_mstate = *it;
+                        // same scenarios as for the exploration in original GS alg.
+                        if(dfs_num_[jumping_dst_mstate] == UNDEFINED && !check_simul_less(jumping_dst_mstate))
+                        {
+                            // recursion nesting
+                            path_conds.push(path_cond);
+                            path_cond |= jumping_dst_mstate->get_acc();
+                            src_mstates.push(src_mstate);
+                            src_mstate = jumping_dst_mstate;
+                            successors.push(succs);
+                            succs = incl_checker_->get_succs(src_mstate);
+
+                            update_structures(src_mstate); 
+                            
+                            it = state_jumps_to_cutoffs_[dst_mstate].erase(it);
+                            recursion_like = true; // to be able to 'jump'
+                            break;
+                        }
+                        else if(on_stack_[jumping_dst_mstate] && merge_acc_marks(jumping_dst_mstate))
+                            return false;
+                    }
+
+                    if(recursion_like)
+                        break;
+                    // end of new appraoch
+                }
             }
+
+            if(recursion_like)
+                continue;
+
+            if (SCCs_.top() == (src_mstate)) {
+                remove_SCC(src_mstate);
+            }
+
+            // backtracking from recursion
+            src_mstate = src_mstates.top();
+            src_mstates.pop();
+            succs = successors.top();
+            successors.pop();
+            path_cond = path_conds.top();
+            path_conds.pop();
         }
 
-        if (SCCs_.top() == (src_mstate)) {
-            remove_SCC(src_mstate);
-        }
+        return true;
     }
 
-    void emptiness_check::gs(const std::shared_ptr<abstract_successor::mstate> &src_mstate, spot::acc_cond::mark_t path_cond) {
-        // cnt_++;
-        // early(+1) simul can decide nonemptiness
-        if(abstr_succ_->is_accepting(path_cond) && simulation_prunning(src_mstate))
-            return;
-
+    void emptiness_check::update_structures(std::shared_ptr<inclusion_mstate> src_mstate) {
         SCCs_.push(src_mstate);
         dfs_acc_stack_.emplace_back(src_mstate, src_mstate->get_acc());
         dfs_num_[src_mstate] = index_;
         index_++;
         tarjan_stack_.push_back(src_mstate);
         on_stack_[src_mstate] = true;
-
-        auto succs = abstr_succ_->get_succs(src_mstate);
-        for (auto &dst_mstate: succs) {
-            // checking emptiness of curr dst_mstate
-            if(empty_lang(dst_mstate))
-                continue;
-
-            // init structure
-            if(dfs_num_.count(dst_mstate) == 0)
-            {
-                dfs_num_.insert({dst_mstate, UNDEFINED});
-                on_stack_.insert({dst_mstate, false});
-            }
-            // dfs_num_ initialised for dst_mstate
-
-            if (dfs_num_[dst_mstate] == UNDEFINED)
-            {
-                gs( dst_mstate, (path_cond | dst_mstate->get_acc()) );
-                if(decided_)
-                    return;
-            } else if(on_stack_[dst_mstate] && merge_acc_marks(dst_mstate)) {
-                return;
-            }
-        }
-
-        if (SCCs_.top() == (src_mstate)) {
-            remove_SCC(src_mstate);
-        }
     }
 
-    void emptiness_check::remove_SCC(const std::shared_ptr<abstract_successor::mstate> & src_mstate) {
+    bool emptiness_check::gs(std::shared_ptr<inclusion_mstate> src_mstate) {
+        cnt_ = 1;
+        // stacks to replace recursion
+        std::stack<std::shared_ptr<inclusion_mstate>> src_mstates;
+        src_mstates.push(nullptr); // default
+        std::stack<std::vector<std::shared_ptr<inclusion_mstate>>> successors;
+        successors.push({}); // default
+        std::stack<spot::acc_cond::mark_t> path_conds;
+        path_conds.push({}); // default
+        auto succs = incl_checker_->get_succs(src_mstate);
+        auto path_cond = spot::acc_cond::mark_t();
+
+        // early(+1) simul can decide nonemptiness
+        if(incl_checker_->is_accepting(path_cond) && simulation_prunning(src_mstate))
+           return false;
+
+        update_structures(src_mstate);
+
+        while(src_mstate != nullptr) {
+            bool recursion_like = false;
+            while(!succs.empty()) {
+                auto dst_mstate = succs.back();
+                succs.pop_back();
+
+                if(empty_lang(dst_mstate))
+                    continue;
+
+                // init structure
+                if(dfs_num_.count(dst_mstate) == 0)
+                {
+                    dfs_num_.insert({dst_mstate, UNDEFINED});
+                    on_stack_.insert({dst_mstate, false});
+                }
+                // dfs_num_ initialised for dst_mstate
+
+                if (dfs_num_[dst_mstate] == UNDEFINED)
+                {
+                    cnt_++;
+                    path_conds.push(path_cond);
+                    path_cond |= dst_mstate->get_acc();
+                    src_mstates.push(src_mstate);
+                    src_mstate = dst_mstate;
+                    successors.push(succs);
+                    succs = incl_checker_->get_succs(src_mstate);
+
+                    update_structures(src_mstate); 
+                    
+                    recursion_like = true; // to be able to 'jump'
+                    break; 
+                } else if(on_stack_[dst_mstate] && merge_acc_marks(dst_mstate)) {
+                    return false;
+                }
+            }
+
+            if(recursion_like)
+                continue;
+
+            if (SCCs_.top() == (src_mstate)) {
+                remove_SCC(src_mstate);
+            }
+            // backtracking from recursion
+            src_mstate = src_mstates.top();
+            src_mstates.pop();
+            succs = successors.top();
+            successors.pop();
+            path_cond = path_conds.top();
+            path_conds.pop();
+        }
+
+        return true;
+    }
+
+    void emptiness_check::remove_SCC(const std::shared_ptr<inclusion_mstate> & src_mstate) {
         SCCs_.pop();
-        std::shared_ptr<abstract_successor::mstate> tmp;
+        std::shared_ptr<inclusion_mstate> tmp;
         do {
             tmp = tarjan_stack_.back(); tarjan_stack_.pop_back();
             dfs_acc_stack_.pop_back();
@@ -190,10 +277,10 @@ namespace kofola {
         } while (src_mstate != tmp);
     }
 
-    bool emptiness_check::empty_lang(const std::shared_ptr<abstract_successor::mstate> & dst_mstate) {
+    bool emptiness_check::empty_lang(const std::shared_ptr<inclusion_mstate> & dst_mstate) {
         if(kofola::OPTIONS.params.count("early_sim") != 0 && kofola::OPTIONS.params["early_sim"] == "yes") {
             for (const auto &empty_state: empty_lang_states_) {
-                if (abstr_succ_->subsum_less_early(dst_mstate, empty_state)) {
+                if (incl_checker_->subsum_less_early(dst_mstate, empty_state)) {
                     return true;
                 }
             }
@@ -202,7 +289,7 @@ namespace kofola {
         if(kofola::OPTIONS.params.count("early_plus_sim") != 0 && kofola::OPTIONS.params["early_plus_sim"] == "yes")
         {
             for (const auto &empty_state: empty_lang_states_) {
-                if (abstr_succ_->subsum_less_early_plus(dst_mstate, empty_state)) {
+                if (incl_checker_->subsum_less_early_plus(dst_mstate, empty_state)) {
                     return true;
                 }
             }
@@ -211,17 +298,15 @@ namespace kofola {
         return false;
     }
 
-    bool emptiness_check::merge_acc_marks(const std::shared_ptr<abstract_successor::mstate> &dst_mstate) {
+    bool emptiness_check::merge_acc_marks(const std::shared_ptr<inclusion_mstate> &dst_mstate) {
         spot::acc_cond::mark_t cond = dst_mstate->get_acc();
-
-        // merge acc. marks
-        std::shared_ptr<abstract_successor::mstate> tmp;
+        std::shared_ptr<inclusion_mstate> tmp;
         do {
             tmp = SCCs_.top(); SCCs_.pop();
             bool root_encountered = dst_mstate->get_encountered();
             if(root_encountered || dfs_num_[tmp] > dfs_num_[dst_mstate])
                 cond = (cond |= tmp->get_acc());
-            if(abstr_succ_->is_accepting(cond)){
+            if(incl_checker_->is_accepting(cond)){
                 decided_ = true;
                 empty_ = false;
                 return true;
@@ -234,13 +319,13 @@ namespace kofola {
         return false;
     }
 
-    bool emptiness_check::simulation_prunning(const std::shared_ptr<abstract_successor::mstate> & src_mstate) {
+    bool emptiness_check::simulation_prunning(const std::shared_ptr<inclusion_mstate> & src_mstate) {
         if(kofola::OPTIONS.params.count("early_sim") != 0 && kofola::OPTIONS.params["early_sim"] == "yes") {
             auto cond = src_mstate->get_acc();
             for (auto it = dfs_acc_stack_.rbegin(); it != dfs_acc_stack_.rend(); ++it) {
                 const auto &s = (*it).first;
                 // there is a path from s to src_mstate while witnessing acc. cond (and s is simul. < than src_mstate)
-                if (abstr_succ_->is_accepting(cond) && abstr_succ_->subsum_less_early(s, src_mstate)) {
+                if (incl_checker_->is_accepting(cond) && incl_checker_->subsum_less_early(s, src_mstate)) {
                     decided_ = true;
                     empty_ = false;
                     return true;
@@ -255,7 +340,7 @@ namespace kofola {
             for (auto it = dfs_acc_stack_.rbegin(); it != dfs_acc_stack_.rend(); ++it) {
                 const auto &s = (*it).first;
                 // there is a path from s to src_mstate while witnessing 2 acc. conds (and s is simul. < than src_mstate)
-                if (abstr_succ_->is_accepting(cond1) && abstr_succ_->is_accepting(cond2) && abstr_succ_->subsum_less_early_plus(s, src_mstate)) {
+                if (incl_checker_->is_accepting(cond1) && incl_checker_->is_accepting(cond2) && incl_checker_->subsum_less_early_plus(s, src_mstate)) {
                     decided_ = true;
                     empty_ = false;
                     return true;

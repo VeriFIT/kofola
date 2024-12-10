@@ -108,6 +108,9 @@ namespace cola
         spot::acc_cond::acc_code final_code_;
 
         //
+        std::set<unsigned> used_infs_;
+
+        //
         std::vector<spot::acc_cond> vec_acc_code_;
 
         //
@@ -452,6 +455,6 @@ namespace cola
         std::map<unsigned int, unsigned int> get_part_col_offset();
 
         ///
-        size_t  set_acc_cond();
+        std::set<unsigned>  set_acc_cond();
     };
 }
