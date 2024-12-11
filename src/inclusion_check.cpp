@@ -139,10 +139,30 @@ namespace kofola {
     cola::tnba_complement inclusion_check::init_compl_aut_b(const spot::twa_graph_ptr &aut_B) {
         // preprocessed_orig_aut_B_ = preprocess(aut_B);
         // spot::complete_here(aut_B);
+        spot::twa_graph_ptr aut_to_compl = aut_B;
+        if(kofola::OPTIONS.params.count("preproc_incl") != 0 && kofola::OPTIONS.params["preproc_incl"] == "high") {
+            spot::postprocessor p;
+            p.set_type(spot::postprocessor::Buchi);
+            p.set_level(spot::postprocessor::High);
+            aut_to_compl = p.run(aut_B);
+        }
+        else if(kofola::OPTIONS.params.count("preproc_incl") != 0 && kofola::OPTIONS.params["preproc_incl"] == "medium") {
+            spot::postprocessor p;
+            p.set_type(spot::postprocessor::Buchi);
+            p.set_level(spot::postprocessor::Medium);
+            aut_to_compl = p.run(aut_B);
+        }
+        else if(kofola::OPTIONS.params.count("preproc_incl") != 0 && kofola::OPTIONS.params["preproc_incl"] == "low") {
+            spot::postprocessor p;
+            p.set_type(spot::postprocessor::Buchi);
+            p.set_level(spot::postprocessor::Low);
+            aut_to_compl = p.run(aut_B);
+        }
+
 
         kofola::OPTIONS.output_type = "tgba";
         spot::scc_info si_B(aut_B, spot::scc_info_options::ALL);
-        cola::tnba_complement comp(aut_B, si_B);
+        cola::tnba_complement comp(aut_to_compl, si_B);
         return comp;
     }
 
