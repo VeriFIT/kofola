@@ -120,7 +120,7 @@ namespace kofola {
         std::vector<std::shared_ptr<inclusion_mstate>> get_initial_states();
 
         /// get successors for complement from compl_state over letter
-        cola::tnba_complement::vec_state_taggedcol get_successors_compl(unsigned compl_state, bdd letter);
+        cola::tnba_complement::vec_state_taggedcol get_successors_compl(unsigned compl_state, const bdd& letter);
 
         /// returns set of all successors (inclusion macrostates) for given inclusion macrostate, for the need of emptiness check
         std::vector<std::shared_ptr<inclusion_mstate>> get_succs(const std::shared_ptr<inclusion_mstate> &src);
