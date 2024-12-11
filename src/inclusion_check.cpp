@@ -229,7 +229,7 @@ namespace kofola {
         return (casted_a->state_.first == casted_b->state_.first && aut_B_compl_.subsum_less_early_plus(casted_a->state_.second, casted_b->state_.second));
     }
 
-    cola::tnba_complement::vec_state_taggedcol inclusion_check::get_successors_compl(unsigned compl_state, bdd letter) {
+    cola::tnba_complement::vec_state_taggedcol inclusion_check::get_successors_compl(unsigned compl_state, const bdd& letter) {
         cola::tnba_complement::vec_state_taggedcol succs_B;
         
         // no succs yet

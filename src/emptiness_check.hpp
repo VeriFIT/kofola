@@ -36,7 +36,7 @@ namespace kofola
         /// returns true if the aut given by abstract_successor is empty (should be called after constructor is called)
         bool empty();
 
-        void update_structures(std::shared_ptr<inclusion_mstate> src_mstate);
+        void update_structures(const std::shared_ptr<inclusion_mstate>& src_mstate);
 
         /// implements the edited Gaiser and Schwoon algorithm suggested in the thesis
         /// path_cond can be omitted

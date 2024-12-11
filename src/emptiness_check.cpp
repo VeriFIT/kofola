@@ -185,7 +185,7 @@ namespace kofola {
         return true;
     }
 
-    void emptiness_check::update_structures(std::shared_ptr<inclusion_mstate> src_mstate) {
+    void emptiness_check::update_structures(const std::shared_ptr<inclusion_mstate>& src_mstate) {
         SCCs_.push(src_mstate);
         dfs_acc_stack_.emplace_back(src_mstate, src_mstate->get_acc());
         dfs_num_[src_mstate] = index_;
