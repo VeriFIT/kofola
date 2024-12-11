@@ -136,14 +136,16 @@ namespace cola {
         // std::cerr << "IWA: " << weaksccs_.size() << ", DET: " << acc_detsccs_.size() << ", NAC: " << acc_nondetsccs_.size() << std::endl;
 
         // gathering info for complementation
-        this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
+        // this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
 
         // if (this->decomp_options_.iw_sim || this->decomp_options_.det_sim) {
         // this->reduce_and_compute_simulation(); // TODO it is commented for finding slow code
         // } 
 
-        this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
-        this->aut_ = kofola::saturate(this->aut_, this->si_);
+        // this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
+
+        // For now we turn off the saturation as it is done by an inefficient procedure
+        // this->aut_ = kofola::saturate(this->aut_, this->si_);
         this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
 
         if (kofola::LOG_VERBOSITY > 0) {
