@@ -98,7 +98,10 @@ namespace kofola {
         /// for debugging purposes only
         void print_mstate(const std::shared_ptr<inclusion_mstate> a);
 
-        /// to obtain cola::tnba_complement instance in the constructor
+        /// preprocess automaton A if required 
+        spot::twa_graph_ptr init_aut_A(const spot::twa_graph_ptr &aut_A);
+
+        /// to obtain cola::tnba_complement instance in the constructor and preprocess if required
         cola::tnba_complement init_compl_aut_b(const spot::twa_graph_ptr &aut_B);
 
         /// returns union of aut_A and aut_B for the purpose of simulations, firstly states from aut_A are inserted, then states 
