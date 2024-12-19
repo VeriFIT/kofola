@@ -18,7 +18,9 @@
 // kofola
 #include "kofola.hpp"
 #include "complement_tela.hpp"
+#include "emptiness_check.hpp"
 #include "util.hpp"
+#include "inclusion_check.hpp"
 
 // standard library headers
 #include <unistd.h>
@@ -32,6 +34,8 @@
 // Args.hxx
 #include "../3rdparty/args.hxx"
 
+#include <chrono>
+#include <iomanip>
 
 //void output_input_type(spot::twa_graph_ptr aut)
 //{
@@ -208,17 +212,18 @@ int process_args(int argc, char *argv[], kofola::options* params)
 	args::ActionFlag version_flag(operation_group, "version", "print program version", {"version"}, print_version);
 	args::ActionFlag version_long_flag(operation_group, "version-long", "print program version (long)", {"version-long"}, print_version_long);
 	args::HelpFlag help_flag(operation_group, "help", "display this help menu", {'h', "help"});
+    args::Flag inclusion_flag(operation_group, "inclusion", "checks inclusion between the given 2 automata (HOA format) on input in order as given on cmd line", {"inclusion"});
 
 	// miscellaneous flags
 	args::Group misc_group(parser, "Miscellaneous options:");
 	args::Flag debug_flag(misc_group, "debug", "output debugging information", {'d', "debug"});
 	args::ValueFlag<std::string> params_flag(misc_group, "params",
 	                                         "string with ';'-separated parameters of the form 'key=value' "
-	                                         "(or just 'key' for yes/no flags), e.g., "
-	                                         "'merge-iwa=yes;preproc-reduction=high;raw-output'",
+	                                         "(or just 'key' for yes/no flags), e.g. for inclusion, "
+	                                         "'early_sim=yes;early_plus_sim=yes;dir_sim=yes;gfee=yes;'",
 	                                         {"params"});
 
-	try {
+    try {
 		parser.ParseCLI(argc, argv);
 	}
 	catch (const args::Completion& e) {
@@ -258,7 +263,9 @@ int process_args(int argc, char *argv[], kofola::options* params)
 		params->operation = "scc-types";
 	} else if (help_flag) {
 		params->operation = "help";
-	} else { // default
+    } else if (inclusion_flag) {
+        params->operation = "inclusion";
+    } else { // default
 		params->operation = "complement";
 	}
 
@@ -297,6 +304,53 @@ int main(int argc, char *argv[])
 	DEBUG_PRINT_LN("params: " + std::to_string(options.params));
 
 	auto dict = spot::make_bdd_dict();
+
+    if(options.operation == "inclusion") {
+        spot::parsed_aut_ptr parsed_aut_A = nullptr;
+        spot::parsed_aut_ptr parsed_aut_B = nullptr;
+        try {
+            spot::automaton_stream_parser parser_A(options.filenames.at(0)); // first filename provided as automaton A
+            parsed_aut_A = parser_A.parse(dict);
+            if (parsed_aut_A->format_errors(std::cerr)) { return EXIT_FAILURE; }
+            spot::twa_graph_ptr aut_A = parsed_aut_A->aut;
+
+            spot::automaton_stream_parser parser_B(options.filenames.at(1)); // second filename provided as automaton B
+            parsed_aut_B = parser_B.parse(dict);
+            if (parsed_aut_B->format_errors(std::cerr)) { return EXIT_FAILURE; }
+            spot::twa_graph_ptr aut_B = parsed_aut_B->aut;
+
+            kofola::inclusion_check inclusion_checker(aut_A, aut_B);
+            bool kofola_res = inclusion_checker.inclusion();
+
+			// to test correctness against spot
+            // if(options.params.count("incl_correctness") != 0 && options.params["incl_correctness"] == "yes") {
+            //     bool spot_res = !aut_A->intersects(spot::complement(aut_B));
+            //     if(spot_res == kofola_res) {
+            //         printf("PASS!\n");
+            //     }
+            //     else {
+            //         printf("ERR!\n");
+            //     }
+            // }
+            // else {
+			if(kofola_res) {
+				printf("Inclusion holds!\n");
+				return 0;
+			}
+			else {
+				printf("Inclusion does not hold!\n");
+				return 1;
+			}
+            // }
+
+        }
+        catch (const std::exception& ex) {
+            std::cerr << "Error: " << ex.what() << "\n";
+            return 2;
+        }
+
+        return EXIT_SUCCESS;
+    }
 
 	for (const std::string& input_filename : options.filenames) {
 		spot::parsed_aut_ptr parsed_aut = nullptr;

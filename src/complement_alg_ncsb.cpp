@@ -42,6 +42,18 @@ public: // METHODS
   virtual const std::set<unsigned>& get_breakpoint() const override { return this->breakpoint_; }
   virtual void set_breakpoint(const std::set<unsigned>& breakpoint) override { this->breakpoint_ = get_set_intersection(breakpoint, this->check_); }
 
+  virtual bool subsum_less_early(const mstate& rhs, const std::set<unsigned>&  glob_reached) override {
+    auto rhs_ncsb = dynamic_cast<const mstate_ncsb*>(&rhs);
+
+    std::set<unsigned> S_and_B;
+    set_union(safe_.begin(), safe_.end(), breakpoint_.begin() , breakpoint_.end(), std::inserter(S_and_B, S_and_B.begin()));
+
+    auto B_subs = std::includes(S_and_B.begin(), S_and_B.end(), rhs_ncsb->breakpoint_.begin(), rhs_ncsb->breakpoint_.end());
+    auto S_subs = std::includes(this->safe_.begin(), this->safe_.end(), rhs_ncsb->safe_.begin(), rhs_ncsb->safe_.end());
+
+    return (B_subs && S_subs);
+  };
+
   friend class kofola::complement_ncsb;
 }; // mstate_ncsb }}}
 

@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # https://dane-bulat.medium.com/cmake-how-to-inspect-and-configure-the-compiler-877e6cb0317f
 set(CXX_FLAGS)
 list(APPEND CXX_FLAGS "-Wall")
+list(APPEND CXX_FLAGS "-g")
 list(APPEND CXX_FLAGS "-pedantic-errors")
 list(APPEND CXX_FLAGS "-Wextra")
 list(APPEND CXX_FLAGS "-Wfloat-equal")
@@ -30,9 +31,12 @@ add_executable(kofola
 	# complement_alg_rank.cpp
 	complement_alg_rank2.cpp
 	complement_alg_init_det.cpp
+	complement_alg_subs_tuple.cpp
 	ranking.cpp
 	util.cpp
-)
+	emptiness_check.cpp
+	inclusion_check.cpp
+	)
 
 target_compile_options(kofola PRIVATE ${CXX_FLAGS})
 
