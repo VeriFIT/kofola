@@ -19,8 +19,6 @@
 #include "kofola.hpp"
 #include "complement_tela.hpp"
 #include "emptiness_check.hpp"
-#include "hyperltl_mc.hpp"
-#include "hyperltl_formula_processor.hpp"
 #include "util.hpp"
 #include "inclusion_check.hpp"
 
@@ -215,7 +213,6 @@ int process_args(int argc, char *argv[], kofola::options* params)
 	args::ActionFlag version_long_flag(operation_group, "version-long", "print program version (long)", {"version-long"}, print_version_long);
 	args::HelpFlag help_flag(operation_group, "help", "display this help menu", {'h', "help"});
     args::Flag inclusion_flag(operation_group, "inclusion", "checks inclusion between the given 2 automata (HOA format) on input in order as given on cmd line", {"inclusion"});
-    args::Flag hyperltl_flag(operation_group, "hyperltl_mc", "model checking of given systems (can be n systems for n quantifiers, otherwise 1 system for all quantifiers) in HOA files (*.hoa) and hyperltl formula in *.hq  file", {"hyperltl_mc"});
 
 	// miscellaneous flags
 	args::Group misc_group(parser, "Miscellaneous options:");
@@ -266,8 +263,6 @@ int process_args(int argc, char *argv[], kofola::options* params)
 		params->operation = "scc-types";
 	} else if (help_flag) {
 		params->operation = "help";
-	} else if (hyperltl_flag) {
-        params->operation = "hyperltl_mc";
     } else if (inclusion_flag) {
         params->operation = "inclusion";
     } else { // default

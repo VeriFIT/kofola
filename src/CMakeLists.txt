@@ -35,10 +35,7 @@ add_executable(kofola
 	ranking.cpp
 	util.cpp
 	emptiness_check.cpp
-	# hyperltl_formula_processor.cpp
-	# hyperltl_mc.cpp
 	inclusion_check.cpp
-	# abstract_successor.cpp
 	)
 
 target_compile_options(kofola PRIVATE ${CXX_FLAGS})

@@ -13,7 +13,6 @@
 // kofola
 #include "emptiness_check.hpp"
 #include "kofola.hpp"
-#include "abstract_successor.hpp"
 
 namespace kofola {
     class  inclusion_check;

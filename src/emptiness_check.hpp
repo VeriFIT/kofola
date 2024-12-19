@@ -14,7 +14,6 @@
 #include "kofola.hpp"
 #include "abstract_complement_alg.hpp"
 #include "complement_sync.hpp"
-// #include "abstract_successor.hpp"
 #include "inclusion_check.hpp"
 
 // spot

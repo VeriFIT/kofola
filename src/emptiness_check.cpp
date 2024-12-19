@@ -17,7 +17,6 @@
 #include "decomposer.hpp"
 #include "complement_sync.hpp"
 #include "inclusion_check.hpp"
-#include "hyperltl_mc.hpp"
 
 // Spot
 #include <spot/twaalgos/postproc.hh>
