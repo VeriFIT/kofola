@@ -1,5 +1,7 @@
 # Kofola: Modular Complementation and Inclusion Checking for Omega Automata
 
+![build workflow](https://github.com/VeriFIT/kofola/actions/workflows/build.yml/badge.svg)
+
 Kofola is an open source tool for an efficient complementation and inclusion checking 
 of automata over infinite words (omega automata). Kofola has been built on top of [SPOT](https://spot.lrde.epita.fr/) and
 inspired by [Seminator](https://github.com/mklokocka/seminator) and

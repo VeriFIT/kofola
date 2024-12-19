@@ -30,7 +30,7 @@ jobs:
       - name: Test release
         run: make test
   macos-build:
-    name: "MACOS (build-&-test)"
+    name: "MacOS (build-&-test)"
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v3
