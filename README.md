@@ -37,3 +37,32 @@ make
 Then you will get an executable in `build/src/kofola`. Alternatively you can 
 run `make release` in the root directory.
 
+### Basic usage
+Kofola assumes input omega automata in HOA format. The following command 
+translates general (nondeterministic) omega-automaton stored in file `A.hoa` into a complementary 
+omega automaton and prints it to the standard output:
+
+```
+./kofola A.hoa --complement
+```
+
+Note that Kofola produces automata with a general accepting condition (different output type might be specified 
+by `--tba` for transition-based Büchi automata or `--tgba` for transition-based 
+generalized Büchi automata). 
+
+The following command then checks if the language specified by the omega automaton `A.hoa`
+is included in the language specified by `B.hoa` and prints the result to the standard output:
+
+```
+./kofola A.hoa B.hoa --inclusion
+```
+
+Additional parameters might be passed using `--params`, e.g., `--params=merge_iwa=True`. 
+In order to get a program help, run
+
+```
+./kofola --help
+```
+
+### Publications
+- V. Havlena, O. Lengál, Y. Li, B. Šmahlíková and A. Turrini. [Modular Mix-and-Match Complementation of Büchi Automata](https://link.springer.com/chapter/10.1007/978-3-031-30823-9_13). In *Proc. of TACAS'23*, volume 13993 of LNCS, pages 249-270, 2023. Springer. 
