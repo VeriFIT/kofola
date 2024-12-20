@@ -8,7 +8,7 @@ inspired by [Seminator](https://github.com/mklokocka/seminator) and
 [COLA](https://github.com/liyong31/COLA). 
 
 
-### Requirements and dependencies
+## Requirements and dependencies
 
 For a successful build of Kofola, `cmake` of version 3.16 (or higher) together with a C++ compiler with a support of C++-17 standard is required. Additional requirements 
 include:
@@ -26,7 +26,7 @@ make
 sudo make install
 ```
 
-### Building Kofola
+## Building Kofola
 Please run the following steps to compile Kofola after cloning this repo:
 ```
 mkdir build && cd build
@@ -37,7 +37,7 @@ make
 Then you will get an executable in `build/src/kofola`. Alternatively you can 
 run `make release` in the root directory.
 
-### Basic usage
+## Basic usage
 Kofola assumes input omega automata in HOA format. The following command 
 translates general (nondeterministic) omega-automaton stored in file `A.hoa` into a complementary 
 omega automaton and prints it to the standard output:
@@ -64,5 +64,5 @@ In order to get a program help, run
 ./kofola --help
 ```
 
-### Publications
+## Publications
 - V. Havlena, O. Lengál, Y. Li, B. Šmahlíková and A. Turrini. [Modular Mix-and-Match Complementation of Büchi Automata](https://link.springer.com/chapter/10.1007/978-3-031-30823-9_13). In *Proc. of TACAS'23*, volume 13993 of LNCS, pages 249-270, 2023. Springer. 
