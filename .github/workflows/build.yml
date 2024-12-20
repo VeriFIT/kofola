@@ -1,6 +1,4 @@
-# copied from https://github.com/VeriFIT/mata/blob/84590550390b0d4003c83cd618c532b1959c752a/.github/workflows/ubuntu.yml
-
-name: Ubuntu (build-&-test)
+name: Various platforms (build-&-test)
 
 on:
   push:
@@ -16,7 +14,8 @@ on:
 
 
 jobs:
-  setup:
+  ubuntu-build:
+    name: "Ubuntu (build-&-test)"
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository code
@@ -29,4 +28,15 @@ jobs:
       - name: Compile release
         run: make release
       - name: Test release
+        run: make test
+  macos-build:
+    name: "MacOS (build-&-test)"
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v3
+      - name: Building MacOS dependencies
+        run: brew install spot
+      - name: Compile
+        run: make release
+      - name: Test the library
         run: make test

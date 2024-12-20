@@ -189,7 +189,7 @@ int process_args(int argc, char *argv[], kofola::options* params)
 { // {{{
 	assert(nullptr !=params);
 
-	args::ArgumentParser parser("kofola: modular complementation of omega-automata.");
+	args::ArgumentParser parser("kofola: Modular complementation and inclusion checking of omega-automata.");
 	args::CompletionFlag completion(parser, {"complete"});
 
 	// inputs
