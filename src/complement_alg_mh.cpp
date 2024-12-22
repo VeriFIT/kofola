@@ -40,7 +40,7 @@ public: // METHODS
   virtual const std::set<unsigned>& get_breakpoint() const override { return this->breakpoint_; }
   virtual void set_breakpoint(const std::set<unsigned>& breakpoint) override { this->breakpoint_ = get_set_intersection(breakpoint, this->states_); }
 
-  virtual bool subsum_less_early(const mstate& rhs, const std::set<unsigned>&  glob_reached) override {
+  virtual bool subsum_less_early(const mstate& rhs) override {
       auto rhs_mh = dynamic_cast<const mstate_mh*>(&rhs);
 
       auto S_subs = std::includes(states_.begin(), states_.end(), rhs_mh->states_.begin(), rhs_mh->states_.end());
@@ -49,7 +49,7 @@ public: // METHODS
       return (S_subs && B_subs);
   };
 
-  virtual bool subsum_less_early_plus(const mstate& rhs, const std::set<unsigned>&  glob_reached) override {
+  virtual bool subsum_less_early_plus(const mstate& rhs) override {
       auto rhs_mh = dynamic_cast<const mstate_mh*>(&rhs);
 
       auto S_subs = std::includes(states_.begin(), states_.end(), rhs_mh->states_.begin(), rhs_mh->states_.end());
@@ -103,7 +103,7 @@ mstate_set complement_mh::get_init()
 
   unsigned orig_init = this->info_.aut_->get_init_state_number();
 
-  if (this->info_.st_to_part_map_.at(orig_init) == this->part_index_) {
+  if (this->info_.st_to_part_map_.at(orig_init) == static_cast<int>(this->part_index_)) {
     init_state.insert(orig_init);
   }
 
@@ -124,13 +124,12 @@ mstate_col_set complement_mh::get_succ_track(
   DEBUG_PRINT_LN("src = " + std::to_string(*src));
   DEBUG_PRINT_LN("symbol = " + std::to_string(symbol));
 
-  const mstate_mh* src_mh = dynamic_cast<const mstate_mh*>(src);
   assert(src_mh);
   assert(!src_mh->active_);
 
   std::set<unsigned> states;
   for (unsigned st : glob_reached) {
-    if (this->info_.st_to_part_map_.at(st) == this->part_index_) {
+    if (this->info_.st_to_part_map_.at(st) == static_cast<int>(this->part_index_)) {
       states.insert(st);
     }
   }

@@ -113,14 +113,14 @@ decomposer::run(bool nonacc_pred, bool merge_iwa, bool merge_det)
     }
     if (! remaining_sccs.empty())
     {
-        spot::twa_graph_ptr aut = make_twa_with_scc(si, remaining_sccs, reach_sccs, nonacc_pred, merge_iwa, merge_det);
+        spot::twa_graph_ptr aut = make_twa_with_scc(si, remaining_sccs, reach_sccs, nonacc_pred);
         result.push_back(aut);
     }
     return result;
 }
 
 spot::twa_graph_ptr
-decomposer::make_twa_with_scc(spot::scc_info& si, std::set<unsigned> sccs, std::vector<bool>& reach_sccs, bool nonacc_pred, bool merge_iwa, bool merge_det)
+decomposer::make_twa_with_scc(spot::scc_info& si, std::set<unsigned> sccs, std::vector<bool>& reach_sccs, bool nonacc_pred)
 {
     assert(! sccs.empty());
 

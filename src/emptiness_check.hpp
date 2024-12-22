@@ -65,7 +65,7 @@ namespace kofola
 
     private:
         inclusion_check *incl_checker_; /// instance of abstract_successor that provides states and transitions
-        unsigned cnt_ = 0; /// number of states, for benchmarks
+        // unsigned cnt_ = 0; /// number of states, for benchmarks
 
         const int UNDEFINED = -1;
 

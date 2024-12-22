@@ -121,7 +121,6 @@ namespace cola {
         // obtain the types of each SCC
         scc_types_ = get_scc_types(si_);
         // find out the DACs and NACs
-        unsigned nonacc_weak = 0;
         for (unsigned i = 0; i < scc_types_.size(); i++) {
             if (is_accepting_weakscc(scc_types_, i)) {
                 weaksccs_.push_back(i);
@@ -243,7 +242,6 @@ namespace cola {
             for (unsigned i = 0; i != implications.size(); ++i) {
                 if (!si_.reachable_state(i))
                     continue;
-                unsigned scc_of_i = si_.scc_of(i);
                 for (unsigned j = 0; j != implications.size(); ++j) {
                     // reachable states
                     if (!si_.reachable_state(j))
@@ -328,8 +326,8 @@ namespace cola {
             list_vector[s] = std::vector<int>(list_set[s].begin(), list_set[s].end());
         }
 
-        for (int s = 0; s < aut_->num_states(); s++) {
-            std::set<int> tmp({s});
+        for (unsigned int s = 0; s < aut_->num_states(); s++) {
+            std::set<int> tmp({static_cast<int>(s)});
             reachable_vector[s] = reachable_vertices(list_vector, tmp);
         }
 
@@ -1076,7 +1074,7 @@ namespace cola {
     tnba_complement::uberstate::get_part_macrostates() const { return this->part_macrostates_; }
 
     /// returns the index of the active SCC (INACTIVE_SCC if no active)
-    const int tnba_complement::uberstate::get_active_scc() const { return this->active_scc_; }
+    int tnba_complement::uberstate::get_active_scc() const { return this->active_scc_; }
 
     /// get shared breakpoint
     const std::set<unsigned> &
@@ -1157,11 +1155,6 @@ namespace cola {
     enum {
         SINK_COLOUR = 0
     };
-    // static const unsigned RR_COLOUR = 1;      // colour for round robin ### we will choose it dynamically
-    static const size_t RESERVED_COLOURS = 1; // how many colours are reserved
-
-    /// index of active SCC if no SCC is active
-    static const int INACTIVE_SCC = -1;
 
     /// accessor into the uberstate table
     unsigned cola::tnba_complement::uberstate_to_num(const cola::tnba_complement::uberstate &us) const { // {{{
@@ -1170,6 +1163,7 @@ namespace cola {
             return it->second;
         } else {
             assert(false);
+            return 0;
         }
     } // uberstate_to_num() }}}
 
@@ -1213,7 +1207,7 @@ namespace cola {
             }
         }
 
-        for (size_t i = 0; i < std::min(prev + 1, static_cast<int>(alg_vec.size())); ++i) {
+        for (int i = 0; i < std::min(prev + 1, static_cast<int>(alg_vec.size())); ++i) {
             if (alg_vec[i]->use_round_robin()) {
                 return i;
             }
@@ -1294,7 +1288,6 @@ namespace cola {
                        " for symbol " + std::to_string(symbol));
         using mstate = kofola::abstract_complement_alg::mstate;
         using mstate_set = kofola::abstract_complement_alg::mstate_set;
-        using mstate_col = kofola::abstract_complement_alg::mstate_col;
         using mstate_taggedcol = std::pair<std::shared_ptr<mstate>, std::set<std::pair<unsigned, unsigned>>>;
         using mstate_col_set = kofola::abstract_complement_alg::mstate_col_set;
         using mstate_taggedcol_set = std::vector<mstate_taggedcol>;
@@ -1350,7 +1343,7 @@ namespace cola {
 
             if (alg_vec_[i]->use_shared_breakpoint()) {
                 mcs = alg_vec_[i]->get_succ_active(all_succ, ms, symbol, sh_break.empty());
-            } else if (active_index == i || !alg_vec_[i]->use_round_robin()) {
+            } else if (active_index == static_cast<int>(i) || !alg_vec_[i]->use_round_robin()) {
                 mcs = alg_vec_[i]->get_succ_active(all_succ, ms, symbol);
             } else {
                 mcs = alg_vec_[i]->get_succ_track(all_succ, ms, symbol);
@@ -1388,12 +1381,11 @@ namespace cola {
         vec_state_taggedcol result;
         for (const auto &vec: cp) {
             vec_macrostates vm;
-            bool found = false;
             std::set<unsigned> breakpoint;
             std::set<std::pair<unsigned, unsigned>> cols;
 
             assert(alg_vec_.size() == vec.size());
-            for (int i = 0; i < vec.size(); i++) {
+            for (size_t i = 0; i < vec.size(); i++) {
                 if (alg_vec_[i]->use_shared_breakpoint()) {
                     const std::set<unsigned> &vb = vec[i].first->get_breakpoint();
                     breakpoint.insert(vb.begin(), vb.end());
@@ -1459,7 +1451,7 @@ namespace cola {
 
             DEBUG_PRINT_LN("obtained initial state for algs " + std::to_string(i) +
                            ": " + std::to_string(init_mstates));
-            if (i == init_active || !alg_vec_[i]->use_round_robin()) { // make the partial macrostate active
+            if (static_cast<int>(i) == init_active || !alg_vec_[i]->use_round_robin()) { // make the partial macrostate active
                 mstate_set new_mstates;
                 for (const auto &st: init_mstates) {
                     mstate_set lifted = alg_vec_[i]->lift_track_to_active(st.get());
@@ -1831,7 +1823,6 @@ namespace cola {
         }
         for (const auto &st_trans_pair: compl_states) {
             const unsigned &src = st_trans_pair.first;
-            unsigned spot_state = result->new_state();
             assert(spot_state == src);
 
             for (const auto &bdd_vec_tgt_pair: st_trans_pair.second) {
