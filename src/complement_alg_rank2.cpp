@@ -287,7 +287,7 @@ mstate_set complement_rank2::impl::get_init()
 	std::set<unsigned> init_state;
 
 	unsigned orig_init = this->info_.aut_->get_init_state_number();
-	if (this->info_.st_to_part_map_.at(orig_init) == this->part_index_) {
+	if (this->info_.st_to_part_map_.at(orig_init) == static_cast<int>(this->part_index_)) {
 		init_state.insert(orig_init);
 	} else { // TODO: we assert that the partition block is reachable from initial
 		// FIXME: the box should not be necessary in cases such as a NAC reachable
@@ -310,6 +310,10 @@ std::optional<ranking> complement_rank2::impl::maxrank(
 { // {{{
 
 	// TODO: use bounds!
+
+	(void)glob_reached;
+	(void)f;
+	(void)symbol;
 
 	assert(false);
 
@@ -339,6 +343,7 @@ mstate_col_set complement_rank2::impl::get_succ_track(
 		std::optional<ranking> g = this->maxrank(glob_reached, src_rank->f_, symbol);
 		assert(false);
 	}
+	return result;
 
 
 } // get_succ_track() }}}
@@ -349,7 +354,7 @@ std::set<unsigned> complement_rank2::impl::restr_states_to_part(
 { // {{{
 	std::set<unsigned> res;
 	for (unsigned st : states) {
-		if (this->info_.st_to_part_map_.at(st) == this->part_index_) {
+		if (this->info_.st_to_part_map_.at(st) == static_cast<int>(this->part_index_)) {
 			res.insert(st);
 		}
 	}
@@ -370,15 +375,13 @@ ranking complement_rank2::impl::get_rank_bounds(const std::set<unsigned>& states
 	DEBUG_PRINT_LN("FIXME: get tighter bounds!");
 
 	if (kofola::is_in(BOX, states)) {
-		auto it_bool_pair = bounds.emplace(BOX, max_rank);
-		assert(it_bool_pair.second);
+		bounds.emplace(BOX, max_rank);
 		max_rank -= 2;
 	}
 
 	for (unsigned st : states) {
 		if (BOX != st) {
-			auto it_bool_pair = bounds.emplace(st, max_rank);
-			assert(it_bool_pair.second);
+			bounds.emplace(st, max_rank);
 		}
 	}
 
@@ -392,6 +395,7 @@ std::vector<ranking> complement_rank2::impl::get_max_tight_rankings_with_rank(
 	const ranking&             bounds)
 { // {{{
 	assert(rank % 2 == 1);               // rank should be odd
+	(void)bounds;
 
 	// here, CORE will be the states that keep the tight ranking of a run, cf.
 	// our CONCUR'21 paper; RANKED CORE are states of a CORE with assigned ranks
@@ -560,6 +564,7 @@ mstate_col_set complement_rank2::impl::get_succ_active(
 	const bdd&                 symbol,
 	bool resample)
 { // {{{
+	(void)resample;
 	const mstate_rank* src_rank = dynamic_cast<const mstate_rank*>(src);
 	assert(src_rank);
 	assert(src_rank->active_);
@@ -577,6 +582,7 @@ mstate_col_set complement_rank2::impl::get_succ_active(
 	mstate_col_set track_succ = this->get_succ_track(glob_reached, tmp_track.get(), symbol);
 
 	assert(false);
+	return {};
 } // get_succ_active() }}}
 
 
