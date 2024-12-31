@@ -175,7 +175,7 @@ namespace kofola {
         for(unsigned i = offset_; i < orig_to_new.size() - 1; i++) {
             for(unsigned j = 0; j < offset_; j++) {
                 //if state of A merged to state of B => simulated, not considering transition prunning (-1 in condition)
-                if(orig_to_new[i] == orig_to_new[j] && orig_to_new[i] < offset_ && orig_to_new[i] != -1) {
+                if(orig_to_new[i] == orig_to_new[j] && orig_to_new[i] < offset_ && static_cast<int>(orig_to_new[i]) != -1) {
                     dir_simul_[i - offset_].emplace_back(j);
                 }
             }

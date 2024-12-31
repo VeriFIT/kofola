@@ -85,7 +85,7 @@ mstate_set complement_init_det::get_init()
   std::set<unsigned> init_state;
 
   unsigned orig_init = this->info_.aut_->get_init_state_number();
-  if (this->info_.st_to_part_map_.at(orig_init) == this->part_index_) {
+  if (this->info_.st_to_part_map_.at(orig_init) == static_cast<int>(this->part_index_)) {
     init_state.insert(orig_init);
   }
 
@@ -109,10 +109,11 @@ mstate_col_set complement_init_det::get_succ_track(
   const mstate_init_det* src_mh = dynamic_cast<const mstate_init_det*>(src);
   assert(src_mh);
   assert(!src_mh->active_);
+  (void)src_mh; // make release happy
 
   std::set<unsigned> states;
   for (unsigned st : glob_reached) {
-    if (this->info_.st_to_part_map_.at(st) == this->part_index_) {
+    if (this->info_.st_to_part_map_.at(st) == static_cast<int>(this->part_index_)) {
       states.insert(st);
     }
   }
@@ -137,6 +138,7 @@ mstate_col_set complement_init_det::get_succ_active(
   const bdd&                 symbol,
   bool                       resample)
 {
+  (void)resample; // make release happy
   const mstate_init_det* src_mh = dynamic_cast<const mstate_init_det*>(src);
   assert(src_mh);
   assert(src_mh->active_);

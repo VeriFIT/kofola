@@ -42,7 +42,7 @@ public: // METHODS
   virtual const std::set<unsigned>& get_breakpoint() const override { return this->breakpoint_; }
   virtual void set_breakpoint(const std::set<unsigned>& breakpoint) override { this->breakpoint_ = get_set_intersection(breakpoint, this->check_); }
 
-  virtual bool subsum_less_early(const mstate& rhs, const std::set<unsigned>&  glob_reached) override {
+  virtual bool subsum_less_early(const mstate& rhs) override {
     auto rhs_ncsb = dynamic_cast<const mstate_ncsb*>(&rhs);
 
     std::set<unsigned> S_and_B;
@@ -62,7 +62,6 @@ public: // METHODS
 /// a set of states over the given symbol in the SCC the source state is in
 bool contains_accepting_outgoing_transitions_in_scc(
   const spot::const_twa_graph_ptr&    aut,
-  const kofola::StateToPartitionMap&  st_to_part_map,
   const spot::scc_info&               scc_info,
   const std::set<unsigned>&           states,
   const bdd&                          symbol)
@@ -129,7 +128,7 @@ mstate_set complement_ncsb::get_init()
   std::set<unsigned> init_state;
 
   unsigned orig_init = this->info_.aut_->get_init_state_number();
-  if (this->info_.st_to_part_map_.at(orig_init) == this->part_index_) {
+  if (this->info_.st_to_part_map_.at(orig_init) == static_cast<int>(this->part_index_)) {
     init_state.insert(orig_init);
   }
 
@@ -150,7 +149,6 @@ mstate_col_set complement_ncsb::get_succ_track(
   // check that safe states do not see accepting transition in the same SCC
   if (contains_accepting_outgoing_transitions_in_scc(
       this->info_.aut_,
-      this->info_.st_to_part_map_,
       this->info_.scc_info_,
       src_ncsb->safe_, symbol)) {
     return {};
@@ -161,7 +159,7 @@ mstate_col_set complement_ncsb::get_succ_track(
 
   std::set<unsigned> succ_states;
   for (unsigned st : glob_reached) {
-    if (this->info_.st_to_part_map_.at(st) == this->part_index_) {
+    if (this->info_.st_to_part_map_.at(st) == static_cast<int>(this->part_index_)) {
       if (succ_safe.find(st) == succ_safe.end()) { // if not in safe
         succ_states.insert(st);
       }
@@ -252,7 +250,6 @@ mstate_col_set complement_ncsb::get_succ_active(
     // 3) delta(src_ncsb->breakpoint_, symbol) contains no accepting condition
     if (contains_accepting_outgoing_transitions_in_scc(
         this->info_.aut_,
-        this->info_.st_to_part_map_,
         this->info_.scc_info_,
         src_ncsb->breakpoint_, symbol)) {
       return result;

@@ -15,6 +15,7 @@ namespace { // anonymous namespace {{{
         std::deque<std::pair<std::set<unsigned>, int> > greedy_tuple_;
         bool active_;                    // true = active ; false = track
         bool breakpoint_;
+        std::set<unsigned> empty_breakpoint {};
 
     public: // METHODS
 
@@ -37,9 +38,10 @@ namespace { // anonymous namespace {{{
 
         virtual ~mstate_subs_tuple() override {}
 
-        virtual const std::set<unsigned> &get_breakpoint() const override { /*return this->breakpoint_*/; }
+        virtual const std::set<unsigned> &get_breakpoint() const override { return empty_breakpoint; }
 
         virtual void set_breakpoint(const std::set<unsigned> &breakpoint) override {
+            (void)breakpoint;
             /*this->breakpoint_ = get_set_intersection(breakpoint, this->check_)*/;
         }
 
@@ -50,7 +52,6 @@ namespace { // anonymous namespace {{{
 
     bool is_acc_transition(
             const spot::const_twa_graph_ptr&    aut,
-            const kofola::StateToPartitionMap&  st_to_part_map,
             const spot::scc_info&               scc_info,
             unsigned                     src,
             unsigned                     dst,
@@ -100,7 +101,7 @@ bool mstate_subs_tuple::is_upper_part() const
 {
     std::deque<std::pair<std::set<unsigned>, int> > tuple = greedy_tuple_;
 
-    for(const auto component : tuple) {
+    for(const auto& component : tuple) {
         int color = component.second;
         if(color != -1 && color != -2) {
             return false;
@@ -141,7 +142,7 @@ mstate_set complement_subs_tuple::get_init()
     std::deque<std::pair<std::set<unsigned>, int> > init_state;
 
     unsigned orig_init = this->info_.aut_->get_init_state_number();
-    if (this->info_.st_to_part_map_.at(orig_init) == this->part_index_) {
+    if (this->info_.st_to_part_map_.at(orig_init) == static_cast<int>(this->part_index_)) {
         init_state.emplace_back(std::set<unsigned>{orig_init}, -1);
         //get_all_successors_in_scc(this->info_.aut_,);
         //this->info_.aut_->edge_storage() state_is_accepting()
@@ -171,7 +172,6 @@ mstate_col_set complement_subs_tuple::upper_succ(
     std::deque<std::pair<std::set<unsigned>, int> > lower_part;
     bool breakp = true;
     int last_color = -10; // no color
-    bool contains_zero = false;
 
     for(auto component = src_subs_tuple->greedy_tuple_.rbegin(); component != src_subs_tuple->greedy_tuple_.rend(); component++) {
         int color = component->second;
@@ -189,7 +189,6 @@ mstate_col_set complement_subs_tuple::upper_succ(
                 if(!visited.count(succ)) {
                     if(is_acc_transition(
                             this->info_.aut_,
-                            this->info_.st_to_part_map_,
                             this->info_.scc_info_,
                             state, succ, symbol)) {
                         acc_states.insert(succ);
@@ -223,8 +222,6 @@ mstate_col_set complement_subs_tuple::upper_succ(
                 lower_part.emplace_front(non_acc_states, -3);
             else
                 lower_part.emplace_front(non_acc_states, 0);
-
-            contains_zero = true;
         }
     }
     // fix: only states from our SCC can be there, now takes all
@@ -234,7 +231,7 @@ mstate_col_set complement_subs_tuple::upper_succ(
 
     auto it = new_runs.begin();
     while (it != new_runs.end()) {
-        if (this->info_.st_to_part_map_.at(*it) != this->part_index_) {
+        if (this->info_.st_to_part_map_.at(*it) != static_cast<int>(this->part_index_)) {
             it = new_runs.erase(it);
         } else {
             ++it;
@@ -245,7 +242,6 @@ mstate_col_set complement_subs_tuple::upper_succ(
         if(last_color != -1) { // also when there is -10 -> nothing new, so also in this case
             succ_tuple.emplace_front(new_runs, -1);
             lower_part.emplace_front(new_runs, 0);
-            contains_zero = true;
         }
         else{
             succ_tuple[0].first.insert(new_runs.begin(), new_runs.end()); // union of the first set and the incoming runs
@@ -295,7 +291,6 @@ mstate_col_set complement_subs_tuple::lower_succ(
     std::deque<std::pair<std::set<unsigned>, int> > succ_tuple;
     int last_color = -10; // no color
     bool breakp = true;
-    bool contains_zero = false;
     bool discont_2 = false;
     bool found_right = false;
 
@@ -315,7 +310,6 @@ mstate_col_set complement_subs_tuple::lower_succ(
                 if(!visited.count(succ)) {
                     if(is_acc_transition(
                             this->info_.aut_,
-                            this->info_.st_to_part_map_,
                             this->info_.scc_info_,
                             state, succ, symbol)) {
                         acc_states.insert(succ);
@@ -366,7 +360,6 @@ mstate_col_set complement_subs_tuple::lower_succ(
             }
             else {
                 succ_tuple.emplace_front(acc_states, color); // colors 0 and -3
-                contains_zero = true;
             }
 
             last_color = succ_tuple[0].second;
@@ -401,9 +394,6 @@ mstate_col_set complement_subs_tuple::lower_succ(
             else
                 succ_tuple.emplace_front(non_acc_states, color);
 
-            if(color == 0 || color == -3)
-                contains_zero = true;
-
             last_color = succ_tuple[0].second;
             if(last_color == 2)
                 breakp = false;
@@ -432,7 +422,7 @@ mstate_col_set complement_subs_tuple::lower_succ(
 
     auto it = new_runs.begin();
     while (it != new_runs.end()) {
-        if (this->info_.st_to_part_map_.at(*it) != this->part_index_) {
+        if (this->info_.st_to_part_map_.at(*it) != static_cast<int>(this->part_index_)) {
             it = new_runs.erase(it);
         } else {
             ++it;
@@ -442,7 +432,6 @@ mstate_col_set complement_subs_tuple::lower_succ(
     if(!new_runs.empty()) {
         if(last_color == -3 || last_color == -10 || last_color == 1 || last_color == 2 || last_color == 11) { // also when there is -10 -> nothing new, so also in this case
             succ_tuple.emplace_front(new_runs, 0);
-            contains_zero = true;
         }
         else{
             succ_tuple[0].first.insert(new_runs.begin(), new_runs.end()); // union of the first set and the incoming runs
@@ -548,6 +537,7 @@ mstate_col_set complement_subs_tuple::get_succ_active(
         const bdd&                 symbol,
         bool resample)
 {
+    (void)resample;
     const mstate_subs_tuple* src_subs_tuple = dynamic_cast<const mstate_subs_tuple*>(src);
     assert(src_subs_tuple);
     assert(src_subs_tuple->active_);

@@ -45,27 +45,6 @@ public: // METHODS
   friend class kofola::complement_ncsb_delay;
 }; // mstate_ncsb }}}
 
-
-/// returns true of there is at least one outgoing accepting transition from
-/// a set of states over the given symbol in the SCC the source state is in
-bool contains_accepting_outgoing_transitions_in_scc(
-  const spot::const_twa_graph_ptr&    aut,
-  const kofola::StateToPartitionMap&  st_to_part_map,
-  const spot::scc_info&               scc_info,
-  const std::set<unsigned>&           states,
-  const bdd&                          symbol)
-{ // {{{
-  for (unsigned s : states) {
-    for (const auto &t : aut->out(s)) {
-      if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(symbol, t.cond)) {
-        if (t.acc) { return true; }
-      }
-    }
-  }
-
-  return false;
-} // contains_accepting_outgoing_transitions() }}}
-
 } // anonymous namespace }}}
 
 std::string mstate_ncsb::to_string() const

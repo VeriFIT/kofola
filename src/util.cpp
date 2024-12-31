@@ -26,6 +26,7 @@ bool all_out_trans_in_scc_acc(
 	unsigned                          scc,
 	const spot::scc_info&             si)
 { // {{{
+	(void)scc;
 	auto current_scc = si.scc_of(current_state);
 
 	for (auto &t : aut->out(current_state)) {

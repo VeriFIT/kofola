@@ -60,8 +60,9 @@ namespace kofola {
 
     bool emptiness_check::check_simul_less(const std::shared_ptr<inclusion_mstate> &dst_mstate) {
         auto cond = dst_mstate->get_acc();
+        spot::acc_cond::mark_t zero{0};
         // traversing 'stack' in reversed order, while according to theorem in thesis, the cond has to be 0
-        for (auto it = dfs_acc_stack_.rbegin(); it != dfs_acc_stack_.rend() && cond == 0; ++it) {
+        for (auto it = dfs_acc_stack_.rbegin(); it != dfs_acc_stack_.rend() && cond == zero; ++it) {
             const auto &s = (*it).first;
             if (incl_checker_->subsum_less_early(dst_mstate, s)) {
                 for (auto it2 = dfs_acc_stack_.rbegin(); it2 != dfs_acc_stack_.rend() && (*it2).first != s; ++it2) {

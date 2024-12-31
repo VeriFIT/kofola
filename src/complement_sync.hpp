@@ -239,7 +239,7 @@ namespace cola
             bool subsum_less_early(const uberstate& b)
             {
                 for(unsigned i = 0; i < part_macrostates_.size(); i++) {
-                    if(!(std::includes(this->reached_states_.begin(), this->reached_states_.end(), b.reached_states_.begin(), b.reached_states_.end()) && this->part_macrostates_[i]->subsum_less_early(*(b.part_macrostates_[i]), reached_states_))) {
+                    if(!(std::includes(this->reached_states_.begin(), this->reached_states_.end(), b.reached_states_.begin(), b.reached_states_.end()) && this->part_macrostates_[i]->subsum_less_early(*(b.part_macrostates_[i])))) {
                         return false;
                     }
                 }
@@ -250,7 +250,7 @@ namespace cola
             bool subsum_less_early_plus(const uberstate& b)
             {
                 for(unsigned i = 0; i < part_macrostates_.size(); i++) {
-                    if(!(std::includes(this->reached_states_.begin(), this->reached_states_.end(), b.reached_states_.begin(), b.reached_states_.end()) && this->part_macrostates_[i]->subsum_less_early_plus(*(b.part_macrostates_[i]), reached_states_))) {
+                    if(!(std::includes(this->reached_states_.begin(), this->reached_states_.end(), b.reached_states_.begin(), b.reached_states_.end()) && this->part_macrostates_[i]->subsum_less_early_plus(*(b.part_macrostates_[i])))) {
                         return false;
                     }
                 }
@@ -275,7 +275,7 @@ namespace cola
             const vec_macrostates& get_part_macrostates() const;
 
             /// returns the index of the active SCC (INACTIVE_SCC if no active)
-            const int get_active_scc() const;
+            int get_active_scc() const;
 
             /// get shared breakpoint
             const std::set<unsigned>& get_shared_breakpoint() const;

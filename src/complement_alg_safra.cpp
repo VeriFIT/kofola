@@ -21,6 +21,7 @@ private: // DATA MEMBERS
 
   /// the corresponding Safra tree
   safra_tree st_;
+  std::set<unsigned> empty_breakpoint {};
 
 public: // METHODS
 
@@ -34,8 +35,8 @@ public: // METHODS
   virtual bool lt(const mstate& rhs) const override;
   virtual ~mstate_safra() override { };
 
-  virtual const std::set<unsigned>& get_breakpoint() const override { return std::set<unsigned>(); }
-  virtual void set_breakpoint(const std::set<unsigned>& breakpoint) override { }
+  virtual const std::set<unsigned>& get_breakpoint() const override { return this->empty_breakpoint; }
+  virtual void set_breakpoint(const std::set<unsigned>& breakpoint) override { (void)breakpoint; }
 
   friend class kofola::complement_safra;
 }; // mstate_safra }}}
@@ -69,8 +70,6 @@ bool compare_braces(const std::vector<int>& braces, int a, int b)
   std::vector<int> b_pattern;
   a_pattern.reserve(a + 1);
   b_pattern.reserve(b + 1);
-  unsigned size_a = 0;
-  unsigned size_b = 0;
   while (a != b)
   {
     if (a > b)
@@ -78,14 +77,12 @@ bool compare_braces(const std::vector<int>& braces, int a, int b)
       a_pattern.emplace_back(a);
       // go to the parent
       a = braces[a];
-      size_a ++;
     }
     else
     {
       b_pattern.emplace_back(b);
       // go to the parent
       b = braces[b];
-      size_b ++;
     }
   }
   return nesting_cmp(a_pattern, b_pattern);
@@ -177,7 +174,7 @@ unsigned determine_color (safra_tree& next)
   decr_by.assign(next.braces_.size(), 0);
   unsigned decr = 0;
 
-  for (int b = 0; b < next.braces_.size(); ++b)
+  for (int b = 0; b < static_cast<int>(next.braces_.size()); ++b)
   {
     // At first, set it to iself
     highest_green_ancestor[b] = b;
@@ -318,7 +315,7 @@ mstate_set complement_safra::get_init()
 { // {{{
   std::set<unsigned> init_states;
   unsigned orig_init = this->info_.aut_->get_init_state_number();
-  if (this->info_.st_to_part_map_.at(orig_init) == this->part_index_) {
+  if (this->info_.st_to_part_map_.at(orig_init) == static_cast<int>(this->part_index_)) {
     init_states.insert(orig_init);
   }
 
@@ -341,6 +338,7 @@ mstate_col_set complement_safra::get_succ_track(
   const bdd&                 /*symbol*/)
 { // {{{
   assert(false);
+  return {};
 } // get_succ_track() }}}
 
 
@@ -360,11 +358,11 @@ mstate_col_set complement_safra::get_succ_active(
   const bdd&                 symbol,
   bool resample)
 { // {{{
+  (void)resample;
   const mstate_safra* src_safra = dynamic_cast<const mstate_safra*>(src);
   assert(src_safra);
 
   // all states in the scc_index should be on the same order
-  const int min_new_brace = src_safra->st_.braces_.size();
   DEBUG_PRINT_LN("src: " + src_safra->to_string());
   DEBUG_PRINT_LN("glob_reached: " + std::to_string(glob_reached));
   DEBUG_PRINT_LN("part_index_: " + std::to_string(this->part_index_));
@@ -400,7 +398,7 @@ mstate_col_set complement_safra::get_succ_active(
         DEBUG_PRINT_LN("this->info_.st_to_part_map_.at(state) = " +
           std::to_string(this->info_.st_to_part_map_.at(state)));
         DEBUG_PRINT_LN("succ_part = " + std::to_string(succ_part));
-        if (tr.acc || this->info_.st_to_part_map_.at(state) != succ_part)
+        if (tr.acc || this->info_.st_to_part_map_.at(state) != static_cast<int>(succ_part))
         { // accepting edges or leaving the partition (TODO: should be SCC?)
           // Step A1: Accepting edges generate new braces
           newb = braces.size();

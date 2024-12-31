@@ -8,6 +8,29 @@ using namespace kofola;
 using mstate_set = abstract_complement_alg::mstate_set;
 using mstate_col_set = abstract_complement_alg::mstate_col_set;
 
+namespace {
+
+/// returns true of there is at least one outgoing accepting transition from
+/// a set of states over the given symbol in the SCC the source state is in
+bool contains_accepting_outgoing_transitions_in_scc(
+  const spot::const_twa_graph_ptr&    aut,
+  const spot::scc_info&               scc_info,
+  const std::set<unsigned>&           states,
+  const bdd&                          symbol)
+{ // {{{
+  for (unsigned s : states) {
+    for (const auto &t : aut->out(s)) {
+      if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(symbol, t.cond)) {
+        if (t.acc) { return true; }
+      }
+    }
+  }
+
+  return false;
+} // contains_accepting_outgoing_transitions() }}}
+
+}
+
 complement_ncsb_delay::complement_ncsb_delay(const cmpl_info& info, unsigned part_index)
   : complement_ncsb(info, part_index)
 { }
@@ -18,7 +41,7 @@ mstate_set complement_ncsb_delay::get_init()
   std::set<unsigned> init_state;
 
   unsigned orig_init = this->info_.aut_->get_init_state_number();
-  if (this->info_.st_to_part_map_.at(orig_init) == this->part_index_) {
+  if (this->info_.st_to_part_map_.at(orig_init) == static_cast<int>(this->part_index_)) {
     init_state.insert(orig_init);
   }
 
@@ -39,7 +62,6 @@ mstate_col_set complement_ncsb_delay::get_succ_track(
   // check that safe states do not see accepting transition in the same SCC
   if (contains_accepting_outgoing_transitions_in_scc(
       this->info_.aut_,
-      this->info_.st_to_part_map_,
       this->info_.scc_info_,
       src_ncsb->safe_, symbol)) {
     return {};
@@ -50,7 +72,7 @@ mstate_col_set complement_ncsb_delay::get_succ_track(
 
   std::set<unsigned> succ_states;
   for (unsigned st : glob_reached) {
-    if (this->info_.st_to_part_map_.at(st) == this->part_index_) {
+    if (this->info_.st_to_part_map_.at(st) == static_cast<int>(this->part_index_)) {
       if (succ_safe.find(st) == succ_safe.end()) { // if not in safe
         succ_states.insert(st);
       }
@@ -154,7 +176,6 @@ mstate_col_set complement_ncsb_delay::get_succ_active(
     // 3) delta(src_ncsb->breakpoint_, symbol) contains no accepting condition
     if (contains_accepting_outgoing_transitions_in_scc(
         this->info_.aut_,
-        this->info_.st_to_part_map_,
         this->info_.scc_info_,
         src_ncsb->breakpoint_, symbol)) {
       active_mstates_.insert(new_state);
@@ -195,9 +216,6 @@ bool complement_ncsb_delay::closes_a_cycle(const mstate_ncsb *src, const mstate_
 
     // is there a path from dst to src?
     std::stack<mstate_ncsb> stack;
-    auto comparator = [](const mstate_ncsb *const &a,
-                         const mstate_ncsb *const &b)
-    { return a->lt(*b); };
     // std::set<const mstate_ncsb *, decltype(comparator)> visited(comparator);
     std::set<mstate_ncsb> visited;
 
