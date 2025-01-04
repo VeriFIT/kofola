@@ -218,8 +218,9 @@ namespace kofola {
                 auto dst_mstate = succs.back();
                 succs.pop_back();
 
-                if(empty_lang(dst_mstate))
+                if(empty_lang(dst_mstate)) {
                     continue;
+                }
 
                 // init structure
                 if(dfs_num_.count(dst_mstate) == 0)

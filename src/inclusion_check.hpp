@@ -128,10 +128,10 @@ namespace kofola {
         std::vector<std::shared_ptr<inclusion_mstate>> get_succs(const std::shared_ptr<inclusion_mstate> &src);
 
         /// returns true if a is early simul. less than b
-        bool subsum_less_early(const std::shared_ptr<inclusion_mstate> a, const std::shared_ptr<inclusion_mstate> b);
+        bool subsum_less_early(const std::shared_ptr<inclusion_mstate>& a, const std::shared_ptr<inclusion_mstate>& b);
 
         /// returns true if a is early+1 simul. less than b
-        bool subsum_less_early_plus(const std::shared_ptr<inclusion_mstate> a, const std::shared_ptr<inclusion_mstate> b);
+        bool subsum_less_early_plus(const std::shared_ptr<inclusion_mstate>& a, const std::shared_ptr<inclusion_mstate>& b);
 
         /// returns true when the provided mark_t satisfies acc_cond_, for the need of emptiness check
         bool is_accepting(spot::acc_cond::mark_t inf_cond);

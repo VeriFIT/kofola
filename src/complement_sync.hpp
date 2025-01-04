@@ -238,8 +238,11 @@ namespace cola
 
             bool subsum_less_early(const uberstate& b)
             {
+                if(!std::includes(this->reached_states_.begin(), this->reached_states_.end(), b.reached_states_.begin(), b.reached_states_.end())) {
+                    return false;
+                }
                 for(unsigned i = 0; i < part_macrostates_.size(); i++) {
-                    if(!(std::includes(this->reached_states_.begin(), this->reached_states_.end(), b.reached_states_.begin(), b.reached_states_.end()) && this->part_macrostates_[i]->subsum_less_early(*(b.part_macrostates_[i])))) {
+                    if(!this->part_macrostates_[i]->subsum_less_early(*(b.part_macrostates_[i]))) {
                         return false;
                     }
                 }
