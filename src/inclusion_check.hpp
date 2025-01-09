@@ -53,6 +53,8 @@ namespace kofola {
 
         ~inclusion_mstate() {}
 
+        const intersect_mstate& get_intersect_state() const { return state_; }
+
         friend class inclusion_check;
     };
 

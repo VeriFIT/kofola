@@ -274,22 +274,29 @@ namespace kofola {
             tmp = tarjan_stack_.back(); tarjan_stack_.pop_back();
             dfs_acc_stack_.pop_back();
             on_stack_[tmp] = false;
-            empty_lang_states_.emplace_back(tmp); // when here, each state has empty language, otherwise we would have ended
+            empty_lang_states_[tmp->get_intersect_state().first].emplace_back(tmp); // when here, each state has empty language, otherwise we would have ended
         } while (src_mstate != tmp);
     }
 
     bool emptiness_check::empty_lang(const std::shared_ptr<inclusion_mstate> & dst_mstate) {
         if(kofola::OPTIONS.params.count("early_sim") != 0 && kofola::OPTIONS.params["early_sim"] == "yes") {
-            for (const auto &empty_state: empty_lang_states_) {
+            const auto& col = empty_lang_states_[dst_mstate->get_intersect_state().first];
+            if(col.size() > MAX_SUBSUM_BUCKET) {
+                return false;
+            }
+            for (const auto &empty_state: col) {
                 if (incl_checker_->subsum_less_early(dst_mstate, empty_state)) {
                     return true;
                 }
             }
         }
 
-        if(kofola::OPTIONS.params.count("early_plus_sim") != 0 && kofola::OPTIONS.params["early_plus_sim"] == "yes")
-        {
-            for (const auto &empty_state: empty_lang_states_) {
+        if(kofola::OPTIONS.params.count("early_plus_sim") != 0 && kofola::OPTIONS.params["early_plus_sim"] == "yes") {
+            const auto& col = empty_lang_states_[dst_mstate->get_intersect_state().first];
+            if(col.size() > MAX_SUBSUM_BUCKET) {
+                return false;
+            }
+            for (const auto &empty_state: col) {
                 if (incl_checker_->subsum_less_early_plus(dst_mstate, empty_state)) {
                     return true;
                 }
