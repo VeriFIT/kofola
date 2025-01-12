@@ -22,6 +22,8 @@
 #define INCLUSION 1
 #define HYPERLTL_MC_EMPTINESS 2
 
+#define MAX_SUBSUM_BUCKET 100
+
 namespace kofola
 {
     class inclusion_check;
@@ -86,7 +88,8 @@ namespace kofola
 
         std::vector<std::pair<std::shared_ptr<inclusion_mstate>, spot::acc_cond::mark_t>> dfs_acc_stack_; /// this stack could probably be omitted and use SCCs_ instead
 
-        std::vector<std::shared_ptr<inclusion_mstate>> empty_lang_states_; /// stores states from non-trivial SCCs with empty language
+        /// stores states from non-trivial SCCs with empty language. Indexed by the states of the first automaton
+        std::map<unsigned, std::vector<std::shared_ptr<inclusion_mstate>>> empty_lang_states_;
 
         /// to stop searching when counter-example
         bool decided_ = false;

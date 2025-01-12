@@ -44,9 +44,12 @@ public: // METHODS
       auto rhs_mh = dynamic_cast<const mstate_mh*>(&rhs);
 
       auto S_subs = std::includes(states_.begin(), states_.end(), rhs_mh->states_.begin(), rhs_mh->states_.end());
-      auto B_subs = std::includes(breakpoint_.begin(), breakpoint_.end(), rhs_mh->breakpoint_.begin(), rhs_mh->breakpoint_.end());
+      if(!S_subs) {
+        return false;
+      }
 
-      return (S_subs && B_subs);
+      auto B_subs = std::includes(breakpoint_.begin(), breakpoint_.end(), rhs_mh->breakpoint_.begin(), rhs_mh->breakpoint_.end());
+      return B_subs;
   };
 
   virtual bool subsum_less_early_plus(const mstate& rhs) override {

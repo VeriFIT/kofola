@@ -249,20 +249,14 @@ namespace kofola {
         std::cout << std::endl << "==================" << std::endl; 
     }
 
-    bool inclusion_check::subsum_less_early(const std::shared_ptr<inclusion_mstate> a, const std::shared_ptr<inclusion_mstate> b) {
-        auto casted_a = a;
-        auto casted_b = b;
-
+    bool inclusion_check::subsum_less_early(const std::shared_ptr<inclusion_mstate>& a, const std::shared_ptr<inclusion_mstate>& b) {
         // between states of A only identity
-        return (casted_a->state_.first == casted_b->state_.first && aut_B_compl_.subsum_less_early(casted_a->state_.second, casted_b->state_.second));
+        return (a->state_.first == b->state_.first && aut_B_compl_.subsum_less_early(a->state_.second, b->state_.second));
     }
 
-    bool inclusion_check::subsum_less_early_plus(const std::shared_ptr<inclusion_mstate> a, const std::shared_ptr<inclusion_mstate> b) {
-        auto casted_a = a;
-        auto casted_b = b;
-
+    bool inclusion_check::subsum_less_early_plus(const std::shared_ptr<inclusion_mstate>& a, const std::shared_ptr<inclusion_mstate>& b) {
         // between states of A only identity
-        return (casted_a->state_.first == casted_b->state_.first && aut_B_compl_.subsum_less_early_plus(casted_a->state_.second, casted_b->state_.second));
+        return (a->state_.first == b->state_.first && aut_B_compl_.subsum_less_early_plus(a->state_.second, b->state_.second));
     }
 
     cola::tnba_complement::vec_state_taggedcol inclusion_check::get_successors_compl(unsigned compl_state, const bdd& letter) {
