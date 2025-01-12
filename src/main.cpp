@@ -306,6 +306,11 @@ int main(int argc, char *argv[])
 	auto dict = spot::make_bdd_dict();
 
     if(options.operation == "inclusion") {
+		// default params for efficient inclusion test
+		if(kofola::OPTIONS.params.count("preproc_incl_B") == 0) kofola::OPTIONS.params["preproc_incl_B"] = "low";
+		if(kofola::OPTIONS.params.count("merge_iwa") == 0) kofola::OPTIONS.params["merge_iwa"] = "yes";
+		if(kofola::OPTIONS.params.count("merge_det") == 0) kofola::OPTIONS.params["merge_det"] = "yes";
+
         spot::parsed_aut_ptr parsed_aut_A = nullptr;
         spot::parsed_aut_ptr parsed_aut_B = nullptr;
         try {
