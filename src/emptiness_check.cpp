@@ -210,6 +210,9 @@ namespace kofola {
         if(incl_checker_->is_accepting(path_cond) && simulation_prunning(src_mstate))
            return false;
 
+        // already visited states
+        std::map<unsigned, std::set<unsigned>> visited {};
+
         update_structures(src_mstate);
 
         while(src_mstate != nullptr) {
@@ -218,6 +221,13 @@ namespace kofola {
                 auto dst_mstate = succs.back();
                 succs.pop_back();
 
+                auto inter_state = dst_mstate->get_intersect_state();
+                auto &target = visited[inter_state.first];
+                if(target.find(inter_state.second) != target.end()) {
+                    continue;
+                }
+
+                target.insert(inter_state.second);
                 if(empty_lang(dst_mstate)) {
                     continue;
                 }
