@@ -57,7 +57,7 @@ is included in the language specified by `B.hoa` and prints the result to the st
 ./kofola A.hoa B.hoa --inclusion
 ```
 
-Additional parameters might be passed using `--params`, e.g., `--params=merge_iwa=True`. 
+Additional parameters might be passed using `--params`, e.g., `--params='merge_iwa=True'`. 
 In order to get a program help, run
 
 ```
