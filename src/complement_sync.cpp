@@ -184,21 +184,21 @@ namespace cola {
 
         // here, we check whether SCC numbering provided by Spot is compatible
         // with the reachability relation, to be used in advanced simulation-based pruning
-        std::vector<std::set<int>> aux_reach = this->get_reachable_vector();
-        for (unsigned st = 0; st < this->aut_->num_states(); ++st) {
-            const std::set<int> &old_set = aux_reach[st];
-            std::set<unsigned> new_set;
-            for (const auto &el: old_set) {
-                assert(el >= 0);
-                assert(this->si_.scc_of(st) >=
-                       this->si_.scc_of(el));     // check scc numbering is reverse-compatible with reachability
-                new_set.insert(static_cast<unsigned>(el));
+        if(kofola::has_value("sim-ms-prune", "yes", kofola::OPTIONS.params)) {
+            std::vector<std::set<int>> aux_reach = this->get_reachable_vector();
+            for (unsigned st = 0; st < this->aut_->num_states(); ++st) {
+                const std::set<int> &old_set = aux_reach[st];
+                std::set<unsigned> new_set;
+                for (const auto &el: old_set) {
+                    assert(el >= 0);
+                    assert(this->si_.scc_of(st) >=
+                        this->si_.scc_of(el));     // check scc numbering is reverse-compatible with reachability
+                    new_set.insert(static_cast<unsigned>(el));
+                }
+
+                this->reachable_vector_.push_back(new_set);
             }
-
-            this->reachable_vector_.push_back(new_set);
         }
-
-
         partitions_ = create_partitions(this->si_, kofola::OPTIONS);
         //const size_t num_partitions = std::get<0>(partitions_);
         /*kofola::PartitionToTypeMap part_to_type_map = std::get<1>(partitions_);
