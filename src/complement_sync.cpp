@@ -1823,6 +1823,8 @@ namespace cola {
         }
         for (const auto &st_trans_pair: compl_states) {
             const unsigned &src = st_trans_pair.first;
+            unsigned spot_state = result->new_state();
+            (void) spot_state;
             assert(spot_state == src);
 
             for (const auto &bdd_vec_tgt_pair: st_trans_pair.second) {
