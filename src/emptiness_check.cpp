@@ -48,13 +48,17 @@ namespace kofola {
                 else
                     empty = gs(init);
                 if(!empty){
-                    // std::cout << cnt_ << "\n";
+                    #ifdef ENABLE_COUNTER
+                        std::cout << cnt_ << "\n";
+                    #endif
                     return false;
                 }
             }
         }
 
-        // std::cout << cnt_ << "\n"; // for benchmarks
+        #ifdef ENABLE_COUNTER
+            std::cout << cnt_ << "\n";
+        #endif
         return true;
     }
 
@@ -81,7 +85,10 @@ namespace kofola {
     }
 
     bool emptiness_check::gs_edited(std::shared_ptr<inclusion_mstate> src_mstate) {
-        // cnt_ = 1;
+        #ifdef ENABLE_COUNTER
+            cnt_ = 1;
+        #endif
+        
         // stacks to replace recursion
         std::stack<std::shared_ptr<inclusion_mstate>> src_mstates;
         src_mstates.push(nullptr); // default
@@ -118,7 +125,9 @@ namespace kofola {
                 if (dfs_num_[dst_mstate] == UNDEFINED && !check_simul_less(dst_mstate))
                 {
                     // recursion nesting
-                    // cnt_++;
+                    #ifdef ENABLE_COUNTER
+                        cnt_++;
+                    #endif
                     path_conds.push(path_cond);
                     path_cond |= dst_mstate->get_acc();
                     src_mstates.push(src_mstate);
@@ -195,7 +204,9 @@ namespace kofola {
     }
 
     bool emptiness_check::gs(std::shared_ptr<inclusion_mstate> src_mstate) {
-        // cnt_ = 1;
+        #ifdef ENABLE_COUNTER
+            cnt_ = 1;
+        #endif
         // stacks to replace recursion
         std::stack<std::shared_ptr<inclusion_mstate>> src_mstates;
         src_mstates.push(nullptr); // default
@@ -232,7 +243,9 @@ namespace kofola {
 
                 if (dfs_num_[dst_mstate] == UNDEFINED)
                 {
-                    // cnt_++;
+                    #ifdef ENABLE_COUNTER
+                        cnt_++;
+                    #endif
                     path_conds.push(path_cond);
                     path_cond |= dst_mstate->get_acc();
                     src_mstates.push(src_mstate);

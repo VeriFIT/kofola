@@ -17,6 +17,17 @@ list(APPEND CXX_FLAGS "-fPIC")
 list(APPEND CXX_FLAGS "-fno-strict-aliasing")
 list(APPEND CXX_FLAGS "-Weffc++")
 
+# for counting states in inclusion
+option(ENABLE_CNT "Enable counter debugging" OFF)
+
+if(ENABLE_CNT)
+    add_definitions(-DENABLE_COUNTER)
+    set(BINARY_SUFFIX "_cnt") 
+else()
+    set(BINARY_SUFFIX "") 
+endif()
+# end for counting states in inclusion
+
 add_executable(kofola
 	main.cpp
 	kofola.cpp
@@ -48,4 +59,8 @@ find_library(SPOT spot)
 target_link_libraries(kofola
 	${SPOT}
 	${BDDX}
+)
+
+set_target_properties(kofola PROPERTIES
+    OUTPUT_NAME "kofola${BINARY_SUFFIX}"  # Append _cnt if ENABLE_CNT is ON
 )

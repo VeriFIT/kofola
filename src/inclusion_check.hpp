@@ -40,13 +40,14 @@ namespace kofola {
         /// equality of inclusion macrostates
         bool eq(const inclusion_mstate& rhs) const {
             const auto *rhs_incl_ms = dynamic_cast<const inclusion_mstate*>(&rhs);
-            return (state_ == rhs_incl_ms->state_);
+            return (state_ == rhs_incl_ms->state_ && acc_ == rhs_incl_ms->acc_);
         }
 
         /// ordering of inclusion macrostate
         bool lt(const inclusion_mstate& rhs) const {
             const auto *rhs_incl_ms = dynamic_cast<const inclusion_mstate*>(&rhs);
             if(state_ != rhs_incl_ms->state_) {return state_ < rhs_incl_ms->state_;}
+            else {return acc_ < rhs_incl_ms->acc_;}
 
             return false;
         }
