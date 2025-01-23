@@ -95,6 +95,10 @@ namespace kofola
         bool decided_ = false;
         bool empty_ = true;
 
+        #ifdef ENABLE_COUNTER
+            unsigned cnt_ = 0;
+        #endif
+
         std::map<std::shared_ptr<inclusion_mstate>,std::set<std::shared_ptr<inclusion_mstate>>> state_jumps_to_cutoffs_; /// for the new approach to jump to cut off states
     };
 }
