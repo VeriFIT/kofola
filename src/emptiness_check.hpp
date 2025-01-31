@@ -95,6 +95,9 @@ namespace kofola
         bool decided_ = false;
         bool empty_ = true;
 
+        /// to know if early(+1) prunning should be used
+        bool early_prune_ = false;
+
         #ifdef ENABLE_COUNTER
             unsigned cnt_ = 0;
         #endif

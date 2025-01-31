@@ -31,6 +31,12 @@ namespace kofola {
     emptiness_check::emptiness_check(inclusion_check *incl_checker):
     incl_checker_(incl_checker)
     {
+        if(kofola::OPTIONS.params.count("early_sim") != 0 && kofola::OPTIONS.params["early_sim"] == "yes") {
+            early_prune_ = true;
+        }
+        if(kofola::OPTIONS.params.count("early_plus_sim") != 0 && kofola::OPTIONS.params["early_plus_sim"] == "yes") {
+            early_prune_ = true;
+        }
     }
 
     bool emptiness_check::empty() {
@@ -103,8 +109,9 @@ namespace kofola {
 
         while(src_mstate != nullptr) {
             // early(+1) simul can decide nonemptiness
-            if(incl_checker_->is_accepting(path_cond) && simulation_prunning(src_mstate))
+            if(early_prune_ && incl_checker_->is_accepting(path_cond) && simulation_prunning(src_mstate))
                 return false;
+            dfs_acc_stack_.emplace_back(src_mstate, src_mstate->get_acc());
 
             bool recursion_like = false;
             while(!succs.empty()) {
@@ -223,7 +230,7 @@ namespace kofola {
 
         while(src_mstate != nullptr) {
             // early(+1) simul can decide nonemptiness
-            if(incl_checker_->is_accepting(path_cond) && simulation_prunning(src_mstate))
+            if(early_prune_ && incl_checker_->is_accepting(path_cond) && simulation_prunning(src_mstate))
                 return false;
             dfs_acc_stack_.emplace_back(src_mstate, src_mstate->get_acc());
             
