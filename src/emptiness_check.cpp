@@ -158,6 +158,9 @@ namespace kofola {
                         // same scenarios as for the exploration in original GS alg.
                         if(dfs_num_[jumping_dst_mstate] == UNDEFINED && !check_simul_less(jumping_dst_mstate))
                         {
+                            #ifdef ENABLE_COUNTER
+                                cnt_++;
+                            #endif
                             // recursion nesting
                             path_conds.push(path_cond);
                             path_cond |= jumping_dst_mstate->get_acc();
