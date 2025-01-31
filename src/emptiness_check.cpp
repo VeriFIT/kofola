@@ -99,13 +99,13 @@ namespace kofola {
         auto succs = incl_checker_->get_succs(src_mstate);
         auto path_cond = spot::acc_cond::mark_t();
 
-        // early(+1) simul can decide nonemptiness
-        if(incl_checker_->is_accepting(path_cond) && simulation_prunning(src_mstate))
-           return false;
-
         update_structures(src_mstate);
 
         while(src_mstate != nullptr) {
+            // early(+1) simul can decide nonemptiness
+            if(incl_checker_->is_accepting(path_cond) && simulation_prunning(src_mstate))
+                return false;
+
             bool recursion_like = false;
             while(!succs.empty()) {
                 auto dst_mstate = succs.back();
@@ -183,6 +183,8 @@ namespace kofola {
             }
 
             // backtracking from recursion
+            if(!dfs_acc_stack_.empty())
+                dfs_acc_stack_.pop_back();
             src_mstate = src_mstates.top();
             src_mstates.pop();
             succs = successors.top();
@@ -196,7 +198,7 @@ namespace kofola {
 
     void emptiness_check::update_structures(const std::shared_ptr<inclusion_mstate>& src_mstate) {
         SCCs_.push(src_mstate);
-        dfs_acc_stack_.emplace_back(src_mstate, src_mstate->get_acc());
+        // dfs_acc_stack_.emplace_back(src_mstate, src_mstate->get_acc());
         dfs_num_[src_mstate] = index_;
         index_++;
         tarjan_stack_.push_back(src_mstate);
@@ -217,13 +219,14 @@ namespace kofola {
         auto succs = incl_checker_->get_succs(src_mstate);
         auto path_cond = spot::acc_cond::mark_t();
 
-        // early(+1) simul can decide nonemptiness
-        if(incl_checker_->is_accepting(path_cond) && simulation_prunning(src_mstate))
-           return false;
-
         update_structures(src_mstate);
 
         while(src_mstate != nullptr) {
+            // early(+1) simul can decide nonemptiness
+            if(incl_checker_->is_accepting(path_cond) && simulation_prunning(src_mstate))
+                return false;
+            dfs_acc_stack_.emplace_back(src_mstate, src_mstate->get_acc());
+            
             bool recursion_like = false;
             while(!succs.empty()) {
                 auto dst_mstate = succs.back();
@@ -269,6 +272,8 @@ namespace kofola {
                 remove_SCC(src_mstate);
             }
             // backtracking from recursion
+            if(!dfs_acc_stack_.empty())
+                dfs_acc_stack_.pop_back();
             src_mstate = src_mstates.top();
             src_mstates.pop();
             succs = successors.top();
