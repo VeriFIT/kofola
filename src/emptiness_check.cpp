@@ -31,6 +31,12 @@ namespace kofola {
     emptiness_check::emptiness_check(inclusion_check *incl_checker):
     incl_checker_(incl_checker)
     {
+        if(kofola::OPTIONS.params.count("early_sim") != 0 && kofola::OPTIONS.params["early_sim"] == "yes") {
+            early_prune_ = true;
+        }
+        if(kofola::OPTIONS.params.count("early_plus_sim") != 0 && kofola::OPTIONS.params["early_plus_sim"] == "yes") {
+            early_prune_ = true;
+        }
     }
 
     bool emptiness_check::empty() {
@@ -99,13 +105,14 @@ namespace kofola {
         auto succs = incl_checker_->get_succs(src_mstate);
         auto path_cond = spot::acc_cond::mark_t();
 
-        // early(+1) simul can decide nonemptiness
-        if(incl_checker_->is_accepting(path_cond) && simulation_prunning(src_mstate))
-           return false;
-
         update_structures(src_mstate);
 
         while(src_mstate != nullptr) {
+            // early(+1) simul can decide nonemptiness
+            if(early_prune_ && incl_checker_->is_accepting(path_cond) && simulation_prunning(src_mstate))
+                return false;
+            dfs_acc_stack_.emplace_back(src_mstate, src_mstate->get_acc());
+
             bool recursion_like = false;
             while(!succs.empty()) {
                 auto dst_mstate = succs.back();
@@ -151,6 +158,9 @@ namespace kofola {
                         // same scenarios as for the exploration in original GS alg.
                         if(dfs_num_[jumping_dst_mstate] == UNDEFINED && !check_simul_less(jumping_dst_mstate))
                         {
+                            #ifdef ENABLE_COUNTER
+                                cnt_++;
+                            #endif
                             // recursion nesting
                             path_conds.push(path_cond);
                             path_cond |= jumping_dst_mstate->get_acc();
@@ -183,6 +193,8 @@ namespace kofola {
             }
 
             // backtracking from recursion
+            if(!dfs_acc_stack_.empty())
+                dfs_acc_stack_.pop_back();
             src_mstate = src_mstates.top();
             src_mstates.pop();
             succs = successors.top();
@@ -196,7 +208,7 @@ namespace kofola {
 
     void emptiness_check::update_structures(const std::shared_ptr<inclusion_mstate>& src_mstate) {
         SCCs_.push(src_mstate);
-        dfs_acc_stack_.emplace_back(src_mstate, src_mstate->get_acc());
+        // dfs_acc_stack_.emplace_back(src_mstate, src_mstate->get_acc());
         dfs_num_[src_mstate] = index_;
         index_++;
         tarjan_stack_.push_back(src_mstate);
@@ -217,13 +229,14 @@ namespace kofola {
         auto succs = incl_checker_->get_succs(src_mstate);
         auto path_cond = spot::acc_cond::mark_t();
 
-        // early(+1) simul can decide nonemptiness
-        if(incl_checker_->is_accepting(path_cond) && simulation_prunning(src_mstate))
-           return false;
-
         update_structures(src_mstate);
 
         while(src_mstate != nullptr) {
+            // early(+1) simul can decide nonemptiness
+            if(early_prune_ && incl_checker_->is_accepting(path_cond) && simulation_prunning(src_mstate))
+                return false;
+            dfs_acc_stack_.emplace_back(src_mstate, src_mstate->get_acc());
+            
             bool recursion_like = false;
             while(!succs.empty()) {
                 auto dst_mstate = succs.back();
@@ -269,6 +282,8 @@ namespace kofola {
                 remove_SCC(src_mstate);
             }
             // backtracking from recursion
+            if(!dfs_acc_stack_.empty())
+                dfs_acc_stack_.pop_back();
             src_mstate = src_mstates.top();
             src_mstates.pop();
             succs = successors.top();
