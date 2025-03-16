@@ -28,8 +28,10 @@ namespace kofola {
     }
 
     inclusion_check::inclusion_check(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B)
-    : aut_A_(init_aut_A(aut_A)), aut_B_compl_(init_compl_aut_b(aut_B)),
-        support_(aut_A->num_states()), compat_(aut_A->num_states())
+    : aut_A_(init_aut_A(aut_A)), 
+      support_(aut_A_->num_states()), 
+      compat_(aut_A_->num_states()), 
+      aut_B_compl_(init_compl_aut_b(aut_B))
     {
         symbols_from_A(aut_A);
         // msupport_ = tmp_bdds.second;
@@ -291,8 +293,6 @@ namespace kofola {
         // extract A state and compl.B state from intersection macrostate to compute successors
         unsigned state_of_A = casted_src->state_.first;
         unsigned compl_state = casted_src->state_.second;
-
-        auto spot_s_A = aut_A_->state_from_number(state_of_A);
 
         bdd msupport = bddtrue;
         bdd n_s_compat = bddfalse;
