@@ -28,10 +28,12 @@ namespace kofola {
     }
 
     inclusion_check::inclusion_check(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B)
-    : aut_A_(init_aut_A(aut_A)), aut_B_compl_(init_compl_aut_b(aut_B)){
-        auto tmp_bdds = symbols_from_A(aut_A_);
-        msupport_ = tmp_bdds.second;
-        n_s_compat_ = tmp_bdds.first;
+    : aut_A_(init_aut_A(aut_A)), aut_B_compl_(init_compl_aut_b(aut_B)),
+        support_(aut_A->num_states()), compat_(aut_A->num_states())
+    {
+        symbols_from_A(aut_A);
+        // msupport_ = tmp_bdds.second;
+        // n_s_compat_ = tmp_bdds.first;
 
         unsigned init_A = aut_A_->get_init_state_number();
 
@@ -225,20 +227,17 @@ namespace kofola {
         return aut_reduced;
     }
 
-    std::pair<bdd, bdd> inclusion_check::symbols_from_A(const spot::twa_graph_ptr &aut_A) {
-        // taken from complement_sync
-        bdd res = bddfalse;
-        bdd msupport = bddtrue;
-
-        for (unsigned s = 0; s < aut_A->num_states(); s++) {
-            for (const auto &t: aut_A->out(s)) {
-                res |= t.cond;
-                msupport &= bdd_support(t.cond);
-                DEBUG_PRINT_LN("automaton alphabet symbol: " + std::to_string(t.cond));
+    void inclusion_check::symbols_from_A(const spot::twa_graph_ptr &aut_A) {
+        for (unsigned i = 0; i < aut_A->num_states(); ++i) {
+            bdd res_support = bddtrue;
+            bdd res_compat = bddfalse;
+            for (const auto &out: aut_A->out(i)) {
+                res_support &= bdd_support(out.cond);
+                res_compat |= out.cond;
             }
+            support_[i] = res_support;
+            compat_[i] = res_compat;
         }
-
-        return std::make_pair(res, msupport);
     }
 
     void inclusion_check::print_mstate(const std::shared_ptr<inclusion_mstate> a) {
@@ -276,12 +275,10 @@ namespace kofola {
         }
         // if not computed yet, compute
         if(succs_B.empty()) {
-            // std::cout << std::to_string(compl_state) << " , " << std::to_string(letter) << "\n";
             const cola::tnba_complement::uberstate &us_B = aut_B_compl_.num_to_uberstate(compl_state);
             succs_B = aut_B_compl_.get_succ_uberstates(us_B, letter);
             compl_state_storage_[compl_state].emplace_back(std::pair(succs_B, letter));
         }
-
         return succs_B;
     }
 
@@ -294,43 +291,39 @@ namespace kofola {
         // extract A state and compl.B state from intersection macrostate to compute successors
         unsigned state_of_A = casted_src->state_.first;
         unsigned compl_state = casted_src->state_.second;
-        
-        bdd all = n_s_compat_;
-        struct BDDComparator {
-            bool operator()(const bdd& a, const bdd& b) const {
-                return a.id() < b.id();
-            }
-        };
 
         auto spot_s_A = aut_A_->state_from_number(state_of_A);
-        std::map<bdd, std::set<unsigned>,BDDComparator> cond_to_states;
-        for (auto i: aut_A_->succ(spot_s_A)) {
-            if (cond_to_states.count(i->cond()) == 0)
-                cond_to_states[i->cond()] = {};
-        
-            cond_to_states[i->cond()].emplace(aut_A_->state_number(i->dst()));
-        }
 
-        for (auto const& i: cond_to_states) {
-            get_successors_compl(compl_state, i.first);
-            std::set<unsigned> succs_A = i.second;
-            if(succs_A.empty())
-                continue;
+        bdd msupport = bddtrue;
+        bdd n_s_compat = bddfalse;
+
+        msupport &= support_[state_of_A];
+        n_s_compat |= compat_[state_of_A];
+
+        bdd all = n_s_compat;
+
+
+        while(all != bddfalse) {
+            bdd letter = bdd_satoneset(all, msupport,bddfalse);
+            all -= letter;
+            std::vector<unsigned> myVector = {state_of_A};
+            std::set<unsigned> succs_A = get_all_successors(aut_A_,myVector,letter);
+            // if(succs_A.empty())
+            //     continue;
 
             cola::tnba_complement::vec_state_taggedcol succs_B;
             if(!aut_B_compl_.get_is_sink_created() || compl_state != aut_B_compl_.get_sink_state())
             {
-                succs_B = get_successors_compl(compl_state, i.first);
+                succs_B = get_successors_compl(compl_state, letter);
             }
             else
             {
                 succs_B.push_back({aut_B_compl_.get_sink_state(), {}});
             }
-            
             if(!succs_A.empty() && !succs_B.empty())
             {
                 cartesian_prod = get_cartesian_prod(state_of_A, succs_A, succs_B,
-                                                    i.first);
+                    letter);
                 for (auto& succ : cartesian_prod) {
                     result.emplace_back(std::move(succ));
                 }
