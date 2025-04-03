@@ -208,7 +208,6 @@ namespace kofola {
 
     void emptiness_check::update_structures(const std::shared_ptr<inclusion_mstate>& src_mstate) {
         SCCs_.push(src_mstate);
-        // dfs_acc_stack_.emplace_back(src_mstate, src_mstate->get_acc());
         dfs_num_[src_mstate] = index_;
         index_++;
         tarjan_stack_.push_back(src_mstate);
@@ -297,11 +296,9 @@ namespace kofola {
 
     void emptiness_check::remove_SCC(const std::shared_ptr<inclusion_mstate> & src_mstate) {
         SCCs_.pop();
-        // dfs_acc_stack_.pop_back();
         std::shared_ptr<inclusion_mstate> tmp;
         do {
             tmp = tarjan_stack_.back(); tarjan_stack_.pop_back();
-            // dfs_acc_stack_.pop_back();
             on_stack_[tmp] = false;
             empty_lang_states_[tmp->get_intersect_state().first].emplace_back(tmp); // when here, each state has empty language, otherwise we would have ended
         } while (src_mstate != tmp);
@@ -338,10 +335,8 @@ namespace kofola {
     bool emptiness_check::merge_acc_marks(const std::shared_ptr<inclusion_mstate> &dst_mstate) {
         spot::acc_cond::mark_t cond = dst_mstate->get_acc();
         std::shared_ptr<inclusion_mstate> tmp;
-        // SCCs_.push(dst_mstate);
         do {
             tmp = SCCs_.top(); SCCs_.pop();
-            // bool root_encountered = dst_mstate->get_encountered();
             if(dfs_num_[tmp] > dfs_num_[dst_mstate])
                 cond |= tmp->get_acc();
             else {
@@ -353,7 +348,6 @@ namespace kofola {
                 return true;
             }
         } while(dfs_num_[tmp] > dfs_num_[dst_mstate]);
-        // dst_mstate->set_encountered(true); // mark visited root
         tmp->accumulator_ |= cond;
         SCCs_.push(tmp);
 
