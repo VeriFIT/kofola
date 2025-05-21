@@ -24,11 +24,13 @@ namespace kofola {
     private:
         intersect_mstate state_;
         spot::acc_cond::mark_t acc_; /// acc. marks on transition incoming to the state
+        spot::acc_cond::mark_t accumulator_;
         bdd trans_cond_; /// transition condition to come to this state
         bool encountered_ = false;
     public:
         inclusion_mstate() {
-            ;
+            acc_ = spot::acc_cond::mark_t{};
+            accumulator_ = spot::acc_cond::mark_t{};
         }
 
         spot::acc_cond::mark_t get_acc() {return acc_; }
@@ -40,14 +42,14 @@ namespace kofola {
         /// equality of inclusion macrostates
         bool eq(const inclusion_mstate& rhs) const {
             const auto *rhs_incl_ms = dynamic_cast<const inclusion_mstate*>(&rhs);
-            return (state_ == rhs_incl_ms->state_ && acc_ == rhs_incl_ms->acc_);
+            return (state_ == rhs_incl_ms->state_);
         }
 
         /// ordering of inclusion macrostate
         bool lt(const inclusion_mstate& rhs) const {
             const auto *rhs_incl_ms = dynamic_cast<const inclusion_mstate*>(&rhs);
             if(state_ != rhs_incl_ms->state_) {return state_ < rhs_incl_ms->state_;}
-            else {return acc_ < rhs_incl_ms->acc_;}
+            // else {return acc_ < rhs_incl_ms->acc_;}
 
             return false;
         }
@@ -57,6 +59,7 @@ namespace kofola {
         const intersect_mstate& get_intersect_state() const { return state_; }
 
         friend class inclusion_check;
+        friend class emptiness_check;
     };
 
     /// main class for on the fly inclussion procedure
@@ -76,8 +79,8 @@ namespace kofola {
 
         std::vector<std::shared_ptr<kofola::inclusion_mstate>> init_states_;
         spot::twa_graph_ptr aut_A_;
-        bdd msupport_;
-        bdd n_s_compat_;
+        std::vector<bdd> support_;
+        std::vector<bdd> compat_;
         cola::tnba_complement aut_B_compl_;
         /// acc_cond that should be satisfied for inclusion to not hold
         spot::acc_cond::acc_code acc_cond_;
@@ -119,7 +122,7 @@ namespace kofola {
         spot::twa_graph_ptr preprocess(const spot::twa_graph_ptr &aut);
 
         /// returns "alphabet" of automaton aut_A
-        std::pair<bdd, bdd> symbols_from_A(const spot::twa_graph_ptr &aut_A);
+        void symbols_from_A(const spot::twa_graph_ptr &aut_A);
 
         /// implements getter fot initial states, so the emptiness check can obtain them
         std::vector<std::shared_ptr<inclusion_mstate>> get_initial_states();
