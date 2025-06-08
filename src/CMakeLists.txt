@@ -47,6 +47,7 @@ add_executable(kofola
 	util.cpp
 	emptiness_check.cpp
 	inclusion_check.cpp
+	complement_alg_tela_det.cpp
 	)
 
 target_compile_options(kofola PRIVATE ${CXX_FLAGS})
