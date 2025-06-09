@@ -50,6 +50,33 @@ public:
                   rr_pointer_ = rr_ptr;              
               }
     
+    std::string to_str() {
+      std::string result = "[";
+
+      // Add check
+      result += "C=" + std::to_string(check_);
+
+      // Add safes
+      for (size_t i = 0; i < safes_.size(); ++i) {
+          result += ",S" + std::to_string(i) + "=" + std::to_string(safes_[i]);
+      }
+
+      // Add m_check
+      for (size_t i = 0; i < m_check_.size(); ++i) {
+          result += ",M" + std::to_string(i) + "=" + std::to_string(m_check_[i]);
+      }
+
+      // Add breakpoint
+      result += ",B=" + std::to_string(breakpoint_);
+
+      for(size_t i = 0; i < disjuncts_.size(); i++) {
+          result += ",Disj" + std::to_string(i) + "=[" + disjuncts_[i]->to_str() + "]";
+      }
+
+      result += "]";
+      return result; 
+    }
+    
     void passivate();
     void activate();
     void move_rr_ptr();
@@ -69,7 +96,7 @@ class disj_mstate
 {
 private:
     std::set<unsigned> check_;
-    std::vector<std::set<unsigned>> safes_;
+    std::set<unsigned> safes_;
     std::set<unsigned> breakpoint_;
     bool active_;
     std::vector<std::shared_ptr<conj_mstate>> conjuncts_;
@@ -83,12 +110,57 @@ private:
 
 public:
     disj_mstate(spot::acc_cond cond);
+    disj_mstate(std::set<unsigned> check,
+                std::set<unsigned> safes,
+                std::set<unsigned> breakpoint,
+                // bool active,
+                std::vector<std::shared_ptr<conj_mstate>> conjuncts,
+                std::vector<unsigned> inf_colors,
+                std::vector<unsigned> fin_colors,
+                bool infs,
+                bool fins,
+                unsigned rr_ptr
+              ) {
+                  check_ = std::move(check);
+                  safes_ = std::move(safes);
+                  breakpoint_ = std::move(breakpoint);
+                  // active_ = active;
+                  conjuncts_ = conjuncts;
+                  inf_colors_ = std::move(inf_colors);
+                  fin_colors_ = std::move(fin_colors);
+                  infs_ = infs;
+                  fins_ = fins;    
+                  rr_pointer_ = rr_ptr;              
+              }
+    
+      std::string to_str() {
+        std::string result = "[";
+
+        // Add check
+        result += "C=" + std::to_string(check_);
+
+        // Add safes
+        result += ",S=" + std::to_string(safes_);
+
+        // Add breakpoint
+        result += ",B=" + std::to_string(breakpoint_);
+
+        for(size_t i = 0; i < conjuncts_.size(); i++) {
+            result += ",Conj" + std::to_string(i) + "=[" + conjuncts_[i]->to_str() + "]";
+        }
+
+        result += "]";
+        return result; 
+      }
 
     void passivate();
     void activate();
 
+    void move_rr_ptr();
+    unsigned get_rr_ptr();
+
     std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned>> succs(
-    const std::set<unsigned>&  new_runs,
+    const std::vector<unsigned>&  new_runs,
     const bdd&                 symbol,
     kofola::cmpl_info& info);
 
