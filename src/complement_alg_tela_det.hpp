@@ -49,33 +49,12 @@ public:
                   fins_ = fins;    
                   rr_pointer_ = rr_ptr;              
               }
-    
-    std::string to_str() {
-      std::string result = "[";
 
-      // Add check
-      result += "C=" + std::to_string(check_);
+    std::set<unsigned> get_all_states();
 
-      // Add safes
-      for (size_t i = 0; i < safes_.size(); ++i) {
-          result += ",S" + std::to_string(i) + "=" + std::to_string(safes_[i]);
-      }
+    std::shared_ptr<conj_mstate> clone() const;
 
-      // Add m_check
-      for (size_t i = 0; i < m_check_.size(); ++i) {
-          result += ",M" + std::to_string(i) + "=" + std::to_string(m_check_[i]);
-      }
-
-      // Add breakpoint
-      result += ",B=" + std::to_string(breakpoint_);
-
-      for(size_t i = 0; i < disjuncts_.size(); i++) {
-          result += ",Disj" + std::to_string(i) + "=[" + disjuncts_[i]->to_str() + "]";
-      }
-
-      result += "]";
-      return result; 
-    }
+    std::string to_str();
     
     void passivate();
     void activate();
@@ -85,7 +64,7 @@ public:
     std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned>> succs(
     const std::vector<unsigned>&  new_runs,
     const bdd&                 symbol,
-    kofola::cmpl_info& info);
+    const kofola::cmpl_info& info);
 
     bool operator==(const conj_mstate& other) const;
 
@@ -132,26 +111,13 @@ public:
                   fins_ = fins;    
                   rr_pointer_ = rr_ptr;              
               }
-    
-      std::string to_str() {
-        std::string result = "[";
 
-        // Add check
-        result += "C=" + std::to_string(check_);
+    std::set<unsigned> get_all_states();
 
-        // Add safes
-        result += ",S=" + std::to_string(safes_);
+    std::shared_ptr<disj_mstate> clone() const;
 
-        // Add breakpoint
-        result += ",B=" + std::to_string(breakpoint_);
 
-        for(size_t i = 0; i < conjuncts_.size(); i++) {
-            result += ",Conj" + std::to_string(i) + "=[" + conjuncts_[i]->to_str() + "]";
-        }
-
-        result += "]";
-        return result; 
-      }
+    std::string to_str();
 
     void passivate();
     void activate();
@@ -159,10 +125,10 @@ public:
     void move_rr_ptr();
     unsigned get_rr_ptr();
 
-    std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned>> succs(
+    std::vector<std::pair<std::shared_ptr<disj_mstate>, unsigned>> succs(
     const std::vector<unsigned>&  new_runs,
     const bdd&                 symbol,
-    kofola::cmpl_info& info);
+    const kofola::cmpl_info& info);
 
     bool operator==(const disj_mstate& other) const;
 

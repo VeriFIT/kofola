@@ -6,6 +6,73 @@ using namespace kofola;
 using mstate_set = abstract_complement_alg::mstate_set;
 using mstate_col_set = abstract_complement_alg::mstate_col_set;
 
+std::set<unsigned> union_vecs(std::vector<std::set<unsigned>> sets) {
+    std::set<unsigned> result;
+
+    for(unsigned i = 0; i < sets.size(); i++) {
+        result = kofola::get_set_union(result, sets[i]);
+    }
+
+    return result;
+}
+
+/// computes the Cartesian product of a vector of sets (no repetitions
+        /// assumed in the inputs)
+template<class A>
+std::vector<std::vector<A>> compute_cartesian_prod(
+        const std::vector<std::vector<A>> vec_of_sets){ // {{{
+    const size_t length = vec_of_sets.size();
+    std::vector<std::vector<A>> result;
+
+    // this vector will iterate over all possible tuples of indices
+    std::vector<size_t> indices(length, 0);
+
+    while (true) {
+        std::vector<A> vec;
+        for (size_t i = 0; i < length; ++i) {
+            assert(indices[i] < vec_of_sets[i].size());
+            vec.push_back(vec_of_sets[i][indices[i]]);
+        }
+
+        assert(vec.size() == length);
+        result.push_back(std::move(vec));
+
+        // generate the next vector of indices, if possible
+        bool generated = false;
+        for (size_t j = 0; j < length; ++j) {
+            ++(indices[j]);
+            if (indices[j] < vec_of_sets[j].size()) { // indices is set
+                generated = true;
+                break;
+            } else { // we need to move into the next index
+                indices[j] = 0;
+            }
+        }
+
+        if (!generated) { break; }
+    }
+
+    return result;
+} // compute_cartesian_prod() }}}
+
+struct PairCompareByContentConj {
+    bool operator()(const std::pair<std::shared_ptr<conj_mstate>, unsigned>& a,
+                    const std::pair<std::shared_ptr<conj_mstate>, unsigned>& b) const {
+        if (*(a.first) < *(b.first)) return true;
+        if (*(b.first) < *(a.first)) return false;
+        return a.second < b.second;  // tie-breaker
+    }
+};
+
+struct PairCompareByContentDisj {
+    bool operator()(const std::pair<std::shared_ptr<disj_mstate>, unsigned>& a,
+                    const std::pair<std::shared_ptr<disj_mstate>, unsigned>& b) const {
+        if (*(a.first) < *(b.first)) return true;
+        if (*(b.first) < *(a.first)) return false;
+        return a.second < b.second;  // tie-breaker
+    }
+};
+
 conj_mstate::conj_mstate(spot::acc_cond cond) {
     auto all_conjs = cond.top_conjuncts();
     std::vector<spot::acc_cond> disjs;
@@ -18,9 +85,11 @@ conj_mstate::conj_mstate(spot::acc_cond cond) {
             if(inf.count() != 0) {
                 safes_.emplace_back(); // add empty set
                 inf_colors_.emplace_back(inf.min_set() - 1); // min_set returns incremented value 
+                infs_ = true;
             } else if(fin.count() != 0) {
                 m_check_.emplace_back(); // add empty set
                 fin_colors_.emplace_back(fin.min_set() - 1); // min_set returns incremented value 
+                fins_ = true;
             }
         } else {
             disjs.emplace_back(all_conjs[i]);
@@ -29,8 +98,72 @@ conj_mstate::conj_mstate(spot::acc_cond cond) {
 
     // inner disjuncts
     for(auto disj: disjs) {
-        disjuncts_.emplace_back(disj_mstate(disj));
+        std::shared_ptr<disj_mstate> tmp(new disj_mstate(disj));
+        disjuncts_.emplace_back(tmp);
     }
+}
+
+std::shared_ptr<conj_mstate> conj_mstate::clone() const {
+    // Deep copy disjuncts
+    std::vector<std::shared_ptr<disj_mstate>> copied_disjuncts;
+    for (const auto& d : disjuncts_) {
+        copied_disjuncts.push_back(d->clone());
+    }
+
+    return std::make_shared<conj_mstate>(
+            check_,
+            safes_,
+            m_check_,
+            breakpoint_,
+            copied_disjuncts,
+            inf_colors_,
+            fin_colors_,
+            infs_,
+            fins_,
+            rr_pointer_
+    );
+}
+
+std::set<unsigned> conj_mstate::get_all_states() {
+    std::set<unsigned> result;
+    auto all_safes = union_vecs(safes_);
+    auto all_Ms = union_vecs(m_check_);
+
+    result = kofola::get_set_union(check_, all_safes);
+    result = kofola::get_set_union(result, all_Ms);
+
+    for(auto disj: disjuncts_) {
+        result = kofola::get_set_union(result, disj->get_all_states());
+    }
+
+    return result;
+}
+
+std::string conj_mstate::to_str() {
+    std::string result = "[";
+
+    // Add check
+    result += "C=" + std::to_string(check_);
+
+    // Add safes
+    for (size_t i = 0; i < safes_.size(); ++i) {
+        result += ",S" + std::to_string(i) + "=" + std::to_string(safes_[i]);
+    }
+
+    // Add m_check
+    for (size_t i = 0; i < m_check_.size(); ++i) {
+        result += ",M" + std::to_string(i) + "=" + std::to_string(m_check_[i]);
+    }
+
+    // Add breakpoint
+    result += ",B=" + std::to_string(breakpoint_);
+
+    for(size_t i = 0; i < disjuncts_.size(); i++) {
+        result += ",Disj" + std::to_string(i) + "=[" + disjuncts_[i]->to_str() + "]";
+    }
+
+    result += "]";
+    return result; 
 }
 
 void conj_mstate::passivate() {
@@ -71,9 +204,8 @@ void conj_mstate::move_rr_ptr() {
         breakpoint_ = kofola::get_set_union(check_, union_vecs(m_check_));
     } else {
         if(disjuncts_.size() != 0)
-            disjuncts_[rr_pointer_]->activate();
+            disjuncts_[rr_pointer_ - offset]->activate();
     }
-
 }
 
 unsigned conj_mstate::get_rr_ptr() {
@@ -152,28 +284,41 @@ std::vector<std::vector<std::set<unsigned>>> nondeter_scatter(std::vector<std::s
     return result;
 }
 
-std::set<unsigned> union_vecs(std::vector<std::set<unsigned>> sets) {
-    std::set<unsigned> result;
-
-    for(unsigned i = 0; i < sets.size(); i++) {
-        result = kofola::get_set_union(result, sets[i]);
+bool contains(
+        const std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned>>& vec,
+        const std::pair<std::shared_ptr<conj_mstate>, unsigned>& value
+) {
+    for (const auto& item : vec) {
+        if (*item.first == *value.first && item.second == value.second) {
+            return true;
+        }
     }
+    return false;
+}
 
-    return result;
+bool contains(
+        const std::vector<std::pair<std::shared_ptr<disj_mstate>, unsigned>>& vec,
+        const std::pair<std::shared_ptr<disj_mstate>, unsigned>& value
+) {
+    for (const auto& item : vec) {
+        if (*item.first == *value.first && item.second == value.second) {
+            return true;
+        }
+    }
+    return false;
 }
 
 std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned>> conj_mstate::succs(
     const std::vector<unsigned>&  new_runs,
     const bdd&                  symbol,
-    kofola::cmpl_info& info) {
-
+    const kofola::cmpl_info& info) {
     // NCSB
     std::vector<std::set<unsigned>> S_nexts;
     std::set<unsigned> S_nexts_all;
 
     for(unsigned i = 0; i < safes_.size(); i++) {
         auto S = safes_[i];
-        if(contains_outgoing_transitions_in_scc_given_color(info.aut_, info.scc_info_, safes_[i], symbol, spot::acc_cond::mark_t(inf_colors_[i]))) {
+        if(contains_outgoing_transitions_in_scc_given_color(info.aut_, info.scc_info_, safes_[i], symbol, spot::acc_cond::mark_t{inf_colors_[i]})) {
             return {}; // violated safe runs
         }
         auto S_next = kofola::get_all_successors_in_scc(info.aut_, info.scc_info_, safes_[i], symbol);
@@ -200,32 +345,56 @@ std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned>> conj_mstate::succ
         auto m_next = kofola::get_all_successors_in_scc(info.aut_, info.scc_info_, m_check_[i], symbol);
         m_check_nexts.emplace_back(m_next);
     }
-
     auto B_from_MH = get_all_successors_in_scc_without_color(info.aut_, info.scc_info_, kofola::get_set_difference(breakpoint_, check_), symbol, spot::acc_cond::mark_t(fin_colors_.begin(), fin_colors_.end()));
-
     // final 
     unsigned runs_cnt = new_runs.size();
     std::vector<unsigned> run_map(new_runs.size(), 0);
-    unsigned maxVal = 2 + disjuncts_.size();
+    unsigned maxVal = 1 + disjuncts_.size();
 
+//    std::set<std::pair<std::shared_ptr<conj_mstate>, unsigned>, PairCompareByContentConj> result;
     std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned>> result;
-    std::vector<unsigned> result_acc;
 
+    std::vector<unsigned> result_acc;
     while (true) {
         std::set<unsigned> enrich_C;
         std::vector<unsigned> enrich_M;
-        std::vector<std::set<unsigned>> new_runs_disj;
+        std::vector<std::set<unsigned>> new_runs_disj(disjuncts_.size());
+
+        unsigned scattered = 0;
+
         for(unsigned i = 0; i < runs_cnt; i++) {
             if(run_map[i] == 0) { // this is not optimal at all - generating for infs if there are none
-                if(infs_)
+                if(infs_) {
                     enrich_C.insert(new_runs[i]);
+                    scattered++;
+                }
             } else if(run_map[i] == 1) {
-                if(fins_)
+                if(fins_) {
                     enrich_M.emplace_back(new_runs[i]);
+                    scattered++;
+                }
             } else {
-                new_runs_disj[run_map[i]].insert(new_runs[i]);
+                if(disjuncts_.size() > 0) {
+                    new_runs_disj[run_map[i] - 2].insert(new_runs[i]);
+                    scattered++;
+                }
             }
         }
+
+        // Increment the vector like a number in base (maxVal+1)
+        int idx = runs_cnt - 1;
+        while (idx >= 0) {
+            if (run_map[idx] < maxVal) {
+                run_map[idx]++;
+                break;
+            } else {
+                run_map[idx] = 0;
+                idx--;
+            }
+        }
+
+        if(scattered != runs_cnt)
+            continue;
 
         auto all_guesing_Ms = nondeter_scatter(m_check_nexts, enrich_M);
 
@@ -235,7 +404,7 @@ std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned>> conj_mstate::succ
         if(B.empty() && (infs_ || fins_) && rr_pointer_ == 0) {
             move_ncsbm_ptr = true;
         }
-
+        
         std::vector<std::vector<std::pair<std::shared_ptr<disj_mstate>, unsigned>>> new_disjs;
         for(unsigned i = 0; i < disjuncts_.size(); i++) {
             new_disjs.emplace_back(disjuncts_[i]->succs(std::vector<unsigned>(new_runs_disj[i].begin(), new_runs_disj[i].end()),symbol,info));
@@ -245,7 +414,6 @@ std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned>> conj_mstate::succ
         if(prod_of_disj_succs.size() == 0) // disjuncts_.size() == 0
             prod_of_disj_succs.emplace_back();
 
-        
         if(!fins_)
             all_guesing_Ms = {{}}; // one empty vector to allow one cycle
 
@@ -266,24 +434,23 @@ std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned>> conj_mstate::succ
                     accs.emplace_back(next_pair.second);
                 }
                 
-                
                 std::shared_ptr<conj_mstate> tmp(new conj_mstate(C, S_nexts, all_guesing_Ms[i], B, succ_disj, inf_colors_, fin_colors_, infs_, fins_, rr_pointer_));
-                
                 bool move_disj_ptr = false;
                 if(rr_pointer_ > 1 && accs[rr_pointer_] == 1) {
                     move_disj_ptr = true;
                 }
-
+                
                 if(move_ncsbm_ptr || move_disj_ptr) tmp->move_rr_ptr();
 
                 unsigned curr_acc = 0;
+
                 if(tmp->get_rr_ptr() == 0 && (move_ncsbm_ptr || move_disj_ptr))
                     curr_acc = 1;
-                
-                result.emplace_back(tmp,curr_acc);
+                if(!contains(result, {tmp, curr_acc}))
+                    result.emplace_back(tmp, curr_acc);
             }
             // }
-            
+                
             // guessed
             for(unsigned k = 0; k < all_guesing_safes.size(); k++) {
                 auto B = kofola::get_set_union(B_from_MH, guessing_break);
@@ -301,36 +468,25 @@ std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned>> conj_mstate::succ
                         succ_disj.emplace_back(next_pair.first);
                     }
 
-                    std::shared_ptr<conj_mstate> tmp(new conj_mstate(C, S_nexts, all_guesing_Ms[i], B, succ_disj, inf_colors_, fin_colors_, infs_, fins_, rr_pointer_));
+                    std::shared_ptr<conj_mstate> tmp2(new conj_mstate(C, S_nexts, all_guesing_Ms[i], B, succ_disj, inf_colors_, fin_colors_, infs_, fins_, rr_pointer_));
                     
-                    tmp->move_rr_ptr();
+                    tmp2->move_rr_ptr();
                     unsigned curr_acc = 0;
-                    if(tmp->get_rr_ptr() == 0)
+                    if(tmp2->get_rr_ptr() == 0)
                         curr_acc = 1;
-                    
-                    result.emplace_back(tmp,curr_acc);
+
+                    if(!contains(result, {tmp2, curr_acc}))
+                        result.emplace_back(tmp2, curr_acc);
                 }
                 // }
             }
         }
-
-        // Increment the vector like a number in base (maxVal+1)
-        int idx = runs_cnt - 1;
-        while (idx >= 0) {
-            if (run_map[idx] < maxVal) {
-                run_map[idx]++;
-                break;
-            } else {
-                run_map[idx] = 0;
-                idx--;
-            }
-        }
-
         // If we tried to increment beyond the first element, we're done
         if (idx < 0)
             break;
     }
 
+//    std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned >> v(result.begin(),result.end());
     return result;
 }
 
@@ -384,8 +540,61 @@ disj_mstate::disj_mstate(spot::acc_cond cond) {
 
     // inner conjuncts
     for(auto conj: conjs) {
-        conjuncts_.emplace_back(conj_mstate(conj));
+        std::shared_ptr<conj_mstate> tmp(new conj_mstate(conj));
+        conjuncts_.emplace_back(tmp);
     }
+}
+
+std::shared_ptr<disj_mstate> disj_mstate::clone() const {
+    // Deep copy conjuncts
+    std::vector<std::shared_ptr<conj_mstate>> copied_conjuncts;
+    for (const auto& c : conjuncts_) {
+        copied_conjuncts.push_back(c->clone());
+    }
+
+    return std::make_shared<disj_mstate>(
+            check_,
+            safes_,
+            breakpoint_,
+            copied_conjuncts,
+            inf_colors_,
+            fin_colors_,
+            infs_,
+            fins_,
+            rr_pointer_
+    );
+}
+
+std::set<unsigned> disj_mstate::get_all_states() {
+    std::set<unsigned> result;
+
+    result = kofola::get_set_union(check_, safes_);
+
+    for(auto conj: conjuncts_) {
+        result = kofola::get_set_union(result, conj->get_all_states());
+    }
+
+    return result;
+}
+
+std::string disj_mstate::to_str() {
+    std::string result = "[";
+
+    // Add check
+    result += "C=" + std::to_string(check_);
+
+    // Add safes
+    result += ",S=" + std::to_string(safes_);
+
+    // Add breakpoint
+    result += ",B=" + std::to_string(breakpoint_);
+
+    for(size_t i = 0; i < conjuncts_.size(); i++) {
+        result += ",Conj" + std::to_string(i) + "=[" + conjuncts_[i]->to_str() + "]";
+    }
+
+    result += "]";
+    return result; 
 }
 
 void disj_mstate::passivate() {
@@ -425,34 +634,30 @@ void disj_mstate::move_rr_ptr() {
         if(conjuncts_.size() != 0)
             conjuncts_[rr_pointer_]->passivate();
     }
-    
     rr_pointer_ = (rr_pointer_ + 1) % (infs_and_fins_cnt + conjuncts_.size());
-
     if(rr_pointer_ == 0 && infs_) {
         breakpoint_ = check_;
     } else if(rr_pointer_ == 0 && fins_) {
         breakpoint_ = kofola::get_set_union(check_, safes_);
     } else {
         if(conjuncts_.size() != 0)
-            conjuncts_[rr_pointer_]->activate();
+            conjuncts_[rr_pointer_ - infs_and_fins_cnt]->activate();
     }
 }
 
 unsigned disj_mstate::get_rr_ptr() {
     return rr_pointer_;
 }
-std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned>> disj_mstate::succs(const std::vector<unsigned>&  new_runs,
+std::vector<std::pair<std::shared_ptr<disj_mstate>, unsigned>> disj_mstate::succs(const std::vector<unsigned>&  new_runs,
     const bdd&                 symbol,
-    kofola::cmpl_info& info) {
-    
+    const kofola::cmpl_info& info) {
     // NCSB
     // check violation of safe
     for(unsigned i = 0; i < inf_colors_.size(); i++) {
-        if(contains_outgoing_transitions_in_scc_given_color(info.aut_, info.scc_info_, safes_, symbol, spot::acc_cond::mark_t(inf_colors_[i]))) {
+        if(contains_outgoing_transitions_in_scc_given_color(info.aut_, info.scc_info_, safes_, symbol, spot::acc_cond::mark_t{inf_colors_[i]})) {
             return {}; // violated safe runs
         }
     }
-
     auto S_next = kofola::get_all_successors_in_scc(info.aut_, info.scc_info_, safes_, symbol);
     auto C_next = kofola::get_all_successors_in_scc(info.aut_, info.scc_info_, check_, symbol);
     C_next = kofola::get_set_difference(C_next, S_next);
@@ -464,19 +669,23 @@ std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned>> disj_mstate::succ
     auto guessing_S = kofola::get_set_union(S_next, B_next);
 
     // MH
-    auto B_from_MH = get_all_successors_in_scc_without_color(info.aut_, info.scc_info_, breakpoint_, symbol, spot::acc_cond::mark_t(fin_colors_[rr_pointer_]));
-    auto C_from_MH = kofola::get_set_union(C_next, S_next);
+    std::set<unsigned> B_from_MH = {};
+    std::set<unsigned> C_from_MH = {};
+    if(fins_) {
+        auto B_from_MH = get_all_successors_in_scc_without_color(info.aut_, info.scc_info_, breakpoint_, symbol, spot::acc_cond::mark_t{fin_colors_[rr_pointer_]});
+        auto C_from_MH = kofola::get_set_union(C_next, S_next);
+    }
 
     // final 
-    std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned>> result;
+    std::vector<std::pair<std::shared_ptr<disj_mstate>, unsigned>> result;
     std::vector<unsigned> result_acc;
 
     std::vector<std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned>>> new_conjs;
     for(unsigned i = 0; i < conjuncts_.size(); i++) {
         new_conjs.emplace_back(conjuncts_[i]->succs(new_runs,symbol,info));
     }
-    auto prod_of_conj_succs = compute_cartesian_prod(new_conjs);
 
+    auto prod_of_conj_succs = compute_cartesian_prod(new_conjs);
     for(unsigned i = 0; i < prod_of_conj_succs.size(); i++) {
          auto tmp_conj = prod_of_conj_succs[i];
                 
@@ -519,25 +728,27 @@ std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned>> disj_mstate::succ
         unsigned curr_acc = 0;
         if(tmp->get_rr_ptr() == 0 && move_ptr)
             curr_acc = 1;
-        
-        result.emplace_back(tmp,curr_acc);
+
+        if(!contains(result, {tmp, curr_acc}))
+            result.emplace_back(tmp, curr_acc);
 
         // guessing
         if(rr_pointer_ >= inf_colors_.size())
             continue;
         
-        std::shared_ptr<disj_mstate> tmp(new disj_mstate(guessing_C, guessing_S, guessing_B, succ_conj, inf_colors_, fin_colors_, infs_, fins_, rr_pointer_));
+        std::shared_ptr<disj_mstate> tmp2(new disj_mstate(guessing_C, guessing_S, guessing_B, succ_conj, inf_colors_, fin_colors_, infs_, fins_, rr_pointer_));
         
-        tmp->move_rr_ptr();
+        tmp2->move_rr_ptr();
 
         curr_acc = 0;
-        if(tmp->get_rr_ptr() == 0)
+        if(tmp2->get_rr_ptr() == 0)
             curr_acc = 1;
-        
-        result.emplace_back(tmp,curr_acc);
-    }
-   
 
+        if(!contains(result, {tmp2, curr_acc}))
+            result.emplace_back(tmp2, curr_acc);
+    }
+
+//    std::vector<std::pair<std::shared_ptr<disj_mstate>, unsigned >> v(result.begin(),result.end());
     return result;
 }
 
@@ -580,8 +791,13 @@ namespace { // {{{
     public: // METHODS
 
     /// constructor
-    mstate_tela_det(spot::acc_cond cond) : conj_(cond)
-    { }
+    mstate_tela_det(spot::acc_cond cond) : conj_(std::make_shared<conj_mstate>(cond))
+    { 
+    }
+
+    mstate_tela_det(std::shared_ptr<conj_mstate> conj) : conj_(conj)
+    { 
+    }
 
     virtual std::string to_string() const override;
     virtual bool is_active() const override { return this->active_; }
@@ -633,13 +849,25 @@ namespace { // {{{
 
         if (this->info_.st_to_part_map_.at(orig_init) == static_cast<int>(this->part_index_)) {
             init_state.insert(orig_init);
-    }
+        }
 
-    mstate_set result;
-    std::shared_ptr<mstate> ms(new mstate_mh(init_state, {}, false));
-    result.push_back(ms);
+        mstate_set result;
 
-    return result;
+        std::shared_ptr<mstate_tela_det> ms(new mstate_tela_det(info_.aut_->acc()));
+        if(init_state.size() == 0) {
+            return {ms};
+        }
+
+        auto all_inits = ms->conj_->succs(std::vector<unsigned>(init_state.begin(),init_state.end()), bddtrue, this->info_);
+        for(auto init: all_inits) {
+            std::shared_ptr<mstate_tela_det> ms_succ(new mstate_tela_det(init.first));
+            ms_succ->conj_->passivate();
+            ms_succ->conj_->activate();
+            std::cout << init.first->to_str() << "\n";
+            result.push_back(ms_succ);
+        }
+
+        return result;
     } // get_init() }}}
 
     mstate_col_set complement_tela_det::get_succ_track(
@@ -647,34 +875,42 @@ namespace { // {{{
     const mstate*              src,
     const bdd&                 symbol)
     { // {{{
-    DEBUG_PRINT_LN("Miyano-Hayashi successor");
-    DEBUG_PRINT_LN("glob_reached = " + std::to_string(glob_reached));
-    DEBUG_PRINT_LN("src = " + std::to_string(*src));
-    DEBUG_PRINT_LN("symbol = " + std::to_string(symbol));
+        const mstate_tela_det* src_tela_det = dynamic_cast<const mstate_tela_det*>(src);
+//        assert(src_ncsb);
+//        assert(!src_ncsb->active_);
 
-    assert(src_mh);
-    assert(!src_mh->active_);
-
-    std::set<unsigned> states;
-    for (unsigned st : glob_reached) {
-        if (this->info_.st_to_part_map_.at(st) == static_cast<int>(this->part_index_)) {
-        states.insert(st);
+        auto tmp = kofola::get_set_difference(glob_reached,src_tela_det->conj_->get_all_states());
+        std::vector<unsigned> new_runs;
+        for(auto state: tmp) {
+            if(this->info_.st_to_part_map_.at(state) == static_cast<int>(this->part_index_)) {
+                new_runs.emplace_back(state);
+            }
         }
+
+        auto succ_states = src_tela_det->conj_->succs(new_runs,symbol,this->info_);
+        mstate_col_set res;
+        for(auto suc: succ_states) {
+            suc.first->passivate();
+            std::shared_ptr<mstate> ms(new mstate_tela_det(suc.first));
+            if(suc.second == 0)
+                res.emplace_back(ms, std::set<unsigned>{});
+            else
+                res.emplace_back(std::make_pair(ms, std::set<unsigned>{suc.second}));
+        }
+
+        return res;
     }
+    
+    
+    mstate_set complement_tela_det::lift_track_to_active(const mstate* src) {
+        const mstate_tela_det* src_tela_det = dynamic_cast<const mstate_tela_det*>(src);
 
-    std::shared_ptr<mstate> ms(new mstate_mh(states, {}, false));
-    return {{ms, {}}};
-    } // get_succ_track() }}}
+        std::shared_ptr<mstate> ms(new mstate_tela_det(src_tela_det->conj_->clone()));
 
-    mstate_set complement_tela_det::lift_track_to_active(const mstate* src)
-    { // {{{
-    const mstate_mh* src_mh = dynamic_cast<const mstate_mh*>(src);
-    assert(src_mh);
-    assert(!src_mh->active_);
-
-    std::shared_ptr<mstate> ms(new mstate_mh(src_mh->states_, src_mh->states_, true));
-    return {ms};
-    } // lift_track_to_active() }}}
+        return {ms};
+    }
+    
+    // lift_track_to_active() }}}
 
     mstate_col_set complement_tela_det::get_succ_active(
     const std::set<unsigned>&  glob_reached,
@@ -682,91 +918,28 @@ namespace { // {{{
     const bdd&                 symbol,
     bool resample)
     {
-    const mstate_mh* src_mh = dynamic_cast<const mstate_mh*>(src);
-    assert(src_mh);
-    assert(src_mh->active_);
+        const mstate_tela_det* src_tela_det = dynamic_cast<const mstate_tela_det*>(src);
 
-    DEBUG_PRINT_LN("tracking successor of: " + std::to_string(*src_mh));
-    mstate_mh tmp(src_mh->states_, {}, false);
-    mstate_col_set track_succ = this->get_succ_track(glob_reached, &tmp, symbol);
-
-    if (track_succ.size() == 0) { return {};}
-    assert(track_succ.size() == 1);
-
-    const mstate_mh* track_ms = dynamic_cast<const mstate_mh*>(track_succ[0].first.get());
-    assert(track_ms);
-
-    DEBUG_PRINT_LN("obtained track ms: " + std::to_string(*track_ms));
-
-    std::set<unsigned> succ_break = kofola::get_all_successors_in_scc(
-        this->info_.aut_, this->info_.scc_info_, src_mh->breakpoint_, symbol);
-
-    // intersect with what is really reachable (for simulation pruning)
-    succ_break = kofola::get_set_intersection(succ_break, glob_reached);
-
-    mstate_col_set result;
-    if (succ_break.empty() && resample) { // hit breakpoint
-        if (this->use_round_robin()) {
-        std::shared_ptr<mstate> ms(new mstate_mh(track_ms->states_, {}, false));
-        result.push_back({ms, {0}});
-        } else { // no round robin
-        std::shared_ptr<mstate> ms(new mstate_mh(track_ms->states_, track_ms->states_, true));
-        result.push_back({ms, {0}});
-        }
-    }
-    else { // no breakpoint
-        std::shared_ptr<mstate> ms(new mstate_mh(track_ms->states_, succ_break, true));
-        result.push_back({ms, {}});
-    }
-
-    return result;
-}
-
-complement_tela_det::~complement_tela_det()
-{ }
-
-/// computes the Cartesian product of a vector of sets (no repetitions
-        /// assumed in the inputs)
-template<class A>
-std::vector<std::vector<A>> compute_cartesian_prod(
-        const std::vector<std::vector<A>> vec_of_sets){ // {{{
-    const size_t length = vec_of_sets.size();
-    std::vector<std::vector<A>> result;
-
-    // this vector will iterate over all possible tuples of indices
-    std::vector<size_t> indices(length, 0);
-
-    while (true) {
-        std::vector<A> vec;
-        for (size_t i = 0; i < length; ++i) {
-            assert(indices[i] < vec_of_sets[i].size());
-            vec.push_back(vec_of_sets[i][indices[i]]);
-        }
-
-        assert(vec.size() == length);
-        result.push_back(std::move(vec));
-
-        // generate the next vector of indices, if possible
-        bool generated = false;
-        for (size_t j = 0; j < length; ++j) {
-            ++(indices[j]);
-            if (indices[j] < vec_of_sets[j].size()) { // indices is set
-                generated = true;
-                break;
-            } else { // we need to move into the next index
-                indices[j] = 0;
+        auto tmp = kofola::get_set_difference(glob_reached,src_tela_det->conj_->get_all_states());
+        std::vector<unsigned> new_runs;
+        for(auto state: tmp) {
+            if(this->info_.st_to_part_map_.at(state) == static_cast<int>(this->part_index_)) {
+                new_runs.emplace_back(state);
             }
         }
 
-        if (!generated) { break; }
+        auto succ_states = src_tela_det->conj_->succs(new_runs,symbol,this->info_);
+        mstate_col_set res;
+        for(auto suc: succ_states) {
+            std::shared_ptr<mstate> ms(new mstate_tela_det(suc.first));
+            if(suc.second == 0)
+                res.emplace_back(ms, std::set<unsigned>{});
+            else
+                res.emplace_back(std::make_pair(ms, std::set<unsigned>{suc.second}));
+        }
+
+        return res;
     }
 
-    return result;
-} // compute_cartesian_prod() }}}
-
-/// removes duplicit values (warning: can change order!)
-template <class T>
-static void remove_duplicit(T& t){ // {{{
-    std::sort(t.begin(), t.end());
-    t.erase(std::unique(t.begin(), t.end()), t.end());
-} // remove_duplicit }}}
+complement_tela_det::~complement_tela_det()
+{ }
