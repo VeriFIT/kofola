@@ -224,7 +224,7 @@ bool contains_outgoing_transitions_in_scc_given_color(
   for (unsigned s : states) {
     for (const auto &t : aut->out(s)) {
       if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(symbol, t.cond)) {
-        if (t.acc == color) { return true; }
+        if (t.acc & color) { return true; }
       }
     }
   }
@@ -395,8 +395,12 @@ std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned>> conj_mstate::succ
             }
         }
 
-        if(scattered != runs_cnt)
+        if(scattered != runs_cnt) {
+            if(idx < 0)
+                break;
+
             continue;
+        }
 
         auto all_guesing_Ms = nondeter_scatter(m_check_nexts, enrich_M);
 
@@ -652,7 +656,7 @@ void disj_mstate::move_rr_ptr() {
     rr_pointer_ = (rr_pointer_ + 1) % (infs_and_fins_cnt + conjuncts_.size());
     if(rr_pointer_ == 0 && infs_) {
         breakpoint_ = check_;
-    } else if(rr_pointer_ == 0 && fins_) {
+    } else if(rr_pointer_ < infs_and_fins_cnt && fins_) {
         breakpoint_ = kofola::get_set_union(check_, safes_);
     } else {
         if(conjuncts_.size() != 0)
@@ -893,7 +897,7 @@ namespace { // {{{
             std::shared_ptr<mstate_tela_det> ms_succ(new mstate_tela_det(init.first));
             ms_succ->conj_->passivate();
 //            ms_succ->conj_->activate();
-            std::cout << init.first->to_str() << "\n";
+            //std::cout << init.first->to_str() << "\n";
             result.push_back(ms_succ);
         }
 
