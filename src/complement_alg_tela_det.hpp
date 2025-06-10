@@ -29,19 +29,19 @@ public:
                 std::vector<std::set<unsigned>> safes,
                 std::vector<std::set<unsigned>> m_check,
                 std::set<unsigned> breakpoint,
-                // bool active,
                 std::vector<std::shared_ptr<disj_mstate>> disjuncts,
                 std::vector<unsigned> inf_colors,
                 std::vector<unsigned> fin_colors,
                 bool infs,
                 bool fins,
-                unsigned rr_ptr
+                unsigned rr_ptr,
+                bool active
               ) {
                   check_ = std::move(check);
                   safes_ = std::move(safes);
                   m_check_ = std::move(m_check);
                   breakpoint_ = std::move(breakpoint);
-                  // active_ = active;
+                  active_ = active;
                   disjuncts_ = disjuncts;
                   inf_colors_ = std::move(inf_colors);
                   fin_colors_ = std::move(fin_colors);
@@ -55,7 +55,11 @@ public:
     std::shared_ptr<conj_mstate> clone() const;
 
     std::string to_str();
-    
+
+    bool get_activity() {
+        return active_;
+    }
+
     void passivate();
     void activate();
     void move_rr_ptr();
@@ -92,18 +96,18 @@ public:
     disj_mstate(std::set<unsigned> check,
                 std::set<unsigned> safes,
                 std::set<unsigned> breakpoint,
-                // bool active,
                 std::vector<std::shared_ptr<conj_mstate>> conjuncts,
                 std::vector<unsigned> inf_colors,
                 std::vector<unsigned> fin_colors,
                 bool infs,
                 bool fins,
-                unsigned rr_ptr
+                unsigned rr_ptr,
+                bool active
               ) {
                   check_ = std::move(check);
                   safes_ = std::move(safes);
                   breakpoint_ = std::move(breakpoint);
-                  // active_ = active;
+                  active_ = active;
                   conjuncts_ = conjuncts;
                   inf_colors_ = std::move(inf_colors);
                   fin_colors_ = std::move(fin_colors);

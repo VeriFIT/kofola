@@ -120,7 +120,8 @@ std::shared_ptr<conj_mstate> conj_mstate::clone() const {
             fin_colors_,
             infs_,
             fins_,
-            rr_pointer_
+            rr_pointer_,
+            active_
     );
 }
 
@@ -140,7 +141,7 @@ std::set<unsigned> conj_mstate::get_all_states() {
 }
 
 std::string conj_mstate::to_str() {
-    std::string result = "[";
+    std::string result = std::to_string("[ (") + ((this->active_)? "Act" : "Pas") + std::to_string(") ");
 
     // Add check
     result += "C=" + std::to_string(check_);
@@ -162,7 +163,7 @@ std::string conj_mstate::to_str() {
         result += ",Disj" + std::to_string(i) + "=[" + disjuncts_[i]->to_str() + "]";
     }
 
-    result += "]";
+    result += " | " + std::to_string(rr_pointer_) + "]";
     return result; 
 }
 
@@ -188,16 +189,17 @@ void conj_mstate::activate() {
 }
 
 void conj_mstate::move_rr_ptr() {
+    unsigned offset = 0;
+    if(infs_ || fins_)
+        offset = 1;
+
     if(rr_pointer_ == 0 && (fins_ || infs_)) {
         breakpoint_ = {};
     } else {
         if(disjuncts_.size() != 0)
-            disjuncts_[rr_pointer_]->passivate();
+            disjuncts_[rr_pointer_ - offset]->passivate();
     }
-    
-    unsigned offset = 0;
-    if(infs_ || fins_)
-        offset = 1;
+
     rr_pointer_ = (rr_pointer_ + 1) % (offset + disjuncts_.size());
 
     if(rr_pointer_ == 0 && (fins_ || infs_)) {
@@ -401,13 +403,17 @@ std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned>> conj_mstate::succ
         auto B = kofola::get_set_union(B_from_MH,B_from_NCSB);
         auto C = kofola::get_set_union(C_next, enrich_C);
         bool move_ncsbm_ptr = false;
-        if(B.empty() && (infs_ || fins_) && rr_pointer_ == 0) {
+        if(B.empty() && (infs_ || fins_) && rr_pointer_ == 0 && active_) {
             move_ncsbm_ptr = true;
         }
         
         std::vector<std::vector<std::pair<std::shared_ptr<disj_mstate>, unsigned>>> new_disjs;
         for(unsigned i = 0; i < disjuncts_.size(); i++) {
-            new_disjs.emplace_back(disjuncts_[i]->succs(std::vector<unsigned>(new_runs_disj[i].begin(), new_runs_disj[i].end()),symbol,info));
+            auto new_disj = disjuncts_[i]->succs(std::vector<unsigned>(new_runs_disj[i].begin(), new_runs_disj[i].end()),symbol,info);
+            if(new_disj.empty()) {
+                return {};
+            }
+            new_disjs.emplace_back(new_disj);
         }
 
         auto prod_of_disj_succs = compute_cartesian_prod(new_disjs);
@@ -425,38 +431,37 @@ std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned>> conj_mstate::succ
 
             for(unsigned j = 0; j < prod_of_disj_succs.size(); j++) {
                 auto tmp_disj = prod_of_disj_succs[j];
-                
+
                 // extract disjs and acc.
                 std::vector<std::shared_ptr<disj_mstate>> succ_disj;
                 std::vector<unsigned> accs;
                 for(auto next_pair: tmp_disj) {
-                    succ_disj.emplace_back(next_pair.first);
+                    succ_disj.emplace_back(next_pair.first->clone());
                     accs.emplace_back(next_pair.second);
                 }
                 
-                std::shared_ptr<conj_mstate> tmp(new conj_mstate(C, S_nexts, all_guesing_Ms[i], B, succ_disj, inf_colors_, fin_colors_, infs_, fins_, rr_pointer_));
+                std::shared_ptr<conj_mstate> tmp(new conj_mstate(C, S_nexts, all_guesing_Ms[i], B, succ_disj, inf_colors_, fin_colors_, infs_, fins_, rr_pointer_, active_));
                 bool move_disj_ptr = false;
-                if(rr_pointer_ > 1 && accs[rr_pointer_] == 1) {
+                if(rr_pointer_ >= (infs_ || fins_) && accs[rr_pointer_ - (infs_ || fins_)] == 1) {
                     move_disj_ptr = true;
                 }
                 
-                if(move_ncsbm_ptr || move_disj_ptr) tmp->move_rr_ptr();
+                if((move_ncsbm_ptr || move_disj_ptr) && active_) tmp->move_rr_ptr();
 
                 unsigned curr_acc = 0;
-
-                if(tmp->get_rr_ptr() == 0 && (move_ncsbm_ptr || move_disj_ptr))
+                if(tmp->get_rr_ptr() == 0 && (move_ncsbm_ptr || move_disj_ptr) && active_)
                     curr_acc = 1;
                 if(!contains(result, {tmp, curr_acc}))
                     result.emplace_back(tmp, curr_acc);
+
             }
             // }
                 
             // guessed
-            for(unsigned k = 0; k < all_guesing_safes.size(); k++) {
+            for(unsigned k = 0; k < all_guesing_safes.size() && active_ && rr_pointer_ == 0 && infs_ && !B_from_NCSB.empty(); k++) {
                 auto B = kofola::get_set_union(B_from_MH, guessing_break);
                 auto C = kofola::get_set_union(guessing_check, enrich_C);
-                auto next_rr_ptr = rr_pointer_ + 1;
-                
+
                 B = kofola::get_set_union(C,Ms_flatt); // also redundant (since moving rr_ptr)
 
                 for(unsigned j = 0; j < prod_of_disj_succs.size(); j++) {
@@ -465,10 +470,10 @@ std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned>> conj_mstate::succ
                     // extract disjs and acc.
                     std::vector<std::shared_ptr<disj_mstate>> succ_disj;
                     for(auto next_pair: tmp_disj) {
-                        succ_disj.emplace_back(next_pair.first);
+                        succ_disj.emplace_back(next_pair.first->clone());
                     }
 
-                    std::shared_ptr<conj_mstate> tmp2(new conj_mstate(C, S_nexts, all_guesing_Ms[i], B, succ_disj, inf_colors_, fin_colors_, infs_, fins_, rr_pointer_));
+                    std::shared_ptr<conj_mstate> tmp2(new conj_mstate(C, all_guesing_safes[k], all_guesing_Ms[i], B, succ_disj, inf_colors_, fin_colors_, infs_, fins_, rr_pointer_, active_));
                     
                     tmp2->move_rr_ptr();
                     unsigned curr_acc = 0;
@@ -505,17 +510,24 @@ bool conj_mstate::operator==(const conj_mstate& other) const {
 }
 
 bool conj_mstate::operator<(const conj_mstate& other) const {
-    return (
-        this->check_ < other.check_ &&
-        this->safes_ < other.safes_ &&
-        this->m_check_ < other.m_check_ &&
-        this->breakpoint_ < other.breakpoint_ &&
-        this->disjuncts_ < other.disjuncts_ &&
-        this->inf_colors_ < other.inf_colors_ &&
-        this->fin_colors_ < other.fin_colors_ &&
-        this->rr_pointer_ < other.rr_pointer_ &&
-        this->active_ < other.active_
-    );
+
+    if (this->active_ != other.active_) return this->active_ < other.active_;
+    if (this->inf_colors_ != other.inf_colors_) return this->inf_colors_ < other.inf_colors_;
+    if (this->fin_colors_ != other.fin_colors_) return this->fin_colors_ < other.fin_colors_;
+    if (this->rr_pointer_ != other.rr_pointer_) return this->rr_pointer_ < other.rr_pointer_;
+    if (this->check_ != other.check_) return this->check_ < other.check_;
+    if (this->safes_ != other.safes_) return this->safes_ < other.safes_;
+    if (this->m_check_ != other.m_check_) return this->m_check_ < other.m_check_;
+    if (this->breakpoint_ != other.breakpoint_) return this->breakpoint_ < other.breakpoint_;
+
+    const size_t length = this->disjuncts_.size();
+    for (size_t i = 0; i < length; ++i) {
+        if ( !(*(this->disjuncts_[i]) == *(other.disjuncts_[i])) ) {
+            return *(this->disjuncts_[i]) < *(other.disjuncts_[i]);
+        }
+    }
+
+    return false; // all equal
 }
 
 disj_mstate::disj_mstate(spot::acc_cond cond) {
@@ -529,9 +541,11 @@ disj_mstate::disj_mstate(spot::acc_cond cond) {
 
             if(inf.count() != 0) {
                 // safes_ = {}; // add empty set
-                inf_colors_.emplace_back(inf.min_set() - 1); // min_set returns incremented value 
+                inf_colors_.emplace_back(inf.min_set() - 1); // min_set returns incremented value
+                infs_ = true;
             } else if(fin.count() != 0) {
-                fin_colors_.emplace_back(fin.min_set() - 1); // min_set returns incremented value 
+                fin_colors_.emplace_back(fin.min_set() - 1); // min_set returns incremented value
+                fins_ = true;
             }
         } else {
             conjs.emplace_back(all_disjs[i]);
@@ -561,7 +575,8 @@ std::shared_ptr<disj_mstate> disj_mstate::clone() const {
             fin_colors_,
             infs_,
             fins_,
-            rr_pointer_
+            rr_pointer_,
+            active_
     );
 }
 
@@ -578,7 +593,7 @@ std::set<unsigned> disj_mstate::get_all_states() {
 }
 
 std::string disj_mstate::to_str() {
-    std::string result = "[";
+    std::string result = std::to_string("[ (") + ((this->active_)? "Act" : "Pas") + std::to_string(") ");
 
     // Add check
     result += "C=" + std::to_string(check_);
@@ -593,7 +608,7 @@ std::string disj_mstate::to_str() {
         result += ",Conj" + std::to_string(i) + "=[" + conjuncts_[i]->to_str() + "]";
     }
 
-    result += "]";
+    result += " | " + std::to_string(rr_pointer_) + "]";
     return result; 
 }
 
@@ -632,7 +647,7 @@ void disj_mstate::move_rr_ptr() {
         rr_pointer_ = infs_and_fins_cnt - 1;
     } else {
         if(conjuncts_.size() != 0)
-            conjuncts_[rr_pointer_]->passivate();
+            conjuncts_[rr_pointer_ - infs_and_fins_cnt]->passivate();
     }
     rr_pointer_ = (rr_pointer_ + 1) % (infs_and_fins_cnt + conjuncts_.size());
     if(rr_pointer_ == 0 && infs_) {
@@ -682,18 +697,27 @@ std::vector<std::pair<std::shared_ptr<disj_mstate>, unsigned>> disj_mstate::succ
 
     std::vector<std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned>>> new_conjs;
     for(unsigned i = 0; i < conjuncts_.size(); i++) {
-        new_conjs.emplace_back(conjuncts_[i]->succs(new_runs,symbol,info));
+        auto new_conj = conjuncts_[i]->succs(new_runs,symbol,info);
+        if(new_conj.empty()) {
+            return {};
+        }
+        new_conjs.emplace_back(new_conj);
     }
 
     auto prod_of_conj_succs = compute_cartesian_prod(new_conjs);
+    if(prod_of_conj_succs.size() == 0)
+        prod_of_conj_succs.emplace_back();
+
     for(unsigned i = 0; i < prod_of_conj_succs.size(); i++) {
          auto tmp_conj = prod_of_conj_succs[i];
                 
         // extract disjs and acc.
         std::vector<std::shared_ptr<conj_mstate>> succ_conj;
+        std::vector<std::shared_ptr<conj_mstate>> succ_conj2;
         std::vector<unsigned> accs;
         for(auto next_pair: tmp_conj) {
-            succ_conj.emplace_back(next_pair.first);
+            succ_conj.emplace_back(next_pair.first->clone());
+            succ_conj2.emplace_back(next_pair.first->clone());
             accs.emplace_back(next_pair.second);
         }
         
@@ -717,26 +741,26 @@ std::vector<std::pair<std::shared_ptr<disj_mstate>, unsigned>> disj_mstate::succ
             B = {};
         }
         
-        std::shared_ptr<disj_mstate> tmp(new disj_mstate(C, S_next, B, succ_conj, inf_colors_, fin_colors_, infs_, fins_, rr_pointer_));
+        std::shared_ptr<disj_mstate> tmp(new disj_mstate(C, S_next, B, succ_conj, inf_colors_, fin_colors_, infs_, fins_, rr_pointer_, active_));
         
-        if(rr_pointer_ >= infs_and_fins_cnt && accs[rr_pointer_ - infs_and_fins_cnt] == 1) {
+        if(rr_pointer_ >= infs_and_fins_cnt && accs[rr_pointer_ - infs_and_fins_cnt] == 1 && active_) {
             move_ptr = true;
         }
 
-        if(move_ptr) tmp->move_rr_ptr();
+        if(move_ptr && active_) tmp->move_rr_ptr();
 
         unsigned curr_acc = 0;
-        if(tmp->get_rr_ptr() == 0 && move_ptr)
+        if(tmp->get_rr_ptr() == 0 && move_ptr && active_)
             curr_acc = 1;
 
         if(!contains(result, {tmp, curr_acc}))
             result.emplace_back(tmp, curr_acc);
 
         // guessing
-        if(rr_pointer_ >= inf_colors_.size())
+        if(rr_pointer_ >= inf_colors_.size() || !active_ || !infs_)
             continue;
         
-        std::shared_ptr<disj_mstate> tmp2(new disj_mstate(guessing_C, guessing_S, guessing_B, succ_conj, inf_colors_, fin_colors_, infs_, fins_, rr_pointer_));
+        std::shared_ptr<disj_mstate> tmp2(new disj_mstate(guessing_C, guessing_S, guessing_B, succ_conj2, inf_colors_, fin_colors_, infs_, fins_, rr_pointer_, active_));
         
         tmp2->move_rr_ptr();
 
@@ -766,16 +790,22 @@ bool disj_mstate::operator==(const disj_mstate& other) const {
 }
 
 bool disj_mstate::operator<(const disj_mstate& other) const {
-    return (
-        this->check_ < other.check_ &&
-        this->safes_ < other.safes_ &&
-        this->breakpoint_ < other.breakpoint_ &&
-        this->conjuncts_ < other.conjuncts_ &&
-        this->inf_colors_ < other.inf_colors_ &&
-        this->fin_colors_ < other.fin_colors_ &&
-        this->rr_pointer_ < other.rr_pointer_ &&
-        this->active_ < other.active_
-    );
+    if (this->active_ != other.active_) return this->active_ < other.active_;
+    if (this->inf_colors_ != other.inf_colors_) return this->inf_colors_ < other.inf_colors_;
+    if (this->fin_colors_ != other.fin_colors_) return this->fin_colors_ < other.fin_colors_;
+    if (this->rr_pointer_ != other.rr_pointer_) return this->rr_pointer_ < other.rr_pointer_;
+    if (this->check_ != other.check_) return this->check_ < other.check_;
+    if (this->safes_ != other.safes_) return this->safes_ < other.safes_;
+    if (this->breakpoint_ != other.breakpoint_) return this->breakpoint_ < other.breakpoint_;
+
+    const size_t length = this->conjuncts_.size();
+    for (size_t i = 0; i < length; ++i) {
+        if ( !(*(this->conjuncts_[i]) == *(other.conjuncts_[i])) ) {
+            return *(this->conjuncts_[i]) < *(other.conjuncts_[i]);
+        }
+    }
+
+    return false; // all equal
 }
 
 namespace { // {{{
@@ -800,7 +830,7 @@ namespace { // {{{
     }
 
     virtual std::string to_string() const override;
-    virtual bool is_active() const override { return this->active_; }
+    virtual bool is_active() const override { return this->conj_->get_activity(); }
     virtual bool eq(const mstate& rhs) const override;
     virtual bool lt(const mstate& rhs) const override;
     virtual ~mstate_tela_det() override { }
@@ -814,7 +844,7 @@ namespace { // {{{
 
     std::string mstate_tela_det::to_string() const
     {
-        std::string res = std::string("[TELA_DET(") + ((this->active_)? "A" : "T") + "): ";
+        std::string res = std::string("[TELA_DET(") + ((this->conj_->get_activity())? "A" : "T") + "): ";
         res += conj_->to_str() + "]";
 
         return res;
@@ -862,7 +892,7 @@ namespace { // {{{
         for(auto init: all_inits) {
             std::shared_ptr<mstate_tela_det> ms_succ(new mstate_tela_det(init.first));
             ms_succ->conj_->passivate();
-            ms_succ->conj_->activate();
+//            ms_succ->conj_->activate();
             std::cout << init.first->to_str() << "\n";
             result.push_back(ms_succ);
         }
@@ -876,8 +906,7 @@ namespace { // {{{
     const bdd&                 symbol)
     { // {{{
         const mstate_tela_det* src_tela_det = dynamic_cast<const mstate_tela_det*>(src);
-//        assert(src_ncsb);
-//        assert(!src_ncsb->active_);
+        assert(src_tela_det->conj_->get_activity());
 
         auto tmp = kofola::get_set_difference(glob_reached,src_tela_det->conj_->get_all_states());
         std::vector<unsigned> new_runs;
@@ -905,7 +934,10 @@ namespace { // {{{
     mstate_set complement_tela_det::lift_track_to_active(const mstate* src) {
         const mstate_tela_det* src_tela_det = dynamic_cast<const mstate_tela_det*>(src);
 
-        std::shared_ptr<mstate> ms(new mstate_tela_det(src_tela_det->conj_->clone()));
+        auto tmp = src_tela_det->conj_->clone();
+        tmp->activate();
+
+        std::shared_ptr<mstate> ms(new mstate_tela_det(tmp));
 
         return {ms};
     }
@@ -920,7 +952,8 @@ namespace { // {{{
     {
         const mstate_tela_det* src_tela_det = dynamic_cast<const mstate_tela_det*>(src);
 
-        auto tmp = kofola::get_set_difference(glob_reached,src_tela_det->conj_->get_all_states());
+        auto in_src = kofola::get_all_successors_in_scc(this->info_.aut_, this->info_.scc_info_, src_tela_det->conj_->get_all_states(), symbol);
+        auto tmp = kofola::get_set_difference(glob_reached,in_src);
         std::vector<unsigned> new_runs;
         for(auto state: tmp) {
             if(this->info_.st_to_part_map_.at(state) == static_cast<int>(this->part_index_)) {
@@ -935,7 +968,7 @@ namespace { // {{{
             if(suc.second == 0)
                 res.emplace_back(ms, std::set<unsigned>{});
             else
-                res.emplace_back(std::make_pair(ms, std::set<unsigned>{suc.second}));
+                res.emplace_back(std::make_pair(ms, std::set<unsigned>{0}));
         }
 
         return res;
