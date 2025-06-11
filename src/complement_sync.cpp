@@ -21,6 +21,7 @@
 #include "complement_tela.hpp"
 #include "decomposer.hpp"
 #include "util.hpp"
+#include "complement_alg_tela_det.hpp"
 
 #include "abstract_complement_alg.hpp"
 #include "complement_alg_mh.hpp"
@@ -31,6 +32,7 @@
 #include "complement_alg_rank2.hpp"
 #include "complement_alg_init_det.hpp"
 #include "complement_alg_subs_tuple.hpp"
+#include "complement_alg_tela_det.hpp"
 
 #include <deque>
 #include <map>
@@ -100,6 +102,34 @@ namespace cola {
                                 true,         // complete
                                 false         // stutter inv
                         });
+                
+        // auto top_cond = aut_->acc();
+        // bool conj_flag = true;
+        // while(1) {
+        //     if (conj_flag) {
+        //         auto top_conj = top_cond.top_conjuncts();
+        //         for(auto it = top_conj.begin(); it != top_conj.end() - 1; ++it) {
+        //             auto conj = *it;
+        //             top_cond.inf
+        //         }
+
+        //         conj_flag = false;
+        //         top_cond = top_cond.top_conjuncts().back();
+        //         if(top_cond.top_disjuncts().size() == 1)
+        //             break;
+        //     } else {
+        //         auto top_disj = top_cond.top_disjuncts();
+        //         for(auto it = top_disj.begin(); it != top_disj.end() - 1; ++it) {
+        //             auto disj = *it;
+        //         }
+
+        //         conj_flag = true;
+        //         top_cond = top_cond.top_disjuncts().back();
+        //         if(top_cond.top_conjuncts().size() == 1)
+        //             break;
+        //     }
+        // }
+
         // Generate bdd supports and compatible options for each state.
         // Also check if all its transitions are accepting.
         for (unsigned i = 0; i < nb_states_; ++i) {
@@ -157,11 +187,11 @@ namespace cola {
         this->show_names_ = true;     // FIXME: set from parameters
 
         // validate our input is a BA
-        if (this->aut_->get_acceptance() != spot::acc_cond::acc_code::inf({0})) {
-            throw std::runtime_error(
-                    "complement_tnba(): input is not Buchi! acceptance condition: " +
-                    std::to_string(this->aut_->get_acceptance()));
-        }
+        // if (this->aut_->get_acceptance() != spot::acc_cond::acc_code::inf({0})) {
+        //     throw std::runtime_error(
+        //             "complement_tnba(): input is not Buchi! acceptance condition: " +
+        //             std::to_string(this->aut_->get_acceptance()));
+        // }
 
         // compute vector of accepting states, supports, etc.
         for (unsigned i = 0; i < this->aut_->num_states(); ++i) {
@@ -1195,6 +1225,10 @@ namespace cola {
             return jt_bool_pair.first->second;
         } else { // found
             DEBUG_PRINT_LN("found as " + std::to_string(it->second));
+            int a = 0;
+            if(it->second == 120) {
+                a = 1;
+            }
             return it->second;
         }
     } // insert_uberstate() }}}
@@ -1621,7 +1655,10 @@ namespace cola {
             if (PartitionType::INHERENTLY_WEAK == this->info_->part_to_type_map_.at(i)) {
                 alg = std::make_unique<kofola::complement_mh>(*(this->info_.get()), i);
             } else if (PartitionType::DETERMINISTIC == this->info_->part_to_type_map_.at(i)) {
-                if (kofola::has_value("ncsb-delay", "yes", kofola::OPTIONS.params)) {
+                if(cola::is_elevator_automaton(this->info_->aut_)) {
+                    alg = std::make_unique<kofola::complement_tela_det>(*(this->info_.get()), i);
+                }
+                else if (kofola::has_value("ncsb-delay", "yes", kofola::OPTIONS.params)) {
                     alg = std::make_unique<kofola::complement_ncsb_delay>(*(this->info_.get()), i);
                 } else {
                     alg = std::make_unique<kofola::complement_ncsb>(*(this->info_.get()), i);

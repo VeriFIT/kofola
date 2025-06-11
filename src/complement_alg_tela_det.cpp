@@ -77,6 +77,9 @@ conj_mstate::conj_mstate(spot::acc_cond cond) {
     auto all_conjs = cond.top_conjuncts();
     std::vector<spot::acc_cond> disjs;
 
+    std::set<unsigned> infs;
+    std::set<unsigned> fins;
+
     for(unsigned i = 0; i < all_conjs.size(); i++) {
         if(all_conjs[i].top_disjuncts().size() == 1) { // atom here
             auto inf = all_conjs[i].inf_unit();
@@ -84,11 +87,13 @@ conj_mstate::conj_mstate(spot::acc_cond cond) {
 
             if(inf.count() != 0) {
                 safes_.emplace_back(); // add empty set
-                inf_colors_.emplace_back(inf.min_set() - 1); // min_set returns incremented value 
+//                inf_colors_.emplace_back(inf.min_set() - 1); // min_set returns incremented value
+                infs.insert(inf.min_set() - 1);
                 infs_ = true;
             } else if(fin.count() != 0) {
                 m_check_.emplace_back(); // add empty set
-                fin_colors_.emplace_back(fin.min_set() - 1); // min_set returns incremented value 
+//                fin_colors_.emplace_back(fin.min_set() - 1); // min_set returns incremented value
+                fins.insert(fin.min_set() - 1);
                 fins_ = true;
             }
         } else {
@@ -96,11 +101,16 @@ conj_mstate::conj_mstate(spot::acc_cond cond) {
         }
     }
 
+    inf_colors_.assign(infs.begin(), infs.end());
+    fin_colors_.assign(fins.begin(), fins.end());
+
     // inner disjuncts
     for(auto disj: disjs) {
         std::shared_ptr<disj_mstate> tmp(new disj_mstate(disj));
         disjuncts_.emplace_back(tmp);
     }
+
+    active_ = false;
 }
 
 std::shared_ptr<conj_mstate> conj_mstate::clone() const {
@@ -450,7 +460,15 @@ std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned>> conj_mstate::succ
                     move_disj_ptr = true;
                 }
                 
-                if((move_ncsbm_ptr || move_disj_ptr) && active_) tmp->move_rr_ptr();
+                if((move_ncsbm_ptr || move_disj_ptr) && active_) {
+                    tmp->move_rr_ptr();
+                }
+
+//                std::cout << "=================================\n";
+//                std::cout << this->to_str() << "\n";
+//                std::cout << tmp->to_str() << " \n================================\n";
+
+
 
                 unsigned curr_acc = 0;
                 if(tmp->get_rr_ptr() == 0 && (move_ncsbm_ptr || move_disj_ptr) && active_)
@@ -500,12 +518,19 @@ std::vector<std::pair<std::shared_ptr<conj_mstate>, unsigned>> conj_mstate::succ
 }
 
 bool conj_mstate::operator==(const conj_mstate& other) const {
+    if(this->disjuncts_.size() != other.disjuncts_.size())
+        return false;
+
+    for(unsigned i = 0; i < this->disjuncts_.size(); i++) {
+        if( !((*(this->disjuncts_[i])) == (*(other.disjuncts_[i]))) )
+                return false;
+    }
+
     return (
         this->check_ == other.check_ &&
         this->safes_ == other.safes_ &&
         this->m_check_ == other.m_check_ &&
         this->breakpoint_ == other.breakpoint_ &&
-        this->disjuncts_ == other.disjuncts_ &&
         this->inf_colors_ == other.inf_colors_ &&
         this->fin_colors_ == other.fin_colors_ &&
         this->rr_pointer_ == other.rr_pointer_ &&
@@ -514,29 +539,57 @@ bool conj_mstate::operator==(const conj_mstate& other) const {
 }
 
 bool conj_mstate::operator<(const conj_mstate& other) const {
+    if (check_ != other.check_) return check_ < other.check_;
+    if (safes_ != other.safes_) return safes_ < other.safes_;
+    if (m_check_ != other.m_check_) return m_check_ < other.m_check_;
+    if (breakpoint_ != other.breakpoint_) return breakpoint_ < other.breakpoint_;
+    if (active_ != other.active_) return active_ < other.active_;
 
-    if (this->active_ != other.active_) return this->active_ < other.active_;
-    if (this->inf_colors_ != other.inf_colors_) return this->inf_colors_ < other.inf_colors_;
-    if (this->fin_colors_ != other.fin_colors_) return this->fin_colors_ < other.fin_colors_;
-    if (this->rr_pointer_ != other.rr_pointer_) return this->rr_pointer_ < other.rr_pointer_;
-    if (this->check_ != other.check_) return this->check_ < other.check_;
-    if (this->safes_ != other.safes_) return this->safes_ < other.safes_;
-    if (this->m_check_ != other.m_check_) return this->m_check_ < other.m_check_;
-    if (this->breakpoint_ != other.breakpoint_) return this->breakpoint_ < other.breakpoint_;
-
-    const size_t length = this->disjuncts_.size();
-    for (size_t i = 0; i < length; ++i) {
-        if ( !(*(this->disjuncts_[i]) == *(other.disjuncts_[i])) ) {
-            return *(this->disjuncts_[i]) < *(other.disjuncts_[i]);
-        }
+    // Deep comparison of shared_ptrs
+    if (disjuncts_.size() != other.disjuncts_.size())
+        return disjuncts_.size() < other.disjuncts_.size();
+    for (size_t i = 0; i < disjuncts_.size(); ++i) {
+        if (!(*disjuncts_[i] == *other.disjuncts_[i]))
+            return *disjuncts_[i] < *other.disjuncts_[i];
     }
 
-    return false; // all equal
+    if (inf_colors_ != other.inf_colors_) return inf_colors_ < other.inf_colors_;
+    if (fin_colors_ != other.fin_colors_) return fin_colors_ < other.fin_colors_;
+    if (rr_pointer_ != other.rr_pointer_) return rr_pointer_ < other.rr_pointer_;
+    if (infs_ != other.infs_) return infs_ < other.infs_;
+    if (fins_ != other.fins_) return fins_ < other.fins_;
+    return false; // equal
 }
+
+//bool conj_mstate::operator<(const conj_mstate& other) const {
+//
+//    if (this->active_ != other.active_) return this->active_ < other.active_;
+//    if (this->inf_colors_ != other.inf_colors_) return this->inf_colors_ < other.inf_colors_;
+//    if (this->fin_colors_ != other.fin_colors_) return this->fin_colors_ < other.fin_colors_;
+//    if (this->rr_pointer_ != other.rr_pointer_) return this->rr_pointer_ < other.rr_pointer_;
+//    if (this->check_ != other.check_) return this->check_ < other.check_;
+//    if (this->safes_ != other.safes_) return this->safes_ < other.safes_;
+//    if (this->m_check_ != other.m_check_) return this->m_check_ < other.m_check_;
+//    if (this->breakpoint_ != other.breakpoint_) return this->breakpoint_ < other.breakpoint_;
+//
+//    const size_t length = this->disjuncts_.size();
+//    if(this->disjuncts_.size() != other.disjuncts_.size())
+//        return this->disjuncts_.size() < other.disjuncts_.size();
+//
+//    for (size_t i = 0; i < length; ++i) {
+//        if ( !(*(this->disjuncts_[i]) == *(other.disjuncts_[i])) ) {
+//            return *(this->disjuncts_[i]) < *(other.disjuncts_[i]);
+//        }
+//    }
+//
+//    return false; // all equal
+//}
 
 disj_mstate::disj_mstate(spot::acc_cond cond) {
     auto all_disjs = cond.top_disjuncts();
     std::vector<spot::acc_cond> conjs;
+    std::set<unsigned> infs;
+    std::set<unsigned> fins;
 
     for(unsigned i = 0; i < all_disjs.size(); i++) {
         if(all_disjs[i].top_conjuncts().size() == 1) { // atom here
@@ -545,10 +598,12 @@ disj_mstate::disj_mstate(spot::acc_cond cond) {
 
             if(inf.count() != 0) {
                 // safes_ = {}; // add empty set
-                inf_colors_.emplace_back(inf.min_set() - 1); // min_set returns incremented value
+                infs.insert(inf.min_set() - 1);
+//                inf_colors_.emplace_back(inf.min_set() - 1); // min_set returns incremented value
                 infs_ = true;
             } else if(fin.count() != 0) {
-                fin_colors_.emplace_back(fin.min_set() - 1); // min_set returns incremented value
+                fins.insert(fin.min_set() - 1);
+//                fin_colors_.emplace_back(fin.min_set() - 1); // min_set returns incremented value
                 fins_ = true;
             }
         } else {
@@ -556,11 +611,20 @@ disj_mstate::disj_mstate(spot::acc_cond cond) {
         }
     }
 
+    inf_colors_.assign(infs.begin(), infs.end());
+    fin_colors_.assign(fins.begin(), fins.end());
+
+    for(unsigned i = 0; i < fin_colors_.size(); i++) {
+        fins_marks_set_.emplace_back(spot::acc_cond::mark_t{fin_colors_[i]});
+    }
+
     // inner conjuncts
     for(auto conj: conjs) {
         std::shared_ptr<conj_mstate> tmp(new conj_mstate(conj));
         conjuncts_.emplace_back(tmp);
     }
+
+    active_ = false;
 }
 
 std::shared_ptr<disj_mstate> disj_mstate::clone() const {
@@ -673,7 +737,7 @@ std::vector<std::pair<std::shared_ptr<disj_mstate>, unsigned>> disj_mstate::succ
     // NCSB
     // check violation of safe
     for(unsigned i = 0; i < inf_colors_.size(); i++) {
-        if(contains_outgoing_transitions_in_scc_given_color(info.aut_, info.scc_info_, safes_, symbol, spot::acc_cond::mark_t{inf_colors_[i]})) {
+        if(contains_outgoing_transitions_in_scc_given_color(info.aut_, info.scc_info_, safes_, symbol, spot::acc_cond::mark_t{inf_colors_[i]})) { // TODO marks as class attr.
             return {}; // violated safe runs
         }
     }
@@ -691,11 +755,11 @@ std::vector<std::pair<std::shared_ptr<disj_mstate>, unsigned>> disj_mstate::succ
     std::set<unsigned> B_from_MH = {};
     std::set<unsigned> C_from_MH = {};
     if(fins_) {
-        auto B_from_MH = get_all_successors_in_scc_without_color(info.aut_, info.scc_info_, breakpoint_, symbol, spot::acc_cond::mark_t{fin_colors_[rr_pointer_]});
-        auto C_from_MH = kofola::get_set_union(C_next, S_next);
+        auto B_from_MH = get_all_successors_in_scc_without_color(info.aut_, info.scc_info_, breakpoint_, symbol, fins_marks_set_[rr_pointer_ - inf_colors_.size()]);
+        auto C_from_MH = C_next;
     }
 
-    // final 
+    // final
     std::vector<std::pair<std::shared_ptr<disj_mstate>, unsigned>> result;
     std::vector<unsigned> result_acc;
 
@@ -746,7 +810,7 @@ std::vector<std::pair<std::shared_ptr<disj_mstate>, unsigned>> disj_mstate::succ
         }
         
         std::shared_ptr<disj_mstate> tmp(new disj_mstate(C, S_next, B, succ_conj, inf_colors_, fin_colors_, infs_, fins_, rr_pointer_, active_));
-        
+
         if(rr_pointer_ >= infs_and_fins_cnt && accs[rr_pointer_ - infs_and_fins_cnt] == 1 && active_) {
             move_ptr = true;
         }
@@ -781,11 +845,18 @@ std::vector<std::pair<std::shared_ptr<disj_mstate>, unsigned>> disj_mstate::succ
 }
 
 bool disj_mstate::operator==(const disj_mstate& other) const {
+    if(this->conjuncts_.size() != other.conjuncts_.size())
+        return false;
+
+    for(unsigned i = 0; i < this->conjuncts_.size(); i++) {
+        if( !((*(this->conjuncts_[i])) == (*(other.conjuncts_[i]))) )
+            return false;
+    }
+
     return (
         this->check_ == other.check_ &&
         this->safes_ == other.safes_ &&
         this->breakpoint_ == other.breakpoint_ &&
-        this->conjuncts_ == other.conjuncts_ &&
         this->inf_colors_ == other.inf_colors_ &&
         this->fin_colors_ == other.fin_colors_ &&
         this->rr_pointer_ == other.rr_pointer_ &&
@@ -794,23 +865,49 @@ bool disj_mstate::operator==(const disj_mstate& other) const {
 }
 
 bool disj_mstate::operator<(const disj_mstate& other) const {
-    if (this->active_ != other.active_) return this->active_ < other.active_;
-    if (this->inf_colors_ != other.inf_colors_) return this->inf_colors_ < other.inf_colors_;
-    if (this->fin_colors_ != other.fin_colors_) return this->fin_colors_ < other.fin_colors_;
-    if (this->rr_pointer_ != other.rr_pointer_) return this->rr_pointer_ < other.rr_pointer_;
-    if (this->check_ != other.check_) return this->check_ < other.check_;
-    if (this->safes_ != other.safes_) return this->safes_ < other.safes_;
-    if (this->breakpoint_ != other.breakpoint_) return this->breakpoint_ < other.breakpoint_;
+    if (check_ != other.check_) return check_ < other.check_;
+    if (safes_ != other.safes_) return safes_ < other.safes_;
+    if (breakpoint_ != other.breakpoint_) return breakpoint_ < other.breakpoint_;
+    if (active_ != other.active_) return active_ < other.active_;
 
-    const size_t length = this->conjuncts_.size();
-    for (size_t i = 0; i < length; ++i) {
-        if ( !(*(this->conjuncts_[i]) == *(other.conjuncts_[i])) ) {
-            return *(this->conjuncts_[i]) < *(other.conjuncts_[i]);
-        }
+    // Deep comparison of shared_ptrs
+    if (conjuncts_.size() != other.conjuncts_.size())
+        return conjuncts_.size() < other.conjuncts_.size();
+    for (size_t i = 0; i < conjuncts_.size(); ++i) {
+        if (!(*conjuncts_[i] == *other.conjuncts_[i]))
+            return *conjuncts_[i] < *other.conjuncts_[i];
     }
 
-    return false; // all equal
+    if (inf_colors_ != other.inf_colors_) return inf_colors_ < other.inf_colors_;
+    if (fin_colors_ != other.fin_colors_) return fin_colors_ < other.fin_colors_;
+    if (rr_pointer_ != other.rr_pointer_) return rr_pointer_ < other.rr_pointer_;
+    if (infs_ != other.infs_) return infs_ < other.infs_;
+    if (fins_ != other.fins_) return fins_ < other.fins_;
+    return false; // equal
 }
+
+
+//bool disj_mstate::operator<(const disj_mstate& other) const {
+//    if (this->active_ != other.active_) return this->active_ < other.active_;
+//    if (this->inf_colors_ != other.inf_colors_) return this->inf_colors_ < other.inf_colors_;
+//    if (this->fin_colors_ != other.fin_colors_) return this->fin_colors_ < other.fin_colors_;
+//    if (this->rr_pointer_ != other.rr_pointer_) return this->rr_pointer_ < other.rr_pointer_;
+//    if (this->check_ != other.check_) return this->check_ < other.check_;
+//    if (this->safes_ != other.safes_) return this->safes_ < other.safes_;
+//    if (this->breakpoint_ != other.breakpoint_) return this->breakpoint_ < other.breakpoint_;
+//
+//    const size_t length = this->conjuncts_.size();
+//    if(this->conjuncts_.size() != other.conjuncts_.size())
+//        return this->conjuncts_.size() < other.conjuncts_.size();
+//
+//    for (size_t i = 0; i < length; ++i) {
+//        if ( !(*(this->conjuncts_[i]) == *(other.conjuncts_[i])) ) {
+//            return *(this->conjuncts_[i]) < *(other.conjuncts_[i]);
+//        }
+//    }
+//
+//    return false; // all equal
+//}
 
 namespace { // {{{
     /// partial macrostate for the given component
@@ -892,7 +989,7 @@ namespace { // {{{
             return {ms};
         }
 
-        auto all_inits = ms->conj_->succs(std::vector<unsigned>(init_state.begin(),init_state.end()), bddtrue, this->info_);
+        auto all_inits = ms->conj_->succs(std::vector<unsigned>(init_state.begin(),init_state.end()), bddfalse, this->info_); // bdd does not matter, since empty sets on input
         for(auto init: all_inits) {
             std::shared_ptr<mstate_tela_det> ms_succ(new mstate_tela_det(init.first));
             ms_succ->conj_->passivate();
@@ -912,6 +1009,8 @@ namespace { // {{{
         const mstate_tela_det* src_tela_det = dynamic_cast<const mstate_tela_det*>(src);
         assert(src_tela_det->conj_->get_activity());
 
+        DEBUG_PRINT_LN("tracking successor of: " + std::to_string(*src_tela_det));
+
         auto tmp = kofola::get_set_difference(glob_reached,src_tela_det->conj_->get_all_states());
         std::vector<unsigned> new_runs;
         for(auto state: tmp) {
@@ -923,12 +1022,11 @@ namespace { // {{{
         auto succ_states = src_tela_det->conj_->succs(new_runs,symbol,this->info_);
         mstate_col_set res;
         for(auto suc: succ_states) {
-            suc.first->passivate();
-            std::shared_ptr<mstate> ms(new mstate_tela_det(suc.first));
-            if(suc.second == 0)
-                res.emplace_back(ms, std::set<unsigned>{});
-            else
-                res.emplace_back(std::make_pair(ms, std::set<unsigned>{suc.second}));
+            auto tmp = suc.first->clone();
+            tmp->passivate();
+            std::shared_ptr<mstate> ms(new mstate_tela_det(tmp));
+            DEBUG_PRINT_LN("obtained track ms: " + std::to_string(*ms));
+            res.emplace_back(ms, std::set<unsigned>{});
         }
 
         return res;
@@ -939,10 +1037,11 @@ namespace { // {{{
         const mstate_tela_det* src_tela_det = dynamic_cast<const mstate_tela_det*>(src);
 
         auto tmp = src_tela_det->conj_->clone();
+
+        DEBUG_PRINT_LN("lifting " + std::to_string(*src_tela_det));
         tmp->activate();
-
         std::shared_ptr<mstate> ms(new mstate_tela_det(tmp));
-
+        DEBUG_PRINT_LN("lifted " + std::to_string(*ms));
         return {ms};
     }
     
@@ -956,6 +1055,8 @@ namespace { // {{{
     {
         const mstate_tela_det* src_tela_det = dynamic_cast<const mstate_tela_det*>(src);
 
+        DEBUG_PRINT_LN("active successor of: " + std::to_string(*src_tela_det));
+
         auto in_src = kofola::get_all_successors_in_scc(this->info_.aut_, this->info_.scc_info_, src_tela_det->conj_->get_all_states(), symbol);
         auto tmp = kofola::get_set_difference(glob_reached,in_src);
         std::vector<unsigned> new_runs;
@@ -967,8 +1068,11 @@ namespace { // {{{
 
         auto succ_states = src_tela_det->conj_->succs(new_runs,symbol,this->info_);
         mstate_col_set res;
+
         for(auto suc: succ_states) {
-            std::shared_ptr<mstate> ms(new mstate_tela_det(suc.first));
+            auto tmp = suc.first->clone();
+            std::shared_ptr<mstate> ms(new mstate_tela_det(tmp));
+            DEBUG_PRINT_LN("obtained active ms: " + std::to_string(*ms));
             if(suc.second == 0)
                 res.emplace_back(ms, std::set<unsigned>{});
             else

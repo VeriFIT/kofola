@@ -91,6 +91,8 @@ private:
     bool infs_ = false;
     bool fins_ = false;
 
+    std::vector<spot::acc_cond::mark_t> fins_marks_set_;
+
 public:
     disj_mstate(spot::acc_cond cond);
     disj_mstate(std::set<unsigned> check,
@@ -113,7 +115,11 @@ public:
                   fin_colors_ = std::move(fin_colors);
                   infs_ = infs;
                   fins_ = fins;    
-                  rr_pointer_ = rr_ptr;              
+                  rr_pointer_ = rr_ptr;
+
+                  for(unsigned i = 0; i < fin_colors_.size(); i++) {
+                      fins_marks_set_.emplace_back(spot::acc_cond::mark_t{fin_colors_[i]});
+                  }
               }
 
     std::set<unsigned> get_all_states();
