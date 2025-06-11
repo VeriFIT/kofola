@@ -108,11 +108,12 @@ spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 	}
 
 	// make sure the input is a BA
-	spot::postprocessor p;
-	p.set_type(spot::postprocessor::Buchi);
-	p.set_level(spot::postprocessor::High);
+	// spot::postprocessor p;
+	// p.set_type(spot::postprocessor::Buchi);
+	// p.set_level(spot::postprocessor::High);
 	spot::twa_graph_ptr aut_to_compl;
-	aut_to_compl = p.run(aut_reduced);
+	// aut_to_compl = p.run(aut_reduced);
+	aut_to_compl = aut_reduced;
 
 	auto res = kofola::complement_sync(aut_to_compl);
 	DEBUG_PRINT_LN("finished call to run_new()");
@@ -123,11 +124,11 @@ spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 		if ("buchi" == kofola::OPTIONS.output_type) {
 			p_post.set_type(spot::postprocessor::Buchi);
 		}
-        else if("tgba" == kofola::OPTIONS.output_type) {
+       else if("tgba" == kofola::OPTIONS.output_type) {
             p_post.set_type(spot::postprocessor::GeneralizedBuchi);
         } else {
 			p_post.set_type(spot::postprocessor::Generic);
-		}
+	}
 
 		p_post.set_level(spot::postprocessor::Low);
 		res = p_post.run(res);
