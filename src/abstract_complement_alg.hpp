@@ -15,6 +15,29 @@
 
 namespace kofola { // {{{
 
+  // conjunction of fins and infs: e.g., Fin(0) & Inf(1)
+struct AccClause {
+  std::vector<spot::acc_cond::mark_t> fins {}; // vector of fins
+  std::vector<spot::acc_cond::mark_t> infs {}; // vector of infs
+
+  AccClause() = default;
+  AccClause(const spot::acc_cond::acc_code& clause) {
+    auto conj = clause.top_conjuncts();
+    for (const auto& acc_c : conj) {
+      assert(acc_c.size() == 2);
+      if(acc_c[1].sub.op == spot::acc_cond::acc_op::Fin) {
+        fins.push_back(acc_c[0].mark);
+      } else if(acc_c[1].sub.op == spot::acc_cond::acc_op::Inf) {
+        infs.push_back(acc_c[0].mark);
+      }
+
+    }
+  }
+};
+
+// Acceptance condition in DNF
+using CondDNF = std::vector<AccClause>;
+
 /// common information about automaton etc. for complementation
 struct cmpl_info
 { // {{{
@@ -51,6 +74,9 @@ struct cmpl_info
   /// use shared breakpoint
   const bool shared_breakpoint_;
 
+  /// condition to be verified in the complement in DNF (negation of the input acceptance condition converted to DNF)
+  CondDNF cond_to_verify_;
+
   /// constructor
   cmpl_info(
     const spot::const_twa_graph_ptr&  aut,
@@ -63,7 +89,8 @@ struct cmpl_info
     const spot::scc_info&             scc_info,
     const Simulation&                 dir_sim,
     const std::vector<bool>&          state_accepting,
-    const bool&                       shared_breakpoint) :
+    const bool&                       shared_breakpoint) 
+    :
     aut_(aut),
     num_partitions_(num_partitions),
     part_to_type_map_(part_to_type_map),
@@ -74,8 +101,46 @@ struct cmpl_info
     scc_info_(scc_info),
     dir_sim_(dir_sim),
     state_accepting_(state_accepting),
-    shared_breakpoint_(shared_breakpoint)
+    shared_breakpoint_(shared_breakpoint),
+    cond_to_verify_()
   { }
+
+  /**
+   * @brief Convert an acceptance condition to its complement in DNF form.
+   *
+   * This function takes a Spot acceptance condition code, computes its complement,
+   * converts it to Disjunctive Normal Form (DNF), and returns it as a vector of AccClause.
+   *
+   * @param code The Spot acceptance condition code to convert.
+   * @return CondDNF The complemented acceptance condition in DNF.
+   */
+  static CondDNF acc_code_dnf(const spot::acc_cond::acc_code& code) {
+      spot::acc_cond::acc_code dnf_code = code.complement().to_dnf();
+      std::vector<spot::acc_cond::acc_code> dnf_clauses = dnf_code.top_disjuncts();
+
+      CondDNF ret {};
+      for(const auto& clause : dnf_clauses) {
+        if (clause.empty()) {
+          continue; // Skip empty clauses
+        }
+        AccClause acc_clause(clause);
+        ret.push_back(acc_clause);
+      }
+      return ret;
+  }
+
+  /**
+   * @brief Compute the acceptance condition to verify for the complement automaton.
+   *
+   * This function extracts the acceptance condition from the automaton, converts it
+   * to its complement in DNF form, and stores it in cond_to_verify_.
+   */
+  void compute_cond_to_verify() {
+    spot::acc_cond input_acc = this->aut_->acc();
+    spot::acc_cond::acc_code code = input_acc.get_acceptance();
+    this->cond_to_verify_ = acc_code_dnf(code);
+  }
+
 }; // struct cmpl_info }}}
 
 

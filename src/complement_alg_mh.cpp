@@ -127,9 +127,6 @@ mstate_col_set complement_mh::get_succ_track(
   DEBUG_PRINT_LN("src = " + std::to_string(*src));
   DEBUG_PRINT_LN("symbol = " + std::to_string(symbol));
 
-  assert(src_mh);
-  assert(!src_mh->active_);
-
   std::set<unsigned> states;
   for (unsigned st : glob_reached) {
     if (this->info_.st_to_part_map_.at(st) == static_cast<int>(this->part_index_)) {

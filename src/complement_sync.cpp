@@ -217,6 +217,7 @@ namespace cola {
                 this->dir_sim_,         // direct simulation
                 this->is_accepting_,    // vector for acceptance of states
                 kofola::has_value("sh-break", "yes", kofola::OPTIONS.params));
+        info_->compute_cond_to_verify();
     }
 
     unsigned
@@ -1951,10 +1952,10 @@ namespace cola {
 
 spot::twa_graph_ptr kofola::complement_sync(const spot::twa_graph_ptr& aut)
 {
-	spot::scc_info si(aut, spot::scc_info_options::ALL);
+    spot::scc_info si(aut, spot::scc_info_options::ALL);
 
-	auto comp = cola::tnba_complement(aut, si);
-	auto res = comp.run_new();
+    auto comp = cola::tnba_complement(aut, si);
+    auto res = comp.run_new();
 
-	return res;
+    return res;
 }
