@@ -94,9 +94,6 @@ private:
             return a->lt(*b); 
         }
     };
-    bool comparator = [](const mstate_ncsb *const &a,
-                         const mstate_ncsb *const &b)
-    { return a->lt(*b); };
     std::set<const mstate_ncsb*, cmp> active_mstates_;
     std::map<const mstate_ncsb *, std::set<const mstate_ncsb *, cmp>, cmp> successors_;
     std::map<mstate_ncsb, std::set<mstate_ncsb>> succ_ncsb_;
