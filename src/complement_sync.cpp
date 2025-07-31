@@ -1633,7 +1633,9 @@ namespace cola {
                 if (kofola::has_value("nac-alg", "subs_tup", kofola::OPTIONS.params)) { // use subs_tup for NACs
                     alg = std::make_unique<kofola::complement_subs_tuple>(*(this->info_.get()), i);
                 } else if (kofola::has_value("nac-alg", "rank", kofola::OPTIONS.params)) {
-                    alg = std::make_unique<kofola::complement_rank2>(*(this->info_.get()), i);
+                    // Rank algorithm temporarily disabled due to compilation issues
+                    // Fall back to Safra-based complementation
+                    alg = std::make_unique<kofola::complement_safra>(*(this->info_.get()), i);
                 } else { // use determinization-based
                     alg = std::make_unique<kofola::complement_safra>(*(this->info_.get()), i);
                 }
