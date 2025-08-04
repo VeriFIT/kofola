@@ -38,6 +38,7 @@ set(TEST_SOURCES
     test_main.cpp
     test_acc_code_dnf.cpp
     test_complement_tela.cpp
+    test_guess_safe_models.cpp
 )
 
 # Create test sources that need to be compiled from main project

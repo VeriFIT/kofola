@@ -1,4 +1,3 @@
-
 #include "complement_alg_sd_tela.hpp"
 
 using namespace kofola;
@@ -6,55 +5,34 @@ using mstate_set = abstract_complement_alg::mstate_set;
 using mstate_col_set = abstract_complement_alg::mstate_col_set;
 
 
-namespace { // anonymous namespace {{{
+namespace kofola {
 
-/// partial macrostate for the given component
-class mstate_sd_tela : public abstract_complement_alg::mstate
-{ // {{{
-private: // DATA MEMBERS
+namespace sd_tela {
 
-  std::set<unsigned> check_ {};       // states for runs that need to be checked
-  std::vector<std::set<unsigned>> safe_models_ {};        // safe states for models (cannot accept Fin colors)
-  std::set<unsigned> breakpoint_;
-  unsigned model_index_ {0};           // index of the model 0 --> universal quantification over runs; 1 --> first model, ....
-  unsigned inf_index_ {0};             // index of the INF condition in model_index_-th model
-  bool active_ {false};           // true = active ; false = track
+std::vector<mstate_sd_tela> guess_safe_models(const mstate_sd_tela& init, const std::set<unsigned>& states, unsigned num_models) {
+  std::vector<mstate_sd_tela> safe_models;
+  std::deque<std::pair<mstate_sd_tela, unsigned>> queue;
+  queue.push_back({init, 0});
 
-public: // METHODS
+  std::vector<unsigned> state_vec(states.begin(), states.end());
 
-  /// constructor
-  mstate_sd_tela(
-    const std::set<unsigned>&  check,
-    const std::vector<std::set<unsigned>>&  safe_models,
-    const std::set<unsigned>&  breakpoint,
-    unsigned                   model_index,
-    unsigned                   inf_index,
-    bool                       active
-  ) : check_(check),
-    safe_models_(safe_models),
-    breakpoint_(breakpoint),
-    model_index_(model_index),
-    inf_index_(inf_index),
-    active_(active)
-  { }
+  while(!queue.empty()) {
+    auto [macrostate, state_idx] = queue.front();
+    queue.pop_front();
+    if(state_idx >= state_vec.size()) {
+      safe_models.push_back(macrostate);
+      continue;
+    }
 
-  virtual std::string to_string() const override;
-  virtual bool is_active() const override { return this->active_; }
-  virtual bool eq(const mstate& rhs) const override;
-  virtual bool lt(const mstate& rhs) const override;
-  virtual ~mstate_sd_tela() override { }
+    for(unsigned i = 0; i < num_models; i++) {
+      mstate_sd_tela new_macrostate {macrostate};
+      new_macrostate.safe_models_[i].insert(state_vec[state_idx]);
+      queue.push_back({new_macrostate, state_idx + 1});
+    }
+  }
+  return safe_models;
 
-  virtual const std::set<unsigned>& get_breakpoint() const override { return this->breakpoint_; }
-  virtual void set_breakpoint(const std::set<unsigned>& breakpoint) override { this->breakpoint_ = get_set_intersection(breakpoint, this->check_); }
-
-  virtual bool subsum_less_early(const mstate& rhs) override {
-    // TODO: implement subsumption for SD-TELA
-    return false;
-  };
-
-  friend class kofola::complement_sd_tela;
-}; // mstate_sd_tela }}}
-} // anonymous namespace }}}
+}
 
 /**
  * @brief Returns a string representation of the macrostate for debugging and logging purposes.
@@ -117,6 +95,7 @@ bool mstate_sd_tela::lt(const mstate& rhs) const
   return false;   // if all are equal
 } // lt() }}}
 
+} // namespace sd_tela
 
 /**
  * @brief Constructor for the SD-TELA complementation algorithm.
@@ -146,7 +125,32 @@ mstate_set complement_sd_tela::get_init()
     init_state.insert(orig_init);
   }
 
-  std::shared_ptr<mstate> ms(new mstate_sd_tela(init_state, {}, {}, 0, 0, false));
+  std::shared_ptr<mstate> ms(new sd_tela::mstate_sd_tela(init_state, {}, {}, 0, 0, false));
   mstate_set result = {ms};
   return result;
 } // get_init() }}}
+
+// Trivial implementations for complement_sd_tela methods
+mstate_col_set complement_sd_tela::get_succ_track(
+    const std::set<unsigned>& /*glob_reached*/,
+    const mstate* /*src*/,
+    const bdd& /*symbol*/)
+{
+    return mstate_col_set{};
+}
+
+mstate_set complement_sd_tela::lift_track_to_active(const mstate* /*src*/)
+{
+    return mstate_set{};
+}
+
+mstate_col_set complement_sd_tela::get_succ_active(
+    const std::set<unsigned>& /*glob_reached*/,
+    const mstate* /*src*/,
+    const bdd& /*symbol*/,
+    bool /*resample*/)
+{
+    return mstate_col_set{};
+}
+
+} // namespace kofola
