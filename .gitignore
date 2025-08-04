@@ -1,1 +1,4 @@
 build
+CMakeCache.txt
+random_tela_automata
+tests/CMakeFiles
