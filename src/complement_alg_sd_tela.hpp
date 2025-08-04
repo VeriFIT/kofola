@@ -40,6 +40,23 @@ public: // METHODS
 
   virtual ~complement_sd_tela() override { };
 
+  /**
+   * @brief Checks if any transition from the given states under the specified BDD condition
+   *        contains the given acceptance color.
+   *
+   * Iterates over all outgoing transitions from the provided states. For transitions that remain
+   * within the same SCC and whose condition is implied by the given BDD, checks if the transition's
+   * acceptance set contains the specified color. Returns true if at least one such transition exists.
+   *
+   * @param states Set of source states to check transitions from.
+   * @param bdd BDD condition that transitions must satisfy.
+   * @param col Acceptance color to look for in transitions.
+   * @return True if any transition matches the criteria, false otherwise.
+   */
+  bool contains_transition_color(const std::set<unsigned>& states, const bdd& bdd, const spot::acc_cond::mark_t& col) const;
+
+protected:
+
 private:
   CondDNF acc_cond_ {};
 }; // complement_sd_tela }}}
@@ -108,6 +125,20 @@ public: // METHODS
   friend class kofola::complement_sd_tela;
 }; // mstate_sd_tela }}}
 
+
+/**
+ * @brief Generates all possible assignments of the given states to the safe models.
+ *
+ * For each state in the input set, the function creates new macrostates by assigning the state
+ * to each of the available models (from 0 to num_models-1). The result is a vector containing
+ * all combinations where each state is assigned to one model, and all states are distributed
+ * across the models. Used for exploring all possible safe model configurations.
+ *
+ * @param init The initial macrostate to start from.
+ * @param states The set of states to assign to models.
+ * @param num_models The number of models to distribute states into.
+ * @return Vector of macrostates with all possible safe model assignments.
+ */
 std::vector<mstate_sd_tela> guess_safe_models(const mstate_sd_tela& init, const std::set<unsigned>& states, unsigned num_models);
 
 } // namespace sd_tela

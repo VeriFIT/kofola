@@ -31,7 +31,6 @@ std::vector<mstate_sd_tela> guess_safe_models(const mstate_sd_tela& init, const 
     }
   }
   return safe_models;
-
 }
 
 /**
@@ -106,8 +105,12 @@ bool mstate_sd_tela::lt(const mstate& rhs) const
  * that this complementation instance operates on.
  */
 complement_sd_tela::complement_sd_tela(const cmpl_info& info, unsigned part_index)
-  : abstract_complement_alg(info, part_index)
-{ }
+  : abstract_complement_alg(info, part_index) { 
+  
+  // TODO: construct acc_cond from info
+  // TODO: apply some simplifications: Fin(1) && Fin(2) --> Fin(1+2)
+
+}
 
 /**
  * @brief Returns the initial set of macrostates for the SD-TELA complementation algorithm.
@@ -151,6 +154,18 @@ mstate_col_set complement_sd_tela::get_succ_active(
     bool /*resample*/)
 {
     return mstate_col_set{};
+}
+
+bool complement_sd_tela::contains_transition_color(const std::set<unsigned>& states, const bdd& bdd, const spot::acc_cond::mark_t& col) const {
+  for (unsigned s : states) {
+    for (const auto &t : this->info_.aut_->out(s)) {
+      if (this->info_.scc_info_.scc_of(s) == this->info_.scc_info_.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
+        if (t.acc & col) { return true; }
+      }
+    }
+  }
+
+  return false;
 }
 
 } // namespace kofola

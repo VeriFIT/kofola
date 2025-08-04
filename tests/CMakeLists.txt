@@ -1,3 +1,19 @@
+cmake_minimum_required(VERSION 3.16)
+
+project(kofola_tests
+    LANGUAGES CXX
+    VERSION 1.0
+)
+
+if (APPLE) # we need to set correct path for Spot on Mac OS/homebrew
+	execute_process(COMMAND brew --prefix
+		OUTPUT_VARIABLE BREW_PREFIX
+		OUTPUT_STRIP_TRAILING_WHITESPACE)
+	message("-- Brew prefix: ${BREW_PREFIX}")
+	include_directories("${BREW_PREFIX}/include")
+	link_directories("${BREW_PREFIX}/lib")
+endif()
+
 # Test configuration
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -39,6 +55,7 @@ set(TEST_SOURCES
     test_acc_code_dnf.cpp
     test_complement_tela.cpp
     test_guess_safe_models.cpp
+    test_contains_transition_color.cpp
 )
 
 # Create test sources that need to be compiled from main project
