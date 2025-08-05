@@ -9,6 +9,19 @@ namespace kofola {
 
 namespace sd_tela {
 
+/**
+ * @brief Generates all possible assignments of the given states to the safe models.
+ *
+ * For each state in the input set, the function creates new macrostates by assigning the state
+ * to each of the available models (from 0 to num_models-1). The result is a vector containing
+ * all combinations where each state is assigned to one model, and all states are distributed
+ * across the models. Used for exploring all possible safe model configurations.
+ *
+ * @param init The initial macrostate to start from.
+ * @param states The set of states to assign to models.
+ * @param num_models The number of models to distribute states into.
+ * @return Vector of macrostates with all possible safe model assignments.
+ */
 std::vector<mstate_sd_tela> guess_safe_models(const mstate_sd_tela& init, const std::set<unsigned>& states, unsigned num_models) {
   std::vector<mstate_sd_tela> safe_models;
   std::deque<std::pair<mstate_sd_tela, unsigned>> queue;
@@ -182,23 +195,23 @@ mstate_col_set complement_sd_tela::get_succ_track(
     const mstate* src,
     const bdd& symbol)
 {
-  const sd_tela::mstate_sd_tela* src_ncsb = dynamic_cast<const sd_tela::mstate_sd_tela*>(src);
-  assert(src_ncsb);
-  assert(!src_ncsb->active_);
+  const sd_tela::mstate_sd_tela* src_mst = dynamic_cast<const sd_tela::mstate_sd_tela*>(src);
+  assert(src_mst);
+  assert(!src_mst->active_);
 
   // check if there are NO transitions labeled by Fin condition in 
   // each safe model
-  for(size_t i = 0; i < src_ncsb->safe_models_.size(); ++i) {
+  for(size_t i = 0; i < src_mst->safe_models_.size(); ++i) {
     assert(this->acc_cond_[i].fins.size() <= 1);
     for(size_t fin_cond = 0; fin_cond < this->acc_cond_[i].fins.size(); fin_cond++) {
-      if (contains_transition_color(src_ncsb->safe_models_[i], symbol, this->acc_cond_[i].fins[fin_cond])) {
+      if (contains_transition_color(src_mst->safe_models_[i], symbol, this->acc_cond_[i].fins[fin_cond])) {
         return {};
       }
     }
   }
 
   // successors of safe models over a symbol
-  auto [succ_safe, safe_reach] = this->get_safe_succ_reach(src_ncsb->safe_models_, symbol);
+  auto [succ_safe, safe_reach] = this->get_safe_succ_reach(src_mst->safe_models_, symbol);
 
   // successors of check set (do not include states that are already in safe models)
   std::set<unsigned> succ_check;
@@ -210,16 +223,32 @@ mstate_col_set complement_sd_tela::get_succ_track(
     }
   }
 
-  std::shared_ptr<mstate> ms(new sd_tela::mstate_sd_tela(succ_check, succ_safe, {}, src_ncsb->model_index_, src_ncsb->inf_index_, false));
+  std::shared_ptr<mstate> ms(new sd_tela::mstate_sd_tela(succ_check, succ_safe, {}, src_mst->model_index_, src_mst->inf_index_, false));
   // breakpoint is empty
   mstate_col_set result = {{ms, {}}}; 
   
   return result;
 }
 
-mstate_set complement_sd_tela::lift_track_to_active(const mstate* /*src*/)
-{
-    return mstate_set{};
+/**
+ * @brief Lifts a tracking macrostate to an active macrostate in SD-TELA complementation.
+ *
+ * Converts the given tracking macrostate (tracking) into an active macrostate, preserving the check set,
+ * safe models, model and inf indices, and setting the breakpoint to the lift breakpoint as determined by the macrostate.
+ * This operation does not increment model or inf counters, assuming they are already set to the currently tracked entities.
+ *
+ * @param src Source macrostate (must be a tracking state).
+ * @return Set containing the new active macrostate.
+ */
+mstate_set complement_sd_tela::lift_track_to_active(const mstate* src) {
+  const sd_tela::mstate_sd_tela* src_mst = dynamic_cast<const sd_tela::mstate_sd_tela*>(src);
+  assert(src_mst);
+  assert(!src_mst->active_);
+
+  // do not increment model or inf counters 
+  // we assume that the counters are set to currently tracked entities (safe models or runs)
+  std::shared_ptr<mstate> ms(new sd_tela::mstate_sd_tela(src_mst->check_, src_mst->safe_models_, src_mst->get_lift_breakpoint(), src_mst->model_index_, src_mst->inf_index_, true));
+  return {ms};
 }
 
 mstate_col_set complement_sd_tela::get_succ_active(

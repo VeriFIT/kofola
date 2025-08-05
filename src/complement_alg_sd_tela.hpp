@@ -107,6 +107,7 @@ public: // METHODS
   virtual ~mstate_sd_tela() override { }
 
   virtual const std::set<unsigned>& get_breakpoint() const override { return this->breakpoint_; }
+  // TODO: this should be intersection with get_lift_breakpoint
   virtual void set_breakpoint(const std::set<unsigned>& breakpoint) override { this->breakpoint_ = get_set_intersection(breakpoint, this->check_); }
 
   virtual bool subsum_less_early(const mstate& rhs) override {
@@ -114,23 +115,34 @@ public: // METHODS
     return false;
   };
 
+public:
+
+  /**
+   * @brief Returns the lift breakpoint set for the current macrostate.
+   *
+   * If the macrostate represents universal quantification over runs (model_index_ == 0),
+   * returns the set of states to be checked. Otherwise, returns the breakpoint set
+   * for the specific safe model indexed by model_index_ - 1.
+   *
+   * @return The set of states representing the lift breakpoint.
+   */
+  std::set<unsigned> get_lift_breakpoint() const {
+    assert(!this->active_);
+    // universal quantification over runs
+    if(this->model_index_ == 0) {
+      return this->check_;
+    } else {
+      // return the breakpoint of the model
+      return this->safe_models_[this->model_index_ - 1];
+    }
+  }
+
   friend class kofola::complement_sd_tela;
 }; // mstate_sd_tela }}}
 
 
-/**
- * @brief Generates all possible assignments of the given states to the safe models.
- *
- * For each state in the input set, the function creates new macrostates by assigning the state
- * to each of the available models (from 0 to num_models-1). The result is a vector containing
- * all combinations where each state is assigned to one model, and all states are distributed
- * across the models. Used for exploring all possible safe model configurations.
- *
- * @param init The initial macrostate to start from.
- * @param states The set of states to assign to models.
- * @param num_models The number of models to distribute states into.
- * @return Vector of macrostates with all possible safe model assignments.
- */
+// FUNCTIONS
+
 std::vector<mstate_sd_tela> guess_safe_models(const mstate_sd_tela& init, const std::set<unsigned>& states, unsigned num_models);
 
 } // namespace sd_tela
