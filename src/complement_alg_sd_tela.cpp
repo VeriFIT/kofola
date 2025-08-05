@@ -107,9 +107,40 @@ bool mstate_sd_tela::lt(const mstate& rhs) const
 complement_sd_tela::complement_sd_tela(const cmpl_info& info, unsigned part_index)
   : abstract_complement_alg(info, part_index) { 
   
-  // TODO: construct acc_cond from info
-  // TODO: apply some simplifications: Fin(1) && Fin(2) --> Fin(1+2)
+  this->acc_cond_ = info.compute_cond_to_verify();
+  for(size_t i = 0; i < this->acc_cond_.size(); ++i) {
+    this->acc_cond_[i].simplify();
+  }
+}
 
+/**
+ * @brief Computes, for each safe model, the set of successor states in the same SCC reachable via transitions whose condition is implied by the given BDD symbol.
+ * Ensures that states already reached by previous models are excluded from subsequent models' successors.
+ * Returns a pair:
+ *   - Vector of sets: each set contains the safe successors for the corresponding model (excluding previously reached states).
+ *   - Set of all states reached by any model (union of all safe successors).
+ *
+ * @param safe_models Vector of sets, each representing a safe model's states.
+ * @param symbol BDD condition representing the transition label.
+ * @return Pair of (vector of safe successor sets per model, set of all reached states).
+ */
+std::pair<SafeModels, std::set<unsigned>> complement_sd_tela::get_safe_succ_reach(const SafeModels& safe_models, const bdd& symbol) const {
+  SafeModels safe_models_ret;
+  std::set<unsigned> reached_states {};
+
+  // Get all safe successors for each safe model
+  for (const auto& safe_model : safe_models) {
+    std::set<unsigned> succ = kofola::get_all_successors_in_scc(
+      this->info_.aut_, this->info_.scc_info_, safe_model, symbol);
+    
+    // remove states that are already in previous check set
+    // we have made a wrong guess --> we could move those states to different safe set or waint in breakpoint
+    succ = kofola::get_set_difference(succ, reached_states);
+    safe_models_ret.push_back(succ);
+    reached_states.insert(succ.begin(), succ.end());
+  }
+
+  return {safe_models_ret, reached_states};
 }
 
 /**
@@ -133,13 +164,57 @@ mstate_set complement_sd_tela::get_init()
   return result;
 } // get_init() }}}
 
-// Trivial implementations for complement_sd_tela methods
+/**
+  * @brief Computes the tracking successors for a given macrostate and input symbol in SD-TELA complementation.
+  *
+  * For each safe model, checks if there are transitions labeled by a Fin condition; if any such transition exists,
+  * returns an empty result (no valid successors). Otherwise, computes the successors of safe models and the check set
+  * over the given symbol, ensuring that states already in safe models are excluded from the check set. Constructs a new
+  * macrostate with updated check and safe sets, and returns it as the only element in the result.
+  *
+  * @param glob_reached Set of all states reached over the symbol.
+  * @param src Source macrostate (should be a tracking state).
+  * @param symbol BDD condition representing the transition label.
+  * @return Set of macrostate-color pairs representing the possible successors.
+  */
 mstate_col_set complement_sd_tela::get_succ_track(
-    const std::set<unsigned>& /*glob_reached*/,
-    const mstate* /*src*/,
-    const bdd& /*symbol*/)
+    const std::set<unsigned>& glob_reached,
+    const mstate* src,
+    const bdd& symbol)
 {
-    return mstate_col_set{};
+  const sd_tela::mstate_sd_tela* src_ncsb = dynamic_cast<const sd_tela::mstate_sd_tela*>(src);
+  assert(src_ncsb);
+  assert(!src_ncsb->active_);
+
+  // check if there are NO transitions labeled by Fin condition in 
+  // each safe model
+  for(size_t i = 0; i < src_ncsb->safe_models_.size(); ++i) {
+    assert(this->acc_cond_[i].fins.size() <= 1);
+    for(size_t fin_cond = 0; fin_cond < this->acc_cond_[i].fins.size(); fin_cond++) {
+      if (contains_transition_color(src_ncsb->safe_models_[i], symbol, this->acc_cond_[i].fins[fin_cond])) {
+        return {};
+      }
+    }
+  }
+
+  // successors of safe models over a symbol
+  auto [succ_safe, safe_reach] = this->get_safe_succ_reach(src_ncsb->safe_models_, symbol);
+
+  // successors of check set (do not include states that are already in safe models)
+  std::set<unsigned> succ_check;
+  for (unsigned st : glob_reached) {
+    if (this->info_.st_to_part_map_.at(st) == static_cast<int>(this->part_index_)) {
+      if (safe_reach.find(st) == safe_reach.end()) { // if not in safe
+        succ_check.insert(st);
+      }
+    }
+  }
+
+  std::shared_ptr<mstate> ms(new sd_tela::mstate_sd_tela(succ_check, succ_safe, {}, src_ncsb->model_index_, src_ncsb->inf_index_, false));
+  // breakpoint is empty
+  mstate_col_set result = {{ms, {}}}; 
+  
+  return result;
 }
 
 mstate_set complement_sd_tela::lift_track_to_active(const mstate* /*src*/)
@@ -156,6 +231,19 @@ mstate_col_set complement_sd_tela::get_succ_active(
     return mstate_col_set{};
 }
 
+/**
+  * @brief Checks if any transition from the given states under the specified BDD condition
+  *        contains the given acceptance color.
+  *
+  * Iterates over all outgoing transitions from the provided states. For transitions that remain
+  * within the same SCC and whose condition is implied by the given BDD, checks if the transition's
+  * acceptance set contains the specified color. Returns true if at least one such transition exists.
+  *
+  * @param states Set of source states to check transitions from.
+  * @param bdd BDD condition that transitions must satisfy.
+  * @param col Acceptance color to look for in transitions.
+  * @return True if any transition matches the criteria, false otherwise.
+ */
 bool complement_sd_tela::contains_transition_color(const std::set<unsigned>& states, const bdd& bdd, const spot::acc_cond::mark_t& col) const {
   for (unsigned s : states) {
     for (const auto &t : this->info_.aut_->out(s)) {

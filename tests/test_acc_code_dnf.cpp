@@ -454,17 +454,17 @@ TEST_CASE("acc_code_dnf integration with compute_cond_to_verify", "[acc_code_dnf
         );
         
         // Test that compute_cond_to_verify works
-        info.compute_cond_to_verify();
-        REQUIRE_FALSE(info.cond_to_verify_.empty());
-        
+        auto cond_to_verify = info.compute_cond_to_verify();
+        REQUIRE_FALSE(cond_to_verify.empty());
+
         // Test that direct call to acc_code_dnf produces same result
         auto direct_result = cmpl_info::acc_code_dnf(aut->acc().get_acceptance());
         
         // Results should be the same
-        REQUIRE(info.cond_to_verify_.size() == direct_result.size());
-        for (size_t i = 0; i < info.cond_to_verify_.size(); ++i) {
-            REQUIRE(info.cond_to_verify_[i].fins.size() == direct_result[i].fins.size());
-            REQUIRE(info.cond_to_verify_[i].infs.size() == direct_result[i].infs.size());
+        REQUIRE(cond_to_verify.size() == direct_result.size());
+        for (size_t i = 0; i < cond_to_verify.size(); ++i) {
+            REQUIRE(cond_to_verify[i].fins.size() == direct_result[i].fins.size());
+            REQUIRE(cond_to_verify[i].infs.size() == direct_result[i].infs.size());
         }
     }
 }

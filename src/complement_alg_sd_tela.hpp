@@ -6,6 +6,8 @@
 
 namespace kofola { // {{{
 
+using SafeModels = std::vector<std::set<unsigned>>;
+
 /// implementation of NCSB-based complementation algorithm for deterministic SCCs
 class complement_sd_tela : public abstract_complement_alg
 { // {{{
@@ -40,23 +42,13 @@ public: // METHODS
 
   virtual ~complement_sd_tela() override { };
 
-  /**
-   * @brief Checks if any transition from the given states under the specified BDD condition
-   *        contains the given acceptance color.
-   *
-   * Iterates over all outgoing transitions from the provided states. For transitions that remain
-   * within the same SCC and whose condition is implied by the given BDD, checks if the transition's
-   * acceptance set contains the specified color. Returns true if at least one such transition exists.
-   *
-   * @param states Set of source states to check transitions from.
-   * @param bdd BDD condition that transitions must satisfy.
-   * @param col Acceptance color to look for in transitions.
-   * @return True if any transition matches the criteria, false otherwise.
-   */
-  bool contains_transition_color(const std::set<unsigned>& states, const bdd& bdd, const spot::acc_cond::mark_t& col) const;
+// AUXILIARY METHODS
+public:
 
-protected:
+  bool contains_transition_color(const std::set<unsigned>& states, const bdd& bdd, const spot::acc_cond::mark_t& col) const;  
+  std::pair<SafeModels, std::set<unsigned>> get_safe_succ_reach(const SafeModels& safe_models, const bdd& symbol) const;
 
+// DATA MEMBERS
 private:
   CondDNF acc_cond_ {};
 }; // complement_sd_tela }}}
@@ -80,7 +72,7 @@ public: // METHODS
   /// constructor
   mstate_sd_tela(
     const std::set<unsigned>&  check,
-    const std::vector<std::set<unsigned>>&  safe_models,
+    const SafeModels&  safe_models,
     const std::set<unsigned>&  breakpoint,
     unsigned                   model_index,
     unsigned                   inf_index,
