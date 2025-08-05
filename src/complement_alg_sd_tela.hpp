@@ -107,10 +107,14 @@ public: // METHODS
   virtual ~mstate_sd_tela() override { }
 
   virtual const std::set<unsigned>& get_breakpoint() const override { return this->breakpoint_; }
-  // TODO: this should be intersection with get_lift_breakpoint
-  virtual void set_breakpoint(const std::set<unsigned>& breakpoint) override { this->breakpoint_ = get_set_intersection(breakpoint, this->check_); }
+  
+  // intersection with the breakpoint counterpart
+  virtual void set_breakpoint(const std::set<unsigned>& breakpoint) override { 
+    this->breakpoint_ = get_set_intersection(breakpoint, this->get_lift_breakpoint()); 
+  }
 
   virtual bool subsum_less_early(const mstate& rhs) override {
+    (void)rhs; // suppress unused parameter warning
     // TODO: implement subsumption for SD-TELA
     return false;
   };
@@ -127,7 +131,6 @@ public:
    * @return The set of states representing the lift breakpoint.
    */
   std::set<unsigned> get_lift_breakpoint() const {
-    assert(!this->active_);
     // universal quantification over runs
     if(this->model_index_ == 0) {
       return this->check_;
