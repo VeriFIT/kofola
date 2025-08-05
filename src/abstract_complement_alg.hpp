@@ -33,6 +33,24 @@ struct AccClause {
 
     }
   }
+
+  /**
+   * @brief Simplifies the set of Fin acceptance marks by merging them into a single mark.
+   *
+   * If the fins vector is non-empty, replaces it with a single mark that is the bitwise OR of all marks in the vector.
+   * Fin(1) & Fin(2) becomes Fin(1 | 2).
+   */
+  void simplify() {
+    if(fins.empty()) {
+      return; // nothing to simplify  
+    }
+    spot::acc_cond::mark_t max_fin = fins[0];
+    for (const auto& fin : fins) {
+      max_fin = max_fin | fin;
+    }
+    fins.clear();
+    fins.push_back(max_fin);
+  }
 };
 
 // Acceptance condition in DNF
@@ -74,9 +92,6 @@ struct cmpl_info
   /// use shared breakpoint
   const bool shared_breakpoint_;
 
-  /// condition to be verified in the complement in DNF (negation of the input acceptance condition converted to DNF)
-  CondDNF cond_to_verify_;
-
   /// constructor
   cmpl_info(
     const spot::const_twa_graph_ptr&  aut,
@@ -101,8 +116,7 @@ struct cmpl_info
     scc_info_(scc_info),
     dir_sim_(dir_sim),
     state_accepting_(state_accepting),
-    shared_breakpoint_(shared_breakpoint),
-    cond_to_verify_()
+    shared_breakpoint_(shared_breakpoint)
   { }
 
   /**
@@ -135,10 +149,10 @@ struct cmpl_info
    * This function extracts the acceptance condition from the automaton, converts it
    * to its complement in DNF form, and stores it in cond_to_verify_.
    */
-  void compute_cond_to_verify() {
+  CondDNF compute_cond_to_verify() const {
     spot::acc_cond input_acc = this->aut_->acc();
     spot::acc_cond::acc_code code = input_acc.get_acceptance();
-    this->cond_to_verify_ = acc_code_dnf(code);
+    return acc_code_dnf(code);
   }
 
 }; // struct cmpl_info }}}
