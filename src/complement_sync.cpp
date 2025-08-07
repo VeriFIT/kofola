@@ -31,6 +31,7 @@
 #include "complement_alg_rank2.hpp"
 #include "complement_alg_init_det.hpp"
 #include "complement_alg_subs_tuple.hpp"
+#include "complement_alg_sd_tela.hpp"
 
 #include <deque>
 #include <map>
@@ -157,11 +158,11 @@ namespace cola {
         this->show_names_ = true;     // FIXME: set from parameters
 
         // validate our input is a BA
-        if (this->aut_->get_acceptance() != spot::acc_cond::acc_code::inf({0})) {
-            throw std::runtime_error(
-                    "complement_tnba(): input is not Buchi! acceptance condition: " +
-                    std::to_string(this->aut_->get_acceptance()));
-        }
+        // if (this->aut_->get_acceptance() != spot::acc_cond::acc_code::inf({0})) {
+        //     throw std::runtime_error(
+        //             "complement_tnba(): input is not Buchi! acceptance condition: " +
+        //             std::to_string(this->aut_->get_acceptance()));
+        // }
 
         // compute vector of accepting states, supports, etc.
         for (unsigned i = 0; i < this->aut_->num_states(); ++i) {
@@ -1616,19 +1617,28 @@ namespace cola {
     void cola::tnba_complement::select_algorithms()  { // {{{
         using kofola::PartitionType;
 
-        for (size_t i = 0;
-             i < this->info_->num_partitions_; ++i) { // determine which algorithms to run on each of the SCCs
+        bool is_buchi = this->aut_->acc().is_buchi();
+
+        for (size_t i = 0; i < this->info_->num_partitions_; ++i) { // determine which algorithms to run on each of the SCCs
             cola::tnba_complement::abs_cmpl_alg_p alg;
             if (PartitionType::INHERENTLY_WEAK == this->info_->part_to_type_map_.at(i)) {
                 alg = std::make_unique<kofola::complement_mh>(*(this->info_.get()), i);
             } else if (PartitionType::DETERMINISTIC == this->info_->part_to_type_map_.at(i)) {
-                if (kofola::has_value("ncsb-delay", "yes", kofola::OPTIONS.params)) {
-                    alg = std::make_unique<kofola::complement_ncsb_delay>(*(this->info_.get()), i);
+                if(is_buchi) {
+                    if (kofola::has_value("ncsb-delay", "yes", kofola::OPTIONS.params)) {
+                        alg = std::make_unique<kofola::complement_ncsb_delay>(*(this->info_.get()), i);
+                    } else {
+                        alg = std::make_unique<kofola::complement_ncsb>(*(this->info_.get()), i);
+                    }
                 } else {
-                    alg = std::make_unique<kofola::complement_ncsb>(*(this->info_.get()), i);
+                    alg = std::make_unique<kofola::complement_sd_tela>(*(this->info_.get()), i);
                 }
             } else if (PartitionType::STRONGLY_DETERMINISTIC == this->info_->part_to_type_map_.at(i)) {
-                alg = std::make_unique<kofola::complement_ncsb>(*(this->info_.get()), i);
+                if(is_buchi) {
+                    alg = std::make_unique<kofola::complement_ncsb>(*(this->info_.get()), i);
+                } else {
+                    alg = std::make_unique<kofola::complement_sd_tela>(*(this->info_.get()), i);
+                }
             } else if (PartitionType::NONDETERMINISTIC == this->info_->part_to_type_map_.at(i)) {
                 if (kofola::has_value("nac-alg", "subs_tup", kofola::OPTIONS.params)) { // use subs_tup for NACs
                     alg = std::make_unique<kofola::complement_subs_tuple>(*(this->info_.get()), i);

@@ -120,7 +120,8 @@ TEST_CASE("complement_tela produces language-equivalent results to Spot", "[comp
     std::vector<std::string> test_files = {
         "tests/test_data/inf_a.hoa",
         "tests/test_data/ndet_example.hoa",
-        "tests/test_data/simple_buchi.hoa"
+        "tests/test_data/simple_buchi.hoa",
+        "tests/test_data/random_sd_tela_001.hoa",
     };
     
     for (const std::string& filename : test_files) {

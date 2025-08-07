@@ -56,9 +56,6 @@ std::string mstate_sd_tela::to_string() const
   res += "C=" + std::to_string(this->check_);
   for (size_t i = 0; i < this->safe_models_.size(); ++i) {
     res += ", S" + std::to_string(i) + "=" + std::to_string(this->safe_models_[i]);
-    if(i < this->safe_models_.size() - 1) {
-      res += ", ";
-    }
   }
   res += ", ModelI=" + std::to_string(this->model_index_);
   res += ", InfI=" + std::to_string(this->inf_index_);
@@ -172,7 +169,7 @@ mstate_set complement_sd_tela::get_init()
     init_state.insert(orig_init);
   }
 
-  std::shared_ptr<mstate> ms(new sd_tela::mstate_sd_tela(init_state, {}, {}, 0, 0, false));
+  std::shared_ptr<mstate> ms(new sd_tela::mstate_sd_tela(init_state, this->acc_cond_.size(), {}, 0, 0, false));
   mstate_set result = {ms};
   return result;
 } // get_init() }}}
@@ -267,6 +264,9 @@ mstate_col_set complement_sd_tela::get_succ_active(
   sd_tela::mstate_sd_tela& dest_track_mst = dest_mst_vec[0].first;
   std::set<unsigned> succ_break = this->get_succ_breakpoint_tmp(src_mst, dest_mst_vec[0].second, symbol);
 
+  DEBUG_PRINT_LN("obtained track ms: " + std::to_string(dest_track_mst));
+  DEBUG_PRINT_LN("succ_break: " + std::to_string(succ_break) + " resample: " + std::to_string(resample));
+
   if(succ_break.empty() && resample) {
     mstate_col_set result;
 
@@ -277,7 +277,6 @@ mstate_col_set complement_sd_tela::get_succ_active(
     if(dest_track_mst.model_index_ == 0) {
       colors = {0};
     }
-
     if (this->use_round_robin()) {
       std::shared_ptr<mstate> ms(new sd_tela::mstate_sd_tela(dest_track_mst.check_, dest_track_mst.safe_models_, 
           {}, dest_track_mst.model_index_, dest_track_mst.inf_index_, false));

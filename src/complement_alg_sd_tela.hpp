@@ -114,7 +114,7 @@ public:
     } else {
       if(this->inf_index_ >= acc_cond[this->model_index_ - 1].infs.size() - 1) {
         // increment model index
-        this->model_index_++;
+        this->model_index_ = (this->model_index_ + 1) % (acc_cond.size() + 1);
         this->inf_index_ = 0; // reset inf index
       } else {
         // increment inf index

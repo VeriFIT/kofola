@@ -21,10 +21,10 @@ list(APPEND CXX_FLAGS "-Weffc++")
 option(ENABLE_CNT "Enable counter debugging" OFF)
 
 if(ENABLE_CNT)
-    add_definitions(-DENABLE_COUNTER)
-    set(BINARY_SUFFIX "_cnt") 
+	add_definitions(-DENABLE_COUNTER)
+	set(BINARY_SUFFIX "_cnt") 
 else()
-    set(BINARY_SUFFIX "") 
+	set(BINARY_SUFFIX "") 
 endif()
 # end for counting states in inclusion
 
@@ -47,6 +47,7 @@ add_executable(kofola
 	util.cpp
 	emptiness_check.cpp
 	inclusion_check.cpp
+	complement_alg_sd_tela.cpp
 	)
 
 target_compile_options(kofola PRIVATE ${CXX_FLAGS})
@@ -62,5 +63,5 @@ target_link_libraries(kofola
 )
 
 set_target_properties(kofola PROPERTIES
-    OUTPUT_NAME "kofola${BINARY_SUFFIX}"  # Append _cnt if ENABLE_CNT is ON
+	OUTPUT_NAME "kofola${BINARY_SUFFIX}"  # Append _cnt if ENABLE_CNT is ON
 )
