@@ -107,19 +107,15 @@ public:
    * @param acc_cond Acceptance condition (CondDNF) used to determine inf condition bounds.
    */
   void increment_indices(const CondDNF& acc_cond) {
-    if(this->model_index_ == 0) {
-      // increment model index
-      this->model_index_++;
+    if(this->model_index_ == 0 || this->inf_index_ + 1 >= acc_cond[this->model_index_ - 1].infs.size()) {
+      // jump to the nearest model having INF conditions
+      do {
+          this->model_index_ = (this->model_index_ + 1) % (acc_cond.size() + 1);
+        } while (this->model_index_ != 0 && acc_cond[this->model_index_ - 1].infs.empty());
+
       this->inf_index_ = 0; // reset inf index
     } else {
-      if(this->inf_index_ >= acc_cond[this->model_index_ - 1].infs.size() - 1) {
-        // increment model index
-        this->model_index_ = (this->model_index_ + 1) % (acc_cond.size() + 1);
-        this->inf_index_ = 0; // reset inf index
-      } else {
-        // increment inf index
-        this->inf_index_++;
-      }
+      this->inf_index_++;
     }
   }
 }; // mstate_sd_tela }}}
@@ -191,6 +187,7 @@ public:
 
   std::set<unsigned> get_succ_breakpoint_tmp(
     const sd_tela::mstate_sd_tela* src_mst,
+    const sd_tela::mstate_sd_tela& dest_mst,
     const std::set<unsigned>& succ_safe_reach,
     const bdd& symbol) const;
 

@@ -262,7 +262,7 @@ mstate_col_set complement_sd_tela::get_succ_active(
   }
 
   sd_tela::mstate_sd_tela& dest_track_mst = dest_mst_vec[0].first;
-  std::set<unsigned> succ_break = this->get_succ_breakpoint_tmp(src_mst, dest_mst_vec[0].second, symbol);
+  std::set<unsigned> succ_break = this->get_succ_breakpoint_tmp(src_mst, dest_track_mst, dest_mst_vec[0].second, symbol);
 
   DEBUG_PRINT_LN("obtained track ms: " + std::to_string(dest_track_mst));
   DEBUG_PRINT_LN("succ_break: " + std::to_string(succ_break) + " resample: " + std::to_string(resample));
@@ -424,11 +424,13 @@ std::set<unsigned> complement_sd_tela::get_succ_excluding_colors(
  *
  * @param src_mst Source macrostate (active state).
  * @param succ_safe_reach Set of states reached by safe models over the symbol.
+ * @param dest_track_mst Destination tracking macrostate to filter successors against.
  * @param symbol BDD condition representing the transition label.
  * @return Set of successor states for the breakpoint set, filtered as described above.
  */
 std::set<unsigned> complement_sd_tela::get_succ_breakpoint_tmp(
     const sd_tela::mstate_sd_tela* src_mst,
+    const sd_tela::mstate_sd_tela& dest_track_mst,
     const std::set<unsigned>& succ_safe_reach,
     const bdd& symbol) const {
   
@@ -439,7 +441,8 @@ std::set<unsigned> complement_sd_tela::get_succ_breakpoint_tmp(
     return kofola::get_set_difference(succ_break, succ_safe_reach);
   }
 
-  return get_succ_excluding_colors(src_mst->breakpoint_, symbol, this->acc_cond_[src_mst->model_index_ - 1].infs[src_mst->inf_index_]);
+  std::set<unsigned> br = get_succ_excluding_colors(src_mst->breakpoint_, symbol, this->acc_cond_[src_mst->model_index_ - 1].infs[src_mst->inf_index_]);
+  return kofola::get_set_intersection(br, dest_track_mst.safe_models_[src_mst->model_index_ - 1]);
 }
 
 } // namespace kofola

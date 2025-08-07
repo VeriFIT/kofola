@@ -110,10 +110,10 @@ spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 	// TODO: handle simplification for TELA
 	// make sure the input is a BA
 	spot::postprocessor p;
-	// p.set_type(spot::postprocessor::Buchi);
-	p.set_level(spot::postprocessor::Low);
+	p.set_type(spot::postprocessor::Generic);
+	p.set_level(spot::postprocessor::High);
 	spot::twa_graph_ptr aut_to_compl;
-	aut_to_compl = aut_reduced; // p.run(aut_reduced);
+	aut_to_compl = p.run(aut_reduced);
 
 	auto res = kofola::complement_sync(aut_to_compl);
 	DEBUG_PRINT_LN("finished call to run_new()");
