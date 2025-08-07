@@ -9,11 +9,11 @@ set -e
 # Default parameters
 NUM_AUTOMATA=10
 OUTPUT_DIR="random_tela_automata"
-NUM_STATES_MIN=3
+NUM_STATES_MIN=6
 NUM_STATES_MAX=15
 NUM_APS_MIN=1
 NUM_APS_MAX=3
-DENSITY=0.3
+DENSITY=0.1
 SEED=""
 
 # Function to display usage
@@ -149,28 +149,31 @@ echo ""
 # Function to generate a single automaton
 generate_automaton() {
     local index=$1
-    local num_states=$((RANDOM % (NUM_STATES_MAX - NUM_STATES_MIN + 1) + NUM_STATES_MIN))
-    local num_aps=$((RANDOM % (NUM_APS_MAX - NUM_APS_MIN + 1) + NUM_APS_MIN))
     local output_file="$OUTPUT_DIR/random_tela_$(printf "%03d" $index).hoa"
-    
-    # Generate random automaton with Streett acceptance
-    # First create a random automaton, then convert to semi-deterministic with Streett acceptance
-    randaut -A "Streett 1..3" -Q "$num_states" -e "$DENSITY" "$num_aps" 1 \
-        | autfilt --name="Random Streett automaton $index (${num_states}s, ${num_aps}ap)" \
-        > "$output_file"
-    
-    if [[ $? -eq 0 ]]; then
-        echo "Generated: $output_file (${num_states} states, ${num_aps} APs)"
-        
-        # Verify the automaton is valid
-        if ! autfilt --stats="%f,%s,%e,%a" "$output_file" > /dev/null 2>&1; then
-            echo "Warning: Generated automaton may be invalid: $output_file"
-            return 1
+    local max_attempts=100
+    local attempt=0
+    local found=0
+    while [[ $attempt -lt $max_attempts ]]; do
+        local num_states=$((RANDOM % (NUM_STATES_MAX - NUM_STATES_MIN + 1) + NUM_STATES_MIN))
+        local num_aps=$((RANDOM % (NUM_APS_MAX - NUM_APS_MIN + 1) + NUM_APS_MIN))
+        # Generate and filter automaton
+        randaut -A "Streett 1..3" -Q "$num_states" -e "$DENSITY" "2..3" \
+            | autfilt --is-semi-deterministic --name="Random Streett automaton $index (${num_states}s, ${num_aps}ap)" \
+            > "$output_file"
+        # Check if automaton satisfies constraints (autfilt output is non-empty and valid)
+        if [[ -s "$output_file" ]] && autfilt --stats="%f,%s,%e,%a" "$output_file" > /dev/null 2>&1; then
+            echo "Generated: $output_file (${num_states} states, ${num_aps} APs)"
+            found=1
+            break
+        else
+            rm -f "$output_file"
         fi
-        
+        ((attempt++))
+    done
+    if [[ $found -eq 1 ]]; then
         return 0
     else
-        echo "Error generating automaton $index"
+        echo "Error: Could not generate valid automaton $index after $max_attempts attempts."
         return 1
     fi
 }
