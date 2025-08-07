@@ -199,31 +199,12 @@ mstate_col_set complement_sd_tela::get_succ_track(
   assert(src_mst);
   assert(!src_mst->active_);
 
-  // check if there are NO transitions labeled by Fin condition in 
-  // each safe model
-  for(size_t i = 0; i < src_mst->safe_models_.size(); ++i) {
-    assert(this->acc_cond_[i].fins.size() <= 1);
-    for(size_t fin_cond = 0; fin_cond < this->acc_cond_[i].fins.size(); fin_cond++) {
-      if (contains_transition_color(src_mst->safe_models_[i], symbol, this->acc_cond_[i].fins[fin_cond])) {
-        return {};
-      }
-    }
+  auto dest_mst_vec = this->get_succ_mst_track(glob_reached, src_mst, symbol);
+  if (dest_mst_vec.empty()) {
+    return {}; // no valid successors
   }
 
-  // successors of safe models over a symbol
-  auto [succ_safe, safe_reach] = this->get_safe_succ_reach(src_mst->safe_models_, symbol);
-
-  // successors of check set (do not include states that are already in safe models)
-  std::set<unsigned> succ_check;
-  for (unsigned st : glob_reached) {
-    if (this->info_.st_to_part_map_.at(st) == static_cast<int>(this->part_index_)) {
-      if (safe_reach.find(st) == safe_reach.end()) { // if not in safe
-        succ_check.insert(st);
-      }
-    }
-  }
-
-  std::shared_ptr<mstate> ms(new sd_tela::mstate_sd_tela(succ_check, succ_safe, {}, src_mst->model_index_, src_mst->inf_index_, false));
+  std::shared_ptr<mstate> ms(new sd_tela::mstate_sd_tela(dest_mst_vec[0].first));
   // breakpoint is empty
   mstate_col_set result = {{ms, {}}}; 
   
@@ -251,13 +232,82 @@ mstate_set complement_sd_tela::lift_track_to_active(const mstate* src) {
   return {ms};
 }
 
+/**
+ * @brief Computes the successors for an active macrostate in SD-TELA complementation.
+ *
+ * For the given active macrostate and input symbol, computes the successor macrostate and breakpoint set.
+ * If the breakpoint set is empty and resampling is enabled, increments model and inf indices and emits color 0 if at the first model index.
+ * Depending on round-robin mode, either returns a tracking macrostate or lifts to a new active macrostate.
+ * Otherwise, returns the successor macrostate with the computed breakpoint set. If at the first model index and the breakpoint set is non-empty,
+ * generates all possible safe model assignments for the breakpoint set and returns corresponding macrostates.
+ *
+ * @param glob_reached Set of all states reached over the symbol.
+ * @param src Source macrostate (active state).
+ * @param symbol BDD condition representing the transition label.
+ * @param resample Whether to resample when the breakpoint set is empty.
+ * @return Set of macrostate-color pairs representing possible successors.
+ */
 mstate_col_set complement_sd_tela::get_succ_active(
-    const std::set<unsigned>& /*glob_reached*/,
-    const mstate* /*src*/,
-    const bdd& /*symbol*/,
-    bool /*resample*/)
-{
-    return mstate_col_set{};
+    const std::set<unsigned>& glob_reached,
+    const mstate* src,
+    const bdd& symbol,
+    bool resample) {
+  
+  DEBUG_PRINT_LN("computing successor for glob_reached = " + std::to_string(glob_reached) +
+    ", " + std::to_string(*src) + " over " + std::to_string(symbol));
+  const sd_tela::mstate_sd_tela* src_mst = dynamic_cast<const sd_tela::mstate_sd_tela*>(src);
+  assert(src_mst);
+  assert(src_mst->active_);
+
+  auto dest_mst_vec = this->get_succ_mst_track(glob_reached, src_mst, symbol);
+  if (dest_mst_vec.empty()) {
+    return {}; // no valid successors
+  }
+
+  sd_tela::mstate_sd_tela& dest_track_mst = dest_mst_vec[0].first;
+  std::set<unsigned> succ_break = this->get_succ_breakpoint_tmp(src_mst, dest_mst_vec[0].second, symbol);
+
+  if(succ_break.empty() && resample) {
+    mstate_col_set result;
+
+    // increment model and inf indices
+    dest_track_mst.increment_indices(this->acc_cond_);
+    std::set<unsigned> colors = {};
+    // when we reach the first model index, emit the color 0
+    if(dest_track_mst.model_index_ == 0) {
+      colors = {0};
+    }
+
+    if (this->use_round_robin()) {
+      std::shared_ptr<mstate> ms(new sd_tela::mstate_sd_tela(dest_track_mst.check_, dest_track_mst.safe_models_, 
+          {}, dest_track_mst.model_index_, dest_track_mst.inf_index_, false));
+      result.push_back({ms, colors});
+    } else { // no round robing
+      std::shared_ptr<mstate> ms(new sd_tela::mstate_sd_tela(dest_track_mst.check_, dest_track_mst.safe_models_, 
+          dest_track_mst.get_lift_breakpoint(), dest_track_mst.model_index_, dest_track_mst.inf_index_, true));
+      result.push_back({ms, colors});
+    }
+    return result;
+  }
+
+  // no breakpoint
+  mstate_col_set result;
+  std::shared_ptr<mstate> ms(new sd_tela::mstate_sd_tela(dest_track_mst.check_, dest_track_mst.safe_models_, 
+      succ_break, dest_track_mst.model_index_, dest_track_mst.inf_index_, true));
+  result.push_back({ms, {}});
+
+  if(dest_track_mst.model_index_ != 0 || succ_break.empty()) {
+    return result;
+  }
+
+  sd_tela::mstate_sd_tela guess_init(dest_track_mst.check_, dest_track_mst.safe_models_, {}, dest_track_mst.model_index_, dest_track_mst.inf_index_, true);
+  std::vector<sd_tela::mstate_sd_tela> guess_safe_models_vec = guess_safe_models(guess_init, succ_break, this->acc_cond_.size());
+  for (const auto& guess_mst : guess_safe_models_vec) {
+    std::shared_ptr<mstate> ms_guess(new sd_tela::mstate_sd_tela(guess_mst));
+    result.push_back({ms_guess, {}});
+  }
+
+  return result;
 }
 
 /**
@@ -283,6 +333,114 @@ bool complement_sd_tela::contains_transition_color(const std::set<unsigned>& sta
   }
 
   return false;
+}
+
+
+/**
+ * @brief Computes the successor macrostate and safe reach set for a tracking macrostate in SD-TELA complementation.
+ *
+ * Checks for forbidden transitions labeled by Fin conditions in each safe model; if any exist, returns an empty result.
+ * Otherwise, computes successors of safe models and the union of all reached states. Updates the macrostate with new safe models,
+ * model and inf indices, and updates the check set to include states in the global reach set that are not already in safe reach.
+ * Returns a vector containing a single pair: the updated macrostate and the set of all states reached by safe models.
+ *
+ * @param glob_reached Set of all states reached.
+ * @param src_mst Source macrostate (tracking state).
+ * @param symbol BDD condition representing the transition label.
+ * @return Vector with one pair: (successor macrostate, set of states reached by safe models). Empty if forbidden transitions are found.
+ */
+std::vector<std::pair<sd_tela::mstate_sd_tela, std::set<unsigned>>> complement_sd_tela::get_succ_mst_track(
+    const std::set<unsigned>& glob_reached,
+    const sd_tela::mstate_sd_tela* src_mst,
+    const bdd& symbol) const {
+  
+  sd_tela::mstate_sd_tela dest_mst {};
+  // check if there are NO transitions labeled by Fin condition in 
+  // each safe model
+  for(size_t i = 0; i < src_mst->safe_models_.size(); ++i) {
+    assert(this->acc_cond_[i].fins.size() <= 1);
+    for(size_t fin_cond = 0; fin_cond < this->acc_cond_[i].fins.size(); fin_cond++) {
+      if (contains_transition_color(src_mst->safe_models_[i], symbol, this->acc_cond_[i].fins[fin_cond])) {
+        return {};
+      }
+    }
+  }
+
+  // successors of safe models over a symbol
+  auto [succ_safe, safe_reach] = this->get_safe_succ_reach(src_mst->safe_models_, symbol);
+  dest_mst.safe_models_ = succ_safe;
+  dest_mst.model_index_ = src_mst->model_index_;
+  dest_mst.inf_index_ = src_mst->inf_index_;
+
+  // successors of check set (do not include states that are already in safe models)
+  std::set<unsigned> succ_check;
+  for (unsigned st : glob_reached) {
+    if (this->info_.st_to_part_map_.at(st) == static_cast<int>(this->part_index_)) {
+      if (safe_reach.find(st) == safe_reach.end()) { // if not in safe
+        dest_mst.check_.insert(st);
+      }
+    }
+  }
+
+  return { {dest_mst, safe_reach} };
+}
+
+
+/**
+ * @brief Computes the set of successor states for a given set of states, excluding transitions containing a specific acceptance color.
+ *
+ * Iterates over all outgoing transitions from the provided states. For transitions that remain within the same SCC and whose condition is implied by the given BDD,
+ * only includes successor states if the transition's acceptance set does not contain the specified color.
+ *
+ * @param states Set of source states to compute successors from.
+ * @param bdd BDD condition that transitions must satisfy.
+ * @param col Acceptance color to exclude from transitions.
+ * @return Set of successor states excluding those reached via transitions containing the specified color.
+ */
+std::set<unsigned> complement_sd_tela::get_succ_excluding_colors(
+    const std::set<unsigned>& states,
+    const bdd& bdd,
+    const spot::acc_cond::mark_t& col) const {
+  std::set<unsigned> succ_states;
+
+  for (unsigned s : states) {
+    for (const auto &t : this->info_.aut_->out(s)) {
+      if (this->info_.scc_info_.scc_of(s) == this->info_.scc_info_.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
+        if (!(t.acc & col)) { // exclude colors
+          succ_states.insert(t.dst);
+        }
+      }
+    }
+  }
+
+  return succ_states;
+}
+
+/**
+ * @brief Computes the set of successor states for the breakpoint set in SD-TELA complementation.
+ *
+ * For model_index == 0, computes all successors of the breakpoint set within the same SCC over the given symbol,
+ * and excludes states already reached by safe models. For other model indices, computes successors of the breakpoint set
+ * excluding those transitions that contain the current inf color.
+ *
+ * @param src_mst Source macrostate (active state).
+ * @param succ_safe_reach Set of states reached by safe models over the symbol.
+ * @param symbol BDD condition representing the transition label.
+ * @return Set of successor states for the breakpoint set, filtered as described above.
+ */
+std::set<unsigned> complement_sd_tela::get_succ_breakpoint_tmp(
+    const sd_tela::mstate_sd_tela* src_mst,
+    const std::set<unsigned>& succ_safe_reach,
+    const bdd& symbol) const {
+  
+  if (src_mst->model_index_ == 0) {
+    // universal quantification over runs
+    std::set<unsigned> succ_break = kofola::get_all_successors_in_scc(
+      this->info_.aut_, this->info_.scc_info_, src_mst->breakpoint_, symbol);
+    return kofola::get_set_difference(succ_break, succ_safe_reach);
+  }
+
+  return get_succ_excluding_colors(src_mst->breakpoint_, symbol, this->acc_cond_[src_mst->model_index_ - 1].infs[src_mst->inf_index_]);
 }
 
 } // namespace kofola
