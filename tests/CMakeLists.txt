@@ -6,12 +6,12 @@ project(kofola_tests
 )
 
 if (APPLE) # we need to set correct path for Spot on Mac OS/homebrew
-	execute_process(COMMAND brew --prefix
-		OUTPUT_VARIABLE BREW_PREFIX
-		OUTPUT_STRIP_TRAILING_WHITESPACE)
-	message("-- Brew prefix: ${BREW_PREFIX}")
-	include_directories("${BREW_PREFIX}/include")
-	link_directories("${BREW_PREFIX}/lib")
+    execute_process(COMMAND brew --prefix
+        OUTPUT_VARIABLE BREW_PREFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+    message("-- Brew prefix: ${BREW_PREFIX}")
+    include_directories("${BREW_PREFIX}/include")
+    link_directories("${BREW_PREFIX}/lib")
 endif()
 
 # Test configuration
@@ -52,10 +52,10 @@ include_directories(${CMAKE_SOURCE_DIR}/src)
 # Test source files
 set(TEST_SOURCES
     test_main.cpp
-    test_acc_code_dnf.cpp
-    test_complement_tela.cpp
-    test_guess_safe_models.cpp
-    test_contains_transition_color.cpp
+    tela/test_acc_code_dnf.cpp
+    tela/test_complement_tela.cpp
+    tela/test_guess_safe_models.cpp
+    tela/test_contains_transition_color.cpp
 )
 
 # Create test sources that need to be compiled from main project
