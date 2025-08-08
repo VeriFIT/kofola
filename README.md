@@ -80,6 +80,7 @@ The complementation and the inclusion checking might be adjusted by the followin
 | `early_sim` | `yes`,`no`  | Use early simulation for macrostate pruning (`--inclusion` only) |
 | `early_plus_sim` | `yes`,`no`  | Use early+1 simulation for macrostate pruning (`--inclusion` only) |
 | `gfee` | `yes`,`no`  | Use a good for emptiness relation for early termination (`--inclusion` only) |
+| `tela` | `yes`,`no`  | If `yes`, use TELA-specific algorithms for complementation (if `no`, the input is converted to TBA) |
 
 ## Testing
 

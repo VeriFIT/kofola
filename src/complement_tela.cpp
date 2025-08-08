@@ -107,10 +107,14 @@ spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 		}
 	}
 
-	// TODO: handle simplification for TELA
-	// make sure the input is a BA
+	// if tela=yes, we use Generic preprocessor, 
+	// otherwise we use Buchi preprocessor (the input is a TBA)
 	spot::postprocessor p;
-	p.set_type(spot::postprocessor::Generic);
+	if (kofola::has_value("tela", "yes", kofola::OPTIONS.params)) {
+		p.set_type(spot::postprocessor::Generic);
+	} else {
+		p.set_type(spot::postprocessor::Buchi);
+	}
 	p.set_level(spot::postprocessor::High);
 	spot::twa_graph_ptr aut_to_compl;
 	aut_to_compl = p.run(aut_reduced);

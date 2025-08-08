@@ -116,6 +116,9 @@ bool test_complement_equivalence(const spot::twa_graph_ptr& aut) {
 
 // Test case for complement_tela comparison
 TEST_CASE("complement_tela produces language-equivalent results to Spot", "[complement_tela]") {
+    // Set the tela parameter to yes for TELA simplifications
+    kofola::OPTIONS.params["tela"] = "yes";
+    
     // Array of HOA test files to use for testing
     std::vector<std::string> test_files = {
         "tests/test_data/inf_a.hoa",
