@@ -80,6 +80,9 @@ struct cmpl_info
   /// maps SCCs to sets of their predecessors
   const SCCToSCCSetMap& scc_to_pred_sccs_map_;
 
+  /// Partitions to acceptance condition relevant for the partition
+  const PartitionToAccMap part_to_acc_map_;
+
   /// information about SCCs
   const spot::scc_info& scc_info_;
 
@@ -101,6 +104,7 @@ struct cmpl_info
     const ReachableVector&            reachable_vector,
     const PartitionToSCCMap&          part_to_scc_map,
     const SCCToSCCSetMap&             scc_to_pred_sccs_map,
+    const PartitionToAccMap&          part_to_acc_map,
     const spot::scc_info&             scc_info,
     const Simulation&                 dir_sim,
     const std::vector<bool>&          state_accepting,
@@ -113,6 +117,7 @@ struct cmpl_info
     reachable_vector_(reachable_vector),
     part_to_scc_map_(part_to_scc_map),
     scc_to_pred_sccs_map_(scc_to_pred_sccs_map),
+    part_to_acc_map_(part_to_acc_map),
     scc_info_(scc_info),
     dir_sim_(dir_sim),
     state_accepting_(state_accepting),

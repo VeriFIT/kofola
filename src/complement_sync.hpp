@@ -122,7 +122,8 @@ namespace cola
         std::tuple<size_t,
                 kofola::PartitionToTypeMap,
                 kofola::StateToPartitionMap,
-                kofola::SCCToPartitionMap
+                kofola::SCCToPartitionMap,
+                kofola::PartitionToAccMap
         > partitions_;
 
         bool is_sink_created_ = false;
@@ -409,7 +410,8 @@ namespace cola
         static std::tuple<size_t,
                 kofola::PartitionToTypeMap,
                 kofola::StateToPartitionMap,
-                kofola::SCCToPartitionMap
+                kofola::SCCToPartitionMap,
+                kofola::PartitionToAccMap
         >
         create_partitions(
                 const spot::scc_info&   scc_inf,

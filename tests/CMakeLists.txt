@@ -56,6 +56,7 @@ set(TEST_SOURCES
     tela/test_complement_tela.cpp
     tela/test_guess_safe_models.cpp
     tela/test_contains_transition_color.cpp
+    tela/test_create_partitions.cpp
 )
 
 # Create test sources that need to be compiled from main project

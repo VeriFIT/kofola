@@ -214,6 +214,7 @@ namespace cola {
                 this->reachable_vector_,// vector of reachable states
                 create_part_to_scc_map(std::get<3>(partitions_)),        // map of partitions to sets of SCCS they contain
                 create_scc_to_pred_sccs_map(this->si_, this->reachable_vector_),   // maps SCCs to the sets of their predecessors
+                std::get<4>(partitions_),            // partitions to acceptance condition map
                 this->si_,              // SCC information
                 this->dir_sim_,         // direct simulation
                 this->is_accepting_,    // vector for acceptance of states
@@ -1496,13 +1497,26 @@ namespace cola {
     } // get_initial_uberstates() }}}
 
 
-    /// partitions the SCCs of the input automaton according to decomposition
-    /// options, returns a triple (num_partitions, partition_types,
-    /// state_to_partition_map, scc_to_partition_map)
+    /**
+     * Partitions the strongly connected components (SCCs) of the input automaton
+     * according to decomposition options. This function is used in the complementation
+     * algorithm to divide SCCs into groups (partitions) based on their acceptance type
+     * (inherently weak, deterministic, nondeterministic) and user-specified options.
+     *
+     * @param scc_inf  SCC information of the automaton (spot::scc_info)
+     * @param options  Decomposition and partitioning options (kofola::options)
+     * @return A tuple containing:
+     *         - num_partitions: number of partitions created
+     *         - partition_types: map from partition index to PartitionType
+     *         - state_to_partition_map: map from state index to partition index
+     *         - scc_to_partition_map: map from SCC index to partition index
+     *         - partition_to_acc_map: map from partition index to acceptance condition
+     */
     std::tuple<size_t,
             kofola::PartitionToTypeMap,
             kofola::StateToPartitionMap,
-            kofola::SCCToPartitionMap
+            kofola::SCCToPartitionMap,
+            kofola::PartitionToAccMap
     >
     cola::tnba_complement::create_partitions(
             const spot::scc_info &scc_inf,
@@ -1515,6 +1529,8 @@ namespace cola {
         kofola::PartitionToTypeMap part_to_type_map;
         kofola::StateToPartitionMap st_to_part_map;
         kofola::SCCToPartitionMap scc_to_part_map;   // -1 is invalid partition
+        kofola::PartitionToAccMap part_to_acc_map {};
+        std::unordered_map<unsigned, spot::acc_cond::mark_t> part_to_used {};
 
         int iwa_index = -1;
         int dac_index = -1;
@@ -1594,6 +1610,20 @@ namespace cola {
             } else {
                 throw std::runtime_error("Invalid SCC on the input");
             }
+
+            // partition index
+            int partition_index = scc_to_part_map[i];
+            // part_to_used gathers all acceptance conditions used in the union of SCCs (partition)
+            if(part_to_used.find(partition_index) == part_to_used.end()) {
+                part_to_used[partition_index] = scc_inf.acc_sets_of(i);
+            } else {
+                part_to_used[partition_index] |= scc_inf.acc_sets_of(i);
+            }
+        }
+
+        // restrict the acceptance condition to colors occurring in the partition
+        for(const auto& [part, acc] : part_to_used) {
+            part_to_acc_map[part] = scc_inf.get_aut()->acc().restrict_to(acc);
         }
 
         DEBUG_PRINT_LN("scc_partition map: " + std::to_string(scc_to_part_map));
@@ -1609,7 +1639,7 @@ namespace cola {
         DEBUG_PRINT_LN("state_to_partition map: " + std::to_string(st_to_part_map));
         DEBUG_PRINT_LN("scc_partition map: " + std::to_string(scc_to_part_map));
 
-        return {part_index, part_to_type_map, st_to_part_map, scc_to_part_map};
+        return {part_index, part_to_type_map, st_to_part_map, scc_to_part_map, part_to_acc_map};
     } // create_partitions() }}}
 
 

@@ -132,6 +132,8 @@ namespace kofola
   /// map of partitions to sets of SCCs they are composed of
   using PartitionToSCCMap = std::unordered_map<unsigned, std::set<unsigned>>;
 
+  using PartitionToAccMap = std::unordered_map<unsigned, spot::acc_cond>;
+
   /// types of partitions
   enum class PartitionType
   {

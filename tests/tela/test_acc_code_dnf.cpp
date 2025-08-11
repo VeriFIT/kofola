@@ -437,6 +437,7 @@ TEST_CASE("acc_code_dnf integration with compute_cond_to_verify", "[acc_code_dnf
         SCCToSCCSetMap scc_to_pred_sccs_map;
         spot::scc_info scc_info(aut);
         Simulation dir_sim;
+        PartitionToAccMap part_to_acc_map {};
         std::vector<bool> state_accepting(aut->num_states(), false);
         
         cmpl_info info(
@@ -447,6 +448,7 @@ TEST_CASE("acc_code_dnf integration with compute_cond_to_verify", "[acc_code_dnf
             reachable_vector,
             part_to_scc_map,
             scc_to_pred_sccs_map,
+            part_to_acc_map,
             scc_info,
             dir_sim,
             state_accepting,

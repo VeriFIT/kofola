@@ -28,6 +28,7 @@ cmpl_info create_minimal_cmpl_info(const spot::const_twa_graph_ptr& aut) {
     ReachableVector reachable_vector(aut->num_states());
     PartitionToSCCMap part_to_scc_map;
     SCCToSCCSetMap scc_to_pred_sccs_map;
+    PartitionToAccMap part_to_acc_map {};
     Simulation dir_sim;
     std::vector<bool> state_accepting(aut->num_states(), false);
     
@@ -44,6 +45,7 @@ cmpl_info create_minimal_cmpl_info(const spot::const_twa_graph_ptr& aut) {
         reachable_vector,
         part_to_scc_map,
         scc_to_pred_sccs_map,
+        part_to_acc_map,
         scc_info,
         dir_sim,
         state_accepting,
