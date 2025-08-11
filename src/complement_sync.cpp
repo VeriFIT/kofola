@@ -1647,48 +1647,146 @@ namespace cola {
     void cola::tnba_complement::select_algorithms()  { // {{{
         using kofola::PartitionType;
 
-        bool is_buchi = this->aut_->acc().is_buchi();
-
         for (size_t i = 0; i < this->info_->num_partitions_; ++i) { // determine which algorithms to run on each of the SCCs
             cola::tnba_complement::abs_cmpl_alg_p alg;
-            if (PartitionType::INHERENTLY_WEAK == this->info_->part_to_type_map_.at(i)) {
-                alg = std::make_unique<kofola::complement_mh>(*(this->info_.get()), i);
-            } else if (PartitionType::DETERMINISTIC == this->info_->part_to_type_map_.at(i)) {
-                if(is_buchi) {
-                    if (kofola::has_value("ncsb-delay", "yes", kofola::OPTIONS.params)) {
-                        alg = std::make_unique<kofola::complement_ncsb_delay>(*(this->info_.get()), i);
-                    } else {
-                        alg = std::make_unique<kofola::complement_ncsb>(*(this->info_.get()), i);
-                    }
-                } else {
-                    alg = std::make_unique<kofola::complement_sd_tela>(*(this->info_.get()), i);
-                }
-            } else if (PartitionType::STRONGLY_DETERMINISTIC == this->info_->part_to_type_map_.at(i)) {
-                if(is_buchi) {
-                    alg = std::make_unique<kofola::complement_ncsb>(*(this->info_.get()), i);
-                } else {
-                    alg = std::make_unique<kofola::complement_sd_tela>(*(this->info_.get()), i);
-                }
-            } else if (PartitionType::NONDETERMINISTIC == this->info_->part_to_type_map_.at(i)) {
-                if (kofola::has_value("nac-alg", "subs_tup", kofola::OPTIONS.params)) { // use subs_tup for NACs
-                    alg = std::make_unique<kofola::complement_subs_tuple>(*(this->info_.get()), i);
-                } else if (kofola::has_value("nac-alg", "rank", kofola::OPTIONS.params)) {
-                    // Rank algorithm temporarily disabled due to compilation issues
-                    // Fall back to Safra-based complementation
-                    alg = std::make_unique<kofola::complement_safra>(*(this->info_.get()), i);
-                } else { // use determinization-based
-                    alg = std::make_unique<kofola::complement_safra>(*(this->info_.get()), i);
-                }
-            } else if (PartitionType::INITIAL_DETERMINISTIC == this->info_->part_to_type_map_.at(i)) {
-                // initial deterministic component
-                alg = std::make_unique<kofola::complement_init_det>(*(this->info_.get()), i);
-            } else {
-                throw std::runtime_error("Strange SCC type found!");
+            
+            const PartitionType partition_type = this->info_->part_to_type_map_.at(i);
+            
+            switch (partition_type) {
+                case PartitionType::INHERENTLY_WEAK:
+                    alg = create_inherently_weak_algorithm(i);
+                    break;
+                case PartitionType::DETERMINISTIC:
+                    alg = create_deterministic_algorithm(i);
+                    break;
+                case PartitionType::STRONGLY_DETERMINISTIC:
+                    alg = create_strongly_deterministic_algorithm(i);
+                    break;
+                case PartitionType::NONDETERMINISTIC:
+                    alg = create_nondeterministic_algorithm(i);
+                    break;
+                case PartitionType::INITIAL_DETERMINISTIC:
+                    alg = create_initial_deterministic_algorithm(i);
+                    break;
+                default:
+                    throw std::runtime_error("Strange SCC type found!");
             }
+            
             alg_vec_.push_back(std::move(alg));
         }
 
     } // select_algorithms() }}}
+
+    /**
+     * Creates the complementation algorithm for an inherently weak partition.
+     *
+     * This function returns a unique pointer to a `complement_mh` algorithm instance
+     * configured for the specified partition index. The inherently weak algorithm is
+     * used for SCCs (strongly connected components) that are classified as inherently weak.
+     *
+     * @param partition_index Index of the partition for which the algorithm is created.
+     * @return Unique pointer to the abstract complementation algorithm for inherently weak SCCs.
+     */
+    cola::tnba_complement::abs_cmpl_alg_p 
+    cola::tnba_complement::create_inherently_weak_algorithm(size_t partition_index) { // {{{
+        return std::make_unique<kofola::complement_mh>(*(this->info_.get()), partition_index);
+    } // create_inherently_weak_algorithm() }}}
+
+    /**
+     * Creates the complementation algorithm for a deterministic partition.
+     *
+     * This function selects and returns a unique pointer to the appropriate deterministic
+     * complementation algorithm for the given partition index, based on the acceptance
+     * condition (Büchi or generalized). It may use NCSB, NCSB-delay, or SD-TELA algorithms.
+     *
+     * @param partition_index Index of the partition for which the algorithm is created.
+     * @return Unique pointer to the abstract complementation algorithm for deterministic SCCs.
+     */
+    cola::tnba_complement::abs_cmpl_alg_p 
+    cola::tnba_complement::create_deterministic_algorithm(size_t partition_index) { // {{{
+        // take the acceptance condition simplified according to the partition
+        bool is_buchi = this->info_->part_to_acc_map_.at(partition_index).is_buchi();
+        
+        if (is_buchi) {
+            if (kofola::has_value("ncsb-delay", "yes", kofola::OPTIONS.params)) {
+                return std::make_unique<kofola::complement_ncsb_delay>(*(this->info_.get()), partition_index);
+            } else {
+                return std::make_unique<kofola::complement_ncsb>(*(this->info_.get()), partition_index);
+            }
+        } else {
+            return std::make_unique<kofola::complement_sd_tela>(*(this->info_.get()), partition_index);
+        }
+    } // create_deterministic_algorithm() }}}
+
+    /**
+     * Creates the complementation algorithm for a strongly deterministic partition.
+     *
+     * This function returns a unique pointer to the appropriate strongly deterministic
+     * complementation algorithm for the specified partition index, using either NCSB or
+     * SD-TELA depending on the acceptance condition.
+     *
+     * @param partition_index Index of the partition for which the algorithm is created.
+     * @return Unique pointer to the abstract complementation algorithm for strongly deterministic SCCs.
+     */
+    cola::tnba_complement::abs_cmpl_alg_p 
+    cola::tnba_complement::create_strongly_deterministic_algorithm(size_t partition_index) { // {{{
+        // take the acceptance condition simplified according to the partition
+        bool is_buchi = this->info_->part_to_acc_map_.at(partition_index).is_buchi();
+
+        if (is_buchi) {
+            return std::make_unique<kofola::complement_ncsb>(*(this->info_.get()), partition_index);
+        } else {
+            return std::make_unique<kofola::complement_sd_tela>(*(this->info_.get()), partition_index);
+        }
+    } // create_strongly_deterministic_algorithm() }}}
+
+    /**
+     * Creates the complementation algorithm for a nondeterministic partition.
+     *
+     * This function selects and returns a unique pointer to the appropriate nondeterministic
+     * complementation algorithm for the given partition index, based on user options and
+     * acceptance condition. It may use subs_tup, rank, or Safra-based algorithms.
+     *
+     * @param partition_index Index of the partition for which the algorithm is created.
+     * @return Unique pointer to the abstract complementation algorithm for nondeterministic SCCs.
+     * @throws std::runtime_error if the algorithm for general components is not implemented.
+     */
+    cola::tnba_complement::abs_cmpl_alg_p 
+    cola::tnba_complement::create_nondeterministic_algorithm(size_t partition_index) { // {{{
+        bool is_buchi = this->info_->part_to_acc_map_.at(partition_index).is_buchi();
+
+        if(!is_buchi) {
+            throw std::runtime_error("Algorithm for general components is not implemented");
+        }
+
+        if (kofola::has_value("nac-alg", "subs_tup", kofola::OPTIONS.params)) {
+            // use subs_tup for NACs
+            return std::make_unique<kofola::complement_subs_tuple>(*(this->info_.get()), partition_index);
+        } else if (kofola::has_value("nac-alg", "rank", kofola::OPTIONS.params)) {
+            // Rank algorithm temporarily disabled due to compilation issues
+            // Fall back to Safra-based complementation
+            return std::make_unique<kofola::complement_safra>(*(this->info_.get()), partition_index);
+        } else {
+            // use determinization-based
+            return std::make_unique<kofola::complement_safra>(*(this->info_.get()), partition_index);
+        }
+    } // create_nondeterministic_algorithm() }}}
+
+    /**
+     * Creates the complementation algorithm for the initial deterministic partition.
+     *
+     * This function returns a unique pointer to the `complement_init_det` algorithm instance
+     * configured for the specified partition index. It is used for the initial deterministic
+     * component in the modular complementation procedure.
+     *
+     * @param partition_index Index of the partition for which the algorithm is created.
+     * @return Unique pointer to the abstract complementation algorithm for the initial deterministic SCC.
+     */
+    cola::tnba_complement::abs_cmpl_alg_p 
+    cola::tnba_complement::create_initial_deterministic_algorithm(size_t partition_index) { // {{{
+        // initial deterministic component
+        return std::make_unique<kofola::complement_init_det>(*(this->info_.get()), partition_index);
+    } // create_initial_deterministic_algorithm() }}}
 
     bdd cola::tnba_complement::get_support_at(unsigned s) {
         return support_[s];
