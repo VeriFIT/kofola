@@ -1,6 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
 #include "complement_alg_sd_tela.hpp"
-#include <spot/parseaut/public.hh>
 #include <spot/twaalgos/sccinfo.hh>
 #include <spot/tl/parse.hh>
 #include <spot/twaalgos/translate.hh>
@@ -8,9 +7,12 @@
 #include <fstream>
 #include <filesystem>
 
+// Test utilities
+#include "../utils/test_utils.hpp"
+
 using namespace kofola;
 
-namespace test_utils {
+namespace test_local {
 
 /**
  * @brief Create a minimal cmpl_info for testing purposes.
@@ -54,16 +56,10 @@ cmpl_info create_minimal_cmpl_info(const spot::const_twa_graph_ptr& aut) {
 }
 
 /**
- * @brief Parse an automaton from HOA file.
+ * @brief Parse an automaton from HOA file using test utilities.
  */
 spot::const_twa_graph_ptr parse_hoa_file(const std::string& filename) {
-    spot::bdd_dict_ptr dict = spot::make_bdd_dict();
-    spot::automaton_stream_parser parser(filename);
-    auto parsed = parser.parse(dict);
-    if (parsed->format_errors(std::cerr)) {
-        throw std::runtime_error("Failed to parse HOA file: " + filename);
-    }
-    return parsed->aut;
+    return test_utils::load_automaton_exact_path(filename);
 }
 
 /**
@@ -77,7 +73,7 @@ std::string create_temp_hoa_file(const std::string& hoa_content, const std::stri
     return temp_filename;
 }
 
-} // namespace test_utils
+} // namespace test_local
 
 TEST_CASE("contains_transition_color with simple automaton", "[contains_transition_color]") {
     // Create a simple automaton with two states and one accepting transition
@@ -96,9 +92,9 @@ State: 1
 [t] 1 {0}
 --END--)";
 
-    std::string temp_file = test_utils::create_temp_hoa_file(hoa_str, "_simple");
-    auto aut = test_utils::parse_hoa_file(temp_file);
-    auto cmpl_info = test_utils::create_minimal_cmpl_info(aut);
+    std::string temp_file = test_local::create_temp_hoa_file(hoa_str, "_simple");
+    auto aut = test_local::parse_hoa_file(temp_file);
+    auto cmpl_info = test_local::create_minimal_cmpl_info(aut);
     
     // Create complement_sd_tela instance
     complement_sd_tela complement(cmpl_info, 0);
@@ -131,9 +127,9 @@ State: 1
 [t] 1
 --END--)";
 
-    std::string temp_file = test_utils::create_temp_hoa_file(hoa_str, "_no_match");
-    auto aut = test_utils::parse_hoa_file(temp_file);
-    auto cmpl_info = test_utils::create_minimal_cmpl_info(aut);
+    std::string temp_file = test_local::create_temp_hoa_file(hoa_str, "_no_match");
+    auto aut = test_local::parse_hoa_file(temp_file);
+    auto cmpl_info = test_local::create_minimal_cmpl_info(aut);
     
     complement_sd_tela complement(cmpl_info, 0);
     
@@ -166,9 +162,9 @@ State: 2
 [t] 2
 --END--)";
 
-    std::string temp_file = test_utils::create_temp_hoa_file(hoa_str, "_multi");
-    auto aut = test_utils::parse_hoa_file(temp_file);
-    auto cmpl_info = test_utils::create_minimal_cmpl_info(aut);
+    std::string temp_file = test_local::create_temp_hoa_file(hoa_str, "_multi");
+    auto aut = test_local::parse_hoa_file(temp_file);
+    auto cmpl_info = test_local::create_minimal_cmpl_info(aut);
     
     complement_sd_tela complement(cmpl_info, 0);
     
@@ -201,9 +197,9 @@ State: 0
 [t] 0 {0}
 --END--)";
 
-    std::string temp_file = test_utils::create_temp_hoa_file(hoa_str, "_empty");
-    auto aut = test_utils::parse_hoa_file(temp_file);
-    auto cmpl_info = test_utils::create_minimal_cmpl_info(aut);
+    std::string temp_file = test_local::create_temp_hoa_file(hoa_str, "_empty");
+    auto aut = test_local::parse_hoa_file(temp_file);
+    auto cmpl_info = test_local::create_minimal_cmpl_info(aut);
     
     complement_sd_tela complement(cmpl_info, 0);
     
@@ -237,9 +233,9 @@ State: 2
 [t] 2 {0}
 --END--)";
 
-    std::string temp_file = test_utils::create_temp_hoa_file(hoa_str, "_scc");
-    auto aut = test_utils::parse_hoa_file(temp_file);
-    auto cmpl_info = test_utils::create_minimal_cmpl_info(aut);
+    std::string temp_file = test_local::create_temp_hoa_file(hoa_str, "_scc");
+    auto aut = test_local::parse_hoa_file(temp_file);
+    auto cmpl_info = test_local::create_minimal_cmpl_info(aut);
     
     complement_sd_tela complement(cmpl_info, 0);
     
@@ -282,9 +278,9 @@ State: 1
 [t] 1 {1}
 --END--)";
 
-    std::string temp_file = test_utils::create_temp_hoa_file(hoa_str, "_complex");
-    auto aut = test_utils::parse_hoa_file(temp_file);
-    auto cmpl_info = test_utils::create_minimal_cmpl_info(aut);
+    std::string temp_file = test_local::create_temp_hoa_file(hoa_str, "_complex");
+    auto aut = test_local::parse_hoa_file(temp_file);
+    auto cmpl_info = test_local::create_minimal_cmpl_info(aut);
     
     complement_sd_tela complement(cmpl_info, 0);
     
@@ -312,8 +308,8 @@ TEST_CASE("contains_transition_color with test data file", "[contains_transition
     // Test using an actual HOA file from test data
     std::string test_file = "../tests/test_data/simple_buchi.hoa";
     
-    auto aut = test_utils::parse_hoa_file(test_file);
-    auto cmpl_info = test_utils::create_minimal_cmpl_info(aut);
+    auto aut = test_local::parse_hoa_file(test_file);
+    auto cmpl_info = test_local::create_minimal_cmpl_info(aut);
     
     complement_sd_tela complement(cmpl_info, 0);
     

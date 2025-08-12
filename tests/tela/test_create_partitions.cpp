@@ -7,63 +7,21 @@
 
 #include <catch2/catch_test_macros.hpp>
 #include <iostream>
-#include <fstream>
 #include <string>
 #include <vector>
 #include <unordered_map>
 
 // Spot headers
-#include <spot/parseaut/public.hh>
-#include <spot/misc/bddlt.hh>
 #include <spot/twaalgos/sccinfo.hh>
-#include <spot/twaalgos/hoa.hh>
 
 // Kofola headers
 #include "complement_sync.hpp"
 #include "kofola.hpp"
 
-namespace {
+// Test utilities
+#include "../utils/test_utils.hpp"
 
-/**
- * @brief Load an automaton from a HOA file.
- * 
- * @param filename Path to the HOA file
- * @return spot::twa_graph_ptr The loaded automaton, or nullptr if loading failed
- */
-spot::twa_graph_ptr load_automaton_from_file(const std::string& filename) {
-    // Try different possible paths depending on where tests are run from
-    std::vector<std::string> possible_paths = {
-        filename,                          // Direct path
-        "../tests/" + filename,           // From build directory
-        "../../tests/" + filename,        // From build/tests directory
-        "../" + filename,                 // From build directory
-        "tests/" + filename               // From project root
-    };
-    
-    for (const std::string& path : possible_paths) {
-        try {
-            std::ifstream file(path);
-            if (file.good()) {
-                spot::bdd_dict_ptr dict = spot::make_bdd_dict();
-                spot::automaton_stream_parser parser(path);
-                spot::parsed_aut_ptr parsed_aut = parser.parse(dict);
-                
-                if (parsed_aut->format_errors(std::cerr)) {
-                    std::cerr << "Error parsing HOA file: " << path << std::endl;
-                    continue;
-                }
-                
-                return parsed_aut->aut;
-            }
-        } catch (const std::exception& ex) {
-            // Try next path
-            continue;
-        }
-    }
-    
-    std::cerr << "Failed to load automaton from any of the tried paths for: " << filename << std::endl;
-    return nullptr;
-}
+namespace {
 
 /**
  * @brief Test the create_partitions function for a given automaton
@@ -165,7 +123,7 @@ TEST_CASE("create_partitions produces valid PartitionToAccMap", "[create_partiti
     kofola::options default_options;
     
     SECTION("Simple Buchi automaton") {
-        spot::twa_graph_ptr aut = load_automaton_from_file("test_data/simple_buchi.hoa");
+        spot::twa_graph_ptr aut = test_utils::load_automaton_from_file("test_data/simple_buchi.hoa");
         REQUIRE(aut != nullptr);
         
         auto result = test_create_partitions(aut, default_options);
@@ -184,7 +142,7 @@ TEST_CASE("create_partitions produces valid PartitionToAccMap", "[create_partiti
     }
     
     SECTION("Non-deterministic Buchi automaton") {
-        spot::twa_graph_ptr aut = load_automaton_from_file("test_data/ndet_example.hoa");
+        spot::twa_graph_ptr aut = test_utils::load_automaton_from_file("test_data/ndet_example.hoa");
         REQUIRE(aut != nullptr);
         
         auto result = test_create_partitions(aut, default_options);
@@ -197,7 +155,7 @@ TEST_CASE("create_partitions produces valid PartitionToAccMap", "[create_partiti
     }
     
     SECTION("Streett automaton with multiple acceptance sets") {
-        spot::twa_graph_ptr aut = load_automaton_from_file("test_data/random_sd_streett_001.hoa");
+        spot::twa_graph_ptr aut = test_utils::load_automaton_from_file("test_data/random_sd_streett_001.hoa");
         REQUIRE(aut != nullptr);
         
         auto result = test_create_partitions(aut, default_options);
@@ -223,7 +181,7 @@ TEST_CASE("create_partitions with different merge options", "[create_partitions]
         kofola::options options_merge_iwa;
         options_merge_iwa.params["merge_iwa"] = "yes";
         
-        spot::twa_graph_ptr aut = load_automaton_from_file("test_data/simple_buchi.hoa");
+        spot::twa_graph_ptr aut = test_utils::load_automaton_from_file("test_data/simple_buchi.hoa");
         REQUIRE(aut != nullptr);
         
         auto result = test_create_partitions(aut, options_merge_iwa);
@@ -240,7 +198,7 @@ TEST_CASE("create_partitions with different merge options", "[create_partitions]
         kofola::options options_merge_det;
         options_merge_det.params["merge_det"] = "yes";
         
-        spot::twa_graph_ptr aut = load_automaton_from_file("test_data/simple_buchi.hoa");
+        spot::twa_graph_ptr aut = test_utils::load_automaton_from_file("test_data/simple_buchi.hoa");
         REQUIRE(aut != nullptr);
         
         auto result = test_create_partitions(aut, options_merge_det);
@@ -270,7 +228,7 @@ TEST_CASE("PartitionToAccMap consistency across different automata", "[create_pa
     
     for (const std::string& filename : test_files) {
         SECTION("Testing consistency for file: " + filename) {
-            spot::twa_graph_ptr aut = load_automaton_from_file(filename);
+            spot::twa_graph_ptr aut = test_utils::load_automaton_from_file(filename);
             REQUIRE(aut != nullptr);
             
             auto result = test_create_partitions(aut, default_options);
@@ -311,7 +269,7 @@ TEST_CASE("PartitionToAccMap edge cases", "[create_partitions][edge_cases]") {
     kofola::options default_options;
     
     SECTION("Test automaton with Inf(a) acceptance") {
-        spot::twa_graph_ptr aut = load_automaton_from_file("test_data/inf_a.hoa");
+        spot::twa_graph_ptr aut = test_utils::load_automaton_from_file("test_data/inf_a.hoa");
         REQUIRE(aut != nullptr);
         
         auto result = test_create_partitions(aut, default_options);
@@ -335,7 +293,7 @@ TEST_CASE("create_partitions with multiple SCCs", "[create_partitions][multi_scc
     kofola::options default_options;
     
     SECTION("Multi-SCC Buchi automaton") {
-        spot::twa_graph_ptr aut = load_automaton_from_file("test_data/multi_scc_buchi.hoa");
+        spot::twa_graph_ptr aut = test_utils::load_automaton_from_file("test_data/multi_scc_buchi.hoa");
         REQUIRE(aut != nullptr);
         
         auto result = test_create_partitions(aut, default_options);
@@ -365,7 +323,7 @@ TEST_CASE("create_partitions with multiple SCCs", "[create_partitions][multi_scc
     }
     
     SECTION("Mixed SCC types") {
-        spot::twa_graph_ptr aut = load_automaton_from_file("test_data/mixed_scc_types.hoa");
+        spot::twa_graph_ptr aut = test_utils::load_automaton_from_file("test_data/mixed_scc_types.hoa");
         REQUIRE(aut != nullptr);
         
         auto result = test_create_partitions(aut, default_options);
@@ -398,7 +356,7 @@ TEST_CASE("PartitionToAccMap specific validation", "[create_partitions][acc_vali
         };
         
         for (const std::string& filename : test_files) {
-            spot::twa_graph_ptr aut = load_automaton_from_file(filename);
+            spot::twa_graph_ptr aut = test_utils::load_automaton_from_file(filename);
             REQUIRE(aut != nullptr);
             
             auto result = test_create_partitions(aut, default_options);
@@ -446,7 +404,7 @@ TEST_CASE("PartitionToAccMap specific validation", "[create_partitions][acc_vali
 void run_create_partitions_test_on_file(const std::string& filename) {
     std::cout << "Testing create_partitions for file: " << filename << std::endl;
     
-    spot::twa_graph_ptr aut = load_automaton_from_file(filename);
+    spot::twa_graph_ptr aut = test_utils::load_automaton_from_file(filename);
     if (!aut) {
         std::cout << "Failed to load automaton from file: " << filename << std::endl;
         return;

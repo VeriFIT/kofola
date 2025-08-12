@@ -40,17 +40,30 @@ set(KOFOLA_SOURCES
     ${CMAKE_SOURCE_DIR}/src/inclusion_check.cpp
 )
 
+# Create test utilities library
+add_library(test_utils STATIC
+    test_utils.cpp
+    ${KOFOLA_SOURCES}
+)
+
+target_compile_options(test_utils PRIVATE ${CXX_FLAGS})
+target_link_libraries(test_utils 
+    PRIVATE 
+    ${SPOT}
+    ${BDDX}
+)
+
 # Create standalone test executable for complement equivalence
 add_executable(test_complement_equivalence
     test_complement_equivalence.cpp
-    ${KOFOLA_SOURCES}
 )
 
 target_compile_options(test_complement_equivalence PRIVATE ${CXX_FLAGS})
 
-# Link libraries for standalone test
+# Link with test utilities library
 target_link_libraries(test_complement_equivalence 
     PRIVATE 
+    test_utils
     ${SPOT}
     ${BDDX}
 )

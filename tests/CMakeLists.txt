@@ -82,18 +82,21 @@ set(KOFOLA_SOURCES
     ${CMAKE_SOURCE_DIR}/src/inclusion_check.cpp
 )
 
+# Add the utils subdirectory
+add_subdirectory(utils)
+
 # Create test executable
 add_executable(kofola_tests
     ${TEST_SOURCES}
-    ${KOFOLA_SOURCES}
 )
 
 target_compile_options(kofola_tests PRIVATE ${CXX_FLAGS})
 
-# Link libraries
+# Link libraries including test utilities
 target_link_libraries(kofola_tests 
     PRIVATE 
     Catch2::Catch2WithMain
+    test_utils
     ${SPOT}
     ${BDDX}
 )
@@ -105,6 +108,3 @@ if(Catch2_FOUND)
     include(Catch)
     catch_discover_tests(kofola_tests)
 endif()
-
-# Add the utils subdirectory
-add_subdirectory(utils)
