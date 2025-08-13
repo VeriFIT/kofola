@@ -456,7 +456,7 @@ TEST_CASE("acc_code_dnf integration with compute_cond_to_verify", "[acc_code_dnf
         );
         
         // Test that compute_cond_to_verify works
-        auto cond_to_verify = info.compute_cond_to_verify();
+        auto cond_to_verify = cmpl_info::acc_code_dnf(aut->get_acceptance());
         REQUIRE_FALSE(cond_to_verify.empty());
 
         // Test that direct call to acc_code_dnf produces same result

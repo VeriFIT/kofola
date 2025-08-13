@@ -148,18 +148,6 @@ struct cmpl_info
       return ret;
   }
 
-  /**
-   * @brief Compute the acceptance condition to verify for the complement automaton.
-   *
-   * This function extracts the acceptance condition from the automaton, converts it
-   * to its complement in DNF form, and stores it in cond_to_verify_.
-   */
-  CondDNF compute_cond_to_verify() const {
-    spot::acc_cond input_acc = this->aut_->acc();
-    spot::acc_cond::acc_code code = input_acc.get_acceptance();
-    return acc_code_dnf(code);
-  }
-
 }; // struct cmpl_info }}}
 
 

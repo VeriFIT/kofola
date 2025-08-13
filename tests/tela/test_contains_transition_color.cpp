@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include "complement_alg_sd_tela.hpp"
+#include "complement_sync.hpp"  // for cola::tnba_complement
 #include <spot/twaalgos/sccinfo.hh>
 #include <spot/tl/parse.hh>
 #include <spot/twaalgos/translate.hh>
@@ -17,41 +18,65 @@ namespace test_local {
 /**
  * @brief Create a minimal cmpl_info for testing purposes.
  * 
- * This function creates the minimal required components of cmpl_info
- * that are needed for testing contains_transition_color function.
+ * This function creates a working cmpl_info suitable for testing
+ * without using the complex partition creation logic which may be causing issues.
  */
 cmpl_info create_minimal_cmpl_info(const spot::const_twa_graph_ptr& aut) {
     // Create SCC info
     spot::scc_info scc_info(aut, spot::scc_info_options::ALL);
     
-    // Create minimal maps with default values
-    PartitionToTypeMap part_to_type_map;
-    StateToPartitionMap st_to_part_map;
-    ReachableVector reachable_vector(aut->num_states());
-    PartitionToSCCMap part_to_scc_map;
-    SCCToSCCSetMap scc_to_pred_sccs_map;
-    PartitionToAccMap part_to_acc_map {};
-    Simulation dir_sim;
-    std::vector<bool> state_accepting(aut->num_states(), false);
+    // Create simple partition structure:
+    // - All states belong to partition 0
+    // - Partition 0 is of type NONDETERMINISTIC (most general)
     
-    // Fill st_to_part_map - assign each state to partition based on its SCC
+    PartitionToTypeMap part_to_type_map;
+    part_to_type_map[0] = kofola::PartitionType::NONDETERMINISTIC;
+    
+    StateToPartitionMap st_to_part_map;
     for (unsigned s = 0; s < aut->num_states(); ++s) {
-        st_to_part_map[s] = scc_info.scc_of(s);
+        st_to_part_map[s] = 0;
     }
+    
+    // Create simple reachable vector where each state can reach itself
+    ReachableVector reachable_vector(aut->num_states());
+    for (unsigned s = 0; s < aut->num_states(); ++s) {
+        reachable_vector[s].insert(s);
+    }
+    
+    // Create partition to SCC map - partition 0 contains all SCCs
+    PartitionToSCCMap part_to_scc_map;
+    std::set<unsigned> all_sccs;
+    for (unsigned i = 0; i < scc_info.scc_count(); ++i) {
+        all_sccs.insert(i);
+    }
+    part_to_scc_map[0] = all_sccs;
+    
+    // Create empty SCC to predecessor SCCs map
+    SCCToSCCSetMap scc_to_pred_sccs_map;
+    
+    // Create partition to acceptance map - use the original automaton's acceptance
+    PartitionToAccMap part_to_acc_map;
+    part_to_acc_map[0] = aut->get_acceptance();
+    
+    // Create empty simulation
+    Simulation dir_sim;
+    
+    // Create state accepting vector (all false for simplicity)
+    std::vector<bool> state_accepting(aut->num_states(), false);
     
     return cmpl_info(
         aut,
-        scc_info.scc_count(),
-        part_to_type_map,
-        st_to_part_map,
-        reachable_vector,
-        part_to_scc_map,
-        scc_to_pred_sccs_map,
-        part_to_acc_map,
-        scc_info,
-        dir_sim,
-        state_accepting,
-        false  // shared_breakpoint
+        1,                               // number of partitions (just 1)
+        part_to_type_map,               // partition to type map
+        st_to_part_map,                 // state to partition map
+        reachable_vector,               // reachable vector
+        part_to_scc_map,                // partition to SCC map
+        scc_to_pred_sccs_map,           // SCC to predecessor SCCs map
+        part_to_acc_map,                // partition to acceptance map
+        scc_info,                       // SCC info
+        dir_sim,                        // direct simulation
+        state_accepting,                // state accepting vector
+        false                           // shared_breakpoint
     );
 }
 
@@ -96,7 +121,7 @@ State: 1
     auto aut = test_local::parse_hoa_file(temp_file);
     auto cmpl_info = test_local::create_minimal_cmpl_info(aut);
     
-    // Create complement_sd_tela instance
+    // Create complement_sd_tela instance using partition 0
     complement_sd_tela complement(cmpl_info, 0);
     
     // Test with states {0} - state 0 has an accepting transition
@@ -104,7 +129,8 @@ State: 1
     bdd symbol = bddtrue;  // This should imply [t] (always true)
     spot::acc_cond::mark_t acc_mark = spot::acc_cond::mark_t{0};  // Acceptance mark 0
     
-    REQUIRE(complement.contains_transition_color(states, symbol, acc_mark));
+    bool result = complement.contains_transition_color(states, symbol, acc_mark);
+    REQUIRE(result);
     
     // Clean up
     std::filesystem::remove(temp_file);

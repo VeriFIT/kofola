@@ -146,7 +146,8 @@ namespace cola {
 
         // For now we turn off the saturation as it is done by an inefficient procedure
         // this->aut_ = kofola::saturate(this->aut_, this->si_);
-        this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
+        // si.determine_unknown_acceptance();
+        // this->si_ = si; // spot::scc_info(this->aut_, spot::scc_info_options::ALL);
 
         if (kofola::LOG_VERBOSITY > 0) {
             DEBUG_PRINT_LN("Complementing the following aut:");
@@ -219,7 +220,6 @@ namespace cola {
                 this->dir_sim_,         // direct simulation
                 this->is_accepting_,    // vector for acceptance of states
                 kofola::has_value("sh-break", "yes", kofola::OPTIONS.params));
-        info_->compute_cond_to_verify();
     }
 
     unsigned
@@ -2093,6 +2093,13 @@ namespace cola {
 spot::twa_graph_ptr kofola::complement_sync(const spot::twa_graph_ptr& aut)
 {
     spot::scc_info si(aut, spot::scc_info_options::ALL);
+
+    // if we work with TELA, we need to properly determine SCC acceptance
+    // Spot's is_acceptance might say unknown for Fin conditions
+    if (kofola::has_value("tela", "yes", kofola::OPTIONS.params)) {
+        si.determine_unknown_acceptance();
+    }
+    
 
     auto comp = cola::tnba_complement(aut, si);
     auto res = comp.run_new();

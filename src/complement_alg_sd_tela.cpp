@@ -117,7 +117,8 @@ bool mstate_sd_tela::lt(const mstate& rhs) const
 complement_sd_tela::complement_sd_tela(const cmpl_info& info, unsigned part_index)
   : abstract_complement_alg(info, part_index) { 
   
-  this->acc_cond_ = info.compute_cond_to_verify();
+  spot::acc_cond::acc_code acc = this->info_.part_to_acc_map_.at(part_index_).get_acceptance();
+  this->acc_cond_ = cmpl_info::acc_code_dnf(acc);
   for(size_t i = 0; i < this->acc_cond_.size(); ++i) {
     this->acc_cond_[i].simplify();
   }
