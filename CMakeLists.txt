@@ -19,3 +19,10 @@ endif()
 
 
 add_subdirectory(src)
+
+# Option to build tests
+option(BUILD_TESTS "Build the tests" ON)
+if(BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()

@@ -15,6 +15,47 @@
 
 namespace kofola { // {{{
 
+  // conjunction of fins and infs: e.g., Fin(0) & Inf(1)
+struct AccClause {
+  std::vector<spot::acc_cond::mark_t> fins {}; // vector of fins
+  std::vector<spot::acc_cond::mark_t> infs {}; // vector of infs
+
+  AccClause() = default;
+  AccClause(const spot::acc_cond::acc_code& clause) {
+    auto conj = clause.top_conjuncts();
+    for (const auto& acc_c : conj) {
+      assert(acc_c.size() == 2);
+      if(acc_c[1].sub.op == spot::acc_cond::acc_op::Fin) {
+        fins.push_back(acc_c[0].mark);
+      } else if(acc_c[1].sub.op == spot::acc_cond::acc_op::Inf) {
+        infs.push_back(acc_c[0].mark);
+      }
+
+    }
+  }
+
+  /**
+   * @brief Simplifies the set of Fin acceptance marks by merging them into a single mark.
+   *
+   * If the fins vector is non-empty, replaces it with a single mark that is the bitwise OR of all marks in the vector.
+   * Fin(1) & Fin(2) becomes Fin(1 | 2).
+   */
+  void simplify() {
+    if(fins.empty()) {
+      return; // nothing to simplify  
+    }
+    spot::acc_cond::mark_t max_fin = fins[0];
+    for (const auto& fin : fins) {
+      max_fin = max_fin | fin;
+    }
+    fins.clear();
+    fins.push_back(max_fin);
+  }
+};
+
+// Acceptance condition in DNF
+using CondDNF = std::vector<AccClause>;
+
 /// common information about automaton etc. for complementation
 struct cmpl_info
 { // {{{
@@ -39,6 +80,9 @@ struct cmpl_info
   /// maps SCCs to sets of their predecessors
   const SCCToSCCSetMap& scc_to_pred_sccs_map_;
 
+  /// Partitions to acceptance condition relevant for the partition
+  const PartitionToAccMap part_to_acc_map_;
+
   /// information about SCCs
   const spot::scc_info& scc_info_;
 
@@ -60,10 +104,12 @@ struct cmpl_info
     const ReachableVector&            reachable_vector,
     const PartitionToSCCMap&          part_to_scc_map,
     const SCCToSCCSetMap&             scc_to_pred_sccs_map,
+    const PartitionToAccMap&          part_to_acc_map,
     const spot::scc_info&             scc_info,
     const Simulation&                 dir_sim,
     const std::vector<bool>&          state_accepting,
-    const bool&                       shared_breakpoint) :
+    const bool&                       shared_breakpoint) 
+    :
     aut_(aut),
     num_partitions_(num_partitions),
     part_to_type_map_(part_to_type_map),
@@ -71,11 +117,37 @@ struct cmpl_info
     reachable_vector_(reachable_vector),
     part_to_scc_map_(part_to_scc_map),
     scc_to_pred_sccs_map_(scc_to_pred_sccs_map),
+    part_to_acc_map_(part_to_acc_map),
     scc_info_(scc_info),
     dir_sim_(dir_sim),
     state_accepting_(state_accepting),
     shared_breakpoint_(shared_breakpoint)
   { }
+
+  /**
+   * @brief Convert an acceptance condition to its complement in DNF form.
+   *
+   * This function takes a Spot acceptance condition code, computes its complement,
+   * converts it to Disjunctive Normal Form (DNF), and returns it as a vector of AccClause.
+   *
+   * @param code The Spot acceptance condition code to convert.
+   * @return CondDNF The complemented acceptance condition in DNF.
+   */
+  static CondDNF acc_code_dnf(const spot::acc_cond::acc_code& code) {
+      spot::acc_cond::acc_code dnf_code = code.complement().to_dnf();
+      std::vector<spot::acc_cond::acc_code> dnf_clauses = dnf_code.top_disjuncts();
+
+      CondDNF ret {};
+      for(const auto& clause : dnf_clauses) {
+        if (clause.empty()) {
+          continue; // Skip empty clauses
+        }
+        AccClause acc_clause(clause);
+        ret.push_back(acc_clause);
+      }
+      return ret;
+  }
+
 }; // struct cmpl_info }}}
 
 

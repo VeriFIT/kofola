@@ -80,6 +80,39 @@ The complementation and the inclusion checking might be adjusted by the followin
 | `early_sim` | `yes`,`no`  | Use early simulation for macrostate pruning (`--inclusion` only) |
 | `early_plus_sim` | `yes`,`no`  | Use early+1 simulation for macrostate pruning (`--inclusion` only) |
 | `gfee` | `yes`,`no`  | Use a good for emptiness relation for early termination (`--inclusion` only) |
+| `tela` | `yes`,`no`  | If `yes`, use TELA-specific algorithms for complementation (if `no`, the input is converted to TBA) |
+
+## Testing
+
+Kofola includes a comprehensive test suite using the Catch2 framework to ensure the correctness of its components.
+
+### Running Tests
+
+To build and run the tests:
+
+```bash
+cd build
+cmake .. -DBUILD_TESTS=ON
+make kofola_tests
+./tests/kofola_tests
+```
+
+Alternatively, use the convenience script:
+
+```bash
+./tests/run_tests.sh
+```
+
+### Test Coverage
+
+The test suite currently includes:
+- Tests for the `acc_code_dnf` method with various acceptance conditions
+- Büchi, co-Büchi, and generalized Büchi acceptance handling
+- Complex acceptance conditions (Rabin, Streett, mixed)
+- DNF structure validation
+- Edge cases and deterministic behavior validation
+
+For more details, see the [tests README](tests/README.md).
 
 ## Publications
-- V. Havlena, O. Lengál, Y. Li, B. Šmahlíková and A. Turrini. [Modular Mix-and-Match Complementation of Büchi Automata](https://link.springer.com/chapter/10.1007/978-3-031-30823-9_13). In *Proc. of TACAS'23*, volume 13993 of LNCS, pages 249-270, 2023. Springer. 
+- V. Havlena, O. Lengál, Y. Li, B. Šmahlíková and A. Turrini. [Modular Mix-and-Match Complementation of Büchi Automata](https://link.springer.com/chapter/10.1007/978-3-031-30823-9_13). In *Proc. of TACAS'23*, volume 13993 of LNCS, pages 249-270, 2023. Springer.

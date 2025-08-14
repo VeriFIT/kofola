@@ -122,7 +122,8 @@ namespace cola
         std::tuple<size_t,
                 kofola::PartitionToTypeMap,
                 kofola::StateToPartitionMap,
-                kofola::SCCToPartitionMap
+                kofola::SCCToPartitionMap,
+                kofola::PartitionToAccMap
         > partitions_;
 
         bool is_sink_created_ = false;
@@ -409,7 +410,8 @@ namespace cola
         static std::tuple<size_t,
                 kofola::PartitionToTypeMap,
                 kofola::StateToPartitionMap,
-                kofola::SCCToPartitionMap
+                kofola::SCCToPartitionMap,
+                kofola::PartitionToAccMap
         >
         create_partitions(
                 const spot::scc_info&   scc_inf,
@@ -418,6 +420,21 @@ namespace cola
 
         /// selects the algorithms to run on the SCCs
         void select_algorithms();
+
+        /// creates algorithm for inherently weak partition
+        abs_cmpl_alg_p create_inherently_weak_algorithm(size_t partition_index);
+
+        /// creates algorithm for deterministic partition
+        abs_cmpl_alg_p create_deterministic_algorithm(size_t partition_index);
+
+        /// creates algorithm for strongly deterministic partition
+        abs_cmpl_alg_p create_strongly_deterministic_algorithm(size_t partition_index);
+
+        /// creates algorithm for nondeterministic partition
+        abs_cmpl_alg_p create_nondeterministic_algorithm(size_t partition_index);
+
+        /// creates algorithm for initial deterministic partition
+        abs_cmpl_alg_p create_initial_deterministic_algorithm(size_t partition_index);
 
         ///
         unsigned int get_cnt_state_();

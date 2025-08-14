@@ -1,0 +1,22 @@
+HOA: v1
+name: "Non-deterministic Buchi automaton - (a|b)*a"
+States: 2
+Start: 0
+AP: 2 "a" "b"
+acc-name: Buchi
+Acceptance: 1 Inf(0)
+properties: trans-labels explicit-labels complete
+--BODY--
+State: 0
+[0&!1] 0
+[!0&1] 0
+[0&1] 0
+[!0&!1] 0
+[0&!1] 1 {0}
+[0&1] 1 {0}
+State: 1
+[0&!1] 1 {0}
+[0&1] 1 {0}
+[!0&1] 0
+[!0&!1] 0
+--END--
