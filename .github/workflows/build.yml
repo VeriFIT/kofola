@@ -16,27 +16,43 @@ on:
 jobs:
   ubuntu-build:
     name: "Ubuntu (build-&-test)"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v3
-      - name: Install dependencies 
-        run: sudo wget -O /etc/apt/trusted.gpg.d/lrde.gpg https://www.lrde.epita.fr/repo/debian.gpg
-      - run: sudo sudo sh -c "echo 'deb http://www.lrde.epita.fr/repo/debian/ unstable/' >> /etc/apt/sources.list"
-      - run: sudo apt-get update
-      - run: sudo apt-get install -y spot libspot-dev python3-spot libspot0 libspotgen0 libspotltsmin0
+        uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake wget gnupg
+      - name: Install Spot dependencies
+        run: |
+          sudo sh -c "echo 'deb [trusted=true] https://download.opensuse.org/repositories/home:/adl/xUbuntu_22.04/ ./' >> /etc/apt/sources.list"
+          sudo apt-get update
+          sudo apt-get install spot libspot-dev spot-doc python3-spot
       - name: Compile release
         run: make release
       - name: Test release
         run: make test
+      - name: Run additional tests
+        run: |
+          if [ -f "tests/run_tests.sh" ]; then
+            chmod +x tests/run_tests.sh
+            tests/run_tests.sh
+          fi
   macos-build:
     name: "MacOS (build-&-test)"
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Building MacOS dependencies
         run: brew install spot
       - name: Compile
         run: make release
       - name: Test the library
         run: make test
+      - name: Run additional tests
+        run: |
+          if [ -f "tests/run_tests.sh" ]; then
+            chmod +x tests/run_tests.sh
+            tests/run_tests.sh
+          fi
