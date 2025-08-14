@@ -16,7 +16,7 @@ on:
 jobs:
   ubuntu-build:
     name: "Ubuntu (build-&-test)"
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
@@ -54,12 +54,6 @@ jobs:
           if [ -f "tests/run_tests.sh" ]; then
             chmod +x tests/run_tests.sh
             tests/run_tests.sh
-          fi
-      - name: Run sanity checks
-        run: |
-          if [ -f "sanity-check.sh" ]; then
-            chmod +x sanity-check.sh
-            echo "Sanity check script found but requires input file - skipping for now"
           fi
   macos-build:
     name: "MacOS (build-&-test)"
