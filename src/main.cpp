@@ -126,14 +126,46 @@ namespace
 
 void print_version()
 {
-	std::cout << "VERSION\n";
+	// Get git commit hash
+	std::string git_hash = "unknown";
+	FILE* pipe = popen("git rev-parse HEAD 2>/dev/null", "r");
+	if (pipe) {
+		char buffer[128];
+		if (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+			git_hash = std::string(buffer);
+			// Remove trailing newline
+			if (!git_hash.empty() && git_hash.back() == '\n') {
+				git_hash.pop_back();
+			}
+		}
+		pclose(pipe);
+	}
+
+	std::cout << "kofola build hashcode " << git_hash << "\n";
 	exit(EXIT_SUCCESS);
 }
 
 void print_version_long()
 {
-	std::cout << "VERSION\n";
-	assert(false);
+	// Get git commit hash
+	std::string git_hash = "unknown";
+	FILE* pipe = popen("git rev-parse HEAD 2>/dev/null", "r");
+	if (pipe) {
+		char buffer[128];
+		if (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+			git_hash = std::string(buffer);
+			// Remove trailing newline
+			if (!git_hash.empty() && git_hash.back() == '\n') {
+				git_hash.pop_back();
+			}
+		}
+		pclose(pipe);
+	}
+	
+	std::cout << "kofola build hashcode" << git_hash << "\n";
+	std::cout << "Copyright (C) 2022  The Kofola Authors\n";
+	std::cout << "This is free software: you are free to change and redistribute it.\n";
+	std::cout << "There is NO WARRANTY, to the extent permitted by law.\n";
 	exit(EXIT_SUCCESS);
 }
 
