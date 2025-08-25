@@ -50,6 +50,9 @@ add_executable(kofola
 	complement_alg_sd_tela.cpp
 	)
 
+# Include the directory with the generated version header
+target_include_directories(kofola PRIVATE ${CMAKE_BINARY_DIR}/src)
+
 target_compile_options(kofola PRIVATE ${CXX_FLAGS})
 
 # target_compile_features(kofola PUBLIC cxx_std_17)

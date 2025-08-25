@@ -1,0 +1,6 @@
+#ifndef KOFOLA_VERSION_HPP
+#define KOFOLA_VERSION_HPP
+
+#define KOFOLA_GIT_HASH "@GIT_HASH@"
+
+#endif // KOFOLA_VERSION_HPP
