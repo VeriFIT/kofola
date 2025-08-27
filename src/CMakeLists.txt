@@ -2,10 +2,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# https://dane-bulat.medium.com/cmake-how-to-inspect-and-configure-the-compiler-877e6cb0317f
-set(CXX_FLAGS)
+# Compiler flags: common warnings and per-build-type optimizations
+set(CXX_FLAGS "")
 list(APPEND CXX_FLAGS "-Wall")
-list(APPEND CXX_FLAGS "-g")
 list(APPEND CXX_FLAGS "-pedantic-errors")
 list(APPEND CXX_FLAGS "-Wextra")
 list(APPEND CXX_FLAGS "-Wfloat-equal")
@@ -16,6 +15,27 @@ list(APPEND CXX_FLAGS "-Woverloaded-virtual")
 list(APPEND CXX_FLAGS "-fPIC")
 list(APPEND CXX_FLAGS "-fno-strict-aliasing")
 list(APPEND CXX_FLAGS "-Weffc++")
+
+# Default to Release when not specified to favor maximum performance builds
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
+endif()
+
+message(STATUS "CMake build type: ${CMAKE_BUILD_TYPE}")
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  # Debug: include debug symbols and no optimizations
+  list(APPEND CXX_FLAGS "-g" "-O0" "-DDEBUG")
+elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+  # RelWithDebInfo: reasonable optimizations + debug info
+  list(APPEND CXX_FLAGS "-O2" "-g")
+elseif(CMAKE_BUILD_TYPE STREQUAL "Coverage")
+  # Coverage: keep instrumentation
+  list(APPEND CXX_FLAGS "-g" "--coverage" "-O0")
+else()
+  # Release (or other): maximum optimization for performance
+  list(APPEND CXX_FLAGS "-O3" "-ffast-math" "-march=native" "-flto" "-DNDEBUG" "-fomit-frame-pointer" "-funroll-loops")
+endif()
 
 # for counting states in inclusion
 option(ENABLE_CNT "Enable counter debugging" OFF)
