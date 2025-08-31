@@ -384,7 +384,9 @@ int main(int argc, char *argv[])
 				} else if (options.operation == "type") {
 					assert(false);
 				} else if (options.operation == "scc-types") {
-					assert(false);
+					spot::scc_info si(aut, spot::scc_info_options::ALL);
+					std::string scc_types = cola::get_scc_types(si);
+					cola::print_scc_types(scc_types, si);
 				} else {
 					throw std::runtime_error("invalid operation: " + options.operation);
 				}

@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <sstream>
 #include <spot/parseaut/public.hh>
 #include <spot/twaalgos/sccinfo.hh>
 #include <spot/misc/bddlt.hh>
@@ -100,4 +101,185 @@ TEST_CASE("cola::get_scc_types - automaton properties", "[scc_types]") {
     REQUIRE(cola::is_elevator_automaton(scc_info, scc_types) == true);  // Should be elevator (all SCCs det or weak)
     REQUIRE(cola::is_weak_automaton(scc_info, scc_types) == true);      // Should be weak (SCC 0 is weak)
     REQUIRE(cola::is_limit_deterministic_automaton(scc_info, scc_types) == true); // Should be limit deterministic
+}
+
+TEST_CASE("cola::get_scc_types - initial deterministic components", "[scc_types]") {
+    SECTION("Test with simple HOA string - single deterministic SCC") {
+        // Create a simple automaton with one deterministic SCC using HOA format
+        std::string hoa_str = 
+            "HOA: v1\n"
+            "States: 1\n"
+            "Start: 0\n"
+            "AP: 1 \"a\"\n"
+            "acc-name: Buchi\n"
+            "Acceptance: 1 Inf(0)\n"
+            "--BODY--\n"
+            "State: 0\n"
+            "[0] 0 {0}\n"
+            "[!0] 0\n"
+            "--END--\n";
+        
+        auto dict = spot::make_bdd_dict();
+        spot::automaton_stream_parser parser(hoa_str.c_str(), "test_string");
+        auto parsed_aut = parser.parse(dict);
+        REQUIRE(!parsed_aut->format_errors(std::cerr));
+        
+        spot::twa_graph_ptr aut = parsed_aut->aut;
+        REQUIRE(aut != nullptr);
+        
+        spot::scc_info scc_info(aut);
+        std::string scc_types = cola::get_scc_types(scc_info);
+        
+        REQUIRE(scc_info.scc_count() == 1);
+        // Single deterministic SCC should be marked as initial deterministic
+        REQUIRE((scc_types[0] & SCC_DET_TYPE) != 0);
+        REQUIRE((scc_types[0] & SCC_INITIAL_DET_TYPE) != 0);
+    }
+    
+    SECTION("Test with HOA string - chain of deterministic SCCs") {
+        // Create automaton: state 0 -> state 1 -> state 2 (all deterministic)
+        std::string hoa_str = 
+            "HOA: v1\n"
+            "States: 3\n"
+            "Start: 0\n"
+            "AP: 1 \"a\"\n"
+            "acc-name: Buchi\n"
+            "Acceptance: 1 Inf(0)\n"
+            "--BODY--\n"
+            "State: 0\n"
+            "[0] 1\n"
+            "State: 1\n"
+            "[0] 2\n"
+            "State: 2\n"
+            "[0] 2 {0}\n"
+            "--END--\n";
+        
+        auto dict = spot::make_bdd_dict();
+        spot::automaton_stream_parser parser(hoa_str.c_str(), "test_string");
+        auto parsed_aut = parser.parse(dict);
+        REQUIRE(!parsed_aut->format_errors(std::cerr));
+        
+        spot::twa_graph_ptr aut = parsed_aut->aut;
+        REQUIRE(aut != nullptr);
+        
+        spot::scc_info scc_info(aut);
+        std::string scc_types = cola::get_scc_types(scc_info);
+        
+        // All deterministic SCCs in a chain should be initial deterministic
+        for (unsigned sc = 0; sc < scc_info.scc_count(); ++sc) {
+            if (scc_types[sc] & SCC_DET_TYPE) {
+                REQUIRE((scc_types[sc] & SCC_INITIAL_DET_TYPE) != 0);
+            }
+        }
+    }
+    
+    SECTION("Test nondeterministic choice leading to deterministic SCCs") {
+        // Nondeterministic choice from state 0: 0 -> 1 and 0 -> 2, then deterministic loops
+        std::string hoa_str = 
+            "HOA: v1\n"
+            "States: 3\n"
+            "Start: 0\n"
+            "AP: 1 \"a\"\n"
+            "acc-name: Buchi\n"
+            "Acceptance: 1 Inf(0)\n"
+            "--BODY--\n"
+            "State: 0\n"
+            "[0] 1\n"
+            "[0] 2\n"
+            "State: 1\n"
+            "[0] 1 {0}\n"
+            "State: 2\n"
+            "[0] 2 {0}\n"
+            "--END--\n";
+        
+        auto dict = spot::make_bdd_dict();
+        spot::automaton_stream_parser parser(hoa_str.c_str(), "test_string");
+        auto parsed_aut = parser.parse(dict);
+        REQUIRE(!parsed_aut->format_errors(std::cerr));
+        
+        spot::twa_graph_ptr aut = parsed_aut->aut;
+        REQUIRE(aut != nullptr);
+        
+        spot::scc_info scc_info(aut);
+        std::string scc_types = cola::get_scc_types(scc_info);
+        
+        // Find the nondeterministic SCC (should contain state 0)
+        // and deterministic SCCs (should contain states 1 and 2)
+        bool found_nondet_scc = false;
+        bool found_det_without_initial = false;
+        
+        for (unsigned sc = 0; sc < scc_info.scc_count(); ++sc) {
+            auto states_in_scc = scc_info.states_of(sc);
+            
+            if (!(scc_types[sc] & SCC_DET_TYPE)) {
+                // This should be the nondeterministic SCC containing state 0
+                found_nondet_scc = true;
+                REQUIRE((scc_types[sc] & SCC_INITIAL_DET_TYPE) == 0);
+            } else {
+                // These should be deterministic SCCs containing states 1 and 2
+                // They should NOT be initial deterministic because they're reachable from nondet SCC
+                if ((scc_types[sc] & SCC_INITIAL_DET_TYPE) == 0) {
+                    found_det_without_initial = true;
+                }
+            }
+        }
+        
+        REQUIRE(found_nondet_scc == true);
+        REQUIRE(found_det_without_initial == true);
+    }
+    
+    SECTION("Test mixed scenario - initial det, then nondet, then det") {
+        // Initial deterministic: 0 -> 1, then nondet: 1 -> 2,3, then det: 2->2, 3->3
+        std::string hoa_str = 
+            "HOA: v1\n"
+            "States: 4\n"
+            "Start: 0\n"
+            "AP: 2 \"a\" \"b\"\n"
+            "acc-name: Buchi\n"
+            "Acceptance: 1 Inf(0)\n"
+            "--BODY--\n"
+            "State: 0\n"
+            "[0] 1\n"
+            "State: 1\n"
+            "[1] 2\n"
+            "[1] 3\n"
+            "State: 2\n"
+            "[0] 2 {0}\n"
+            "State: 3\n"
+            "[0] 3 {0}\n"
+            "--END--\n";
+        
+        auto dict = spot::make_bdd_dict();
+        spot::automaton_stream_parser parser(hoa_str.c_str(), "test_string");
+        auto parsed_aut = parser.parse(dict);
+        REQUIRE(!parsed_aut->format_errors(std::cerr));
+        
+        spot::twa_graph_ptr aut = parsed_aut->aut;
+        REQUIRE(aut != nullptr);
+        
+        spot::scc_info scc_info(aut);
+        std::string scc_types = cola::get_scc_types(scc_info);
+        
+        // Check that only initial deterministic SCCs are marked as such
+        for (unsigned sc = 0; sc < scc_info.scc_count(); ++sc) {
+            auto states_in_scc = scc_info.states_of(sc);
+            
+            // Check if this SCC contains state 0 or 1 (initial part)
+            bool is_initial_part = false;
+            for (unsigned state : states_in_scc) {
+                if (state <= 1) {
+                    is_initial_part = true;
+                    break;
+                }
+            }
+            
+            if (is_initial_part && (scc_types[sc] & SCC_DET_TYPE)) {
+                // Initial deterministic SCCs should be marked as initial deterministic
+                REQUIRE((scc_types[sc] & SCC_INITIAL_DET_TYPE) != 0);
+            } else if (scc_types[sc] & SCC_DET_TYPE) {
+                // Later deterministic SCCs (states 2, 3) should NOT be initial deterministic
+                REQUIRE((scc_types[sc] & SCC_INITIAL_DET_TYPE) == 0);
+            }
+        }
+    }
 }

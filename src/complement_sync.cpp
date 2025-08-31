@@ -1589,6 +1589,7 @@ namespace cola {
                     scc_to_part_map[i] = part_index;
                     ++part_index;
                 }
+            // TODO: add initial deterministic
             } else if (cola::is_accepting_detscc(scc_types, i)) {
                 DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is DAC");
                 if (merge_det) { // merging DACs
