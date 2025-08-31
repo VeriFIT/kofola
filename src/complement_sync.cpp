@@ -1590,6 +1590,10 @@ namespace cola {
                     ++part_index;
                 }
             // TODO: add initial deterministic
+            } else if (cola::is_accepting_initial_detscc(scc_types, i)) {
+                DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is INIT DET");
+                part_to_type_map[part_index] = PartitionType::INITIAL_DETERMINISTIC;
+                ++part_index;
             } else if (cola::is_accepting_detscc(scc_types, i)) {
                 DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is DAC");
                 if (merge_det) { // merging DACs
@@ -1786,7 +1790,12 @@ namespace cola {
     cola::tnba_complement::abs_cmpl_alg_p 
     cola::tnba_complement::create_initial_deterministic_algorithm(size_t partition_index) { // {{{
         // initial deterministic component
-        return std::make_unique<kofola::complement_init_det>(*(this->info_.get()), partition_index);
+        bool is_buchi = this->info_->part_to_acc_map_.at(partition_index).is_buchi();
+        if (is_buchi) {
+            return std::make_unique<kofola::complement_init_det>(*(this->info_.get()), partition_index);
+        } else {
+            return std::make_unique<kofola::complement_sd_tela>(*(this->info_.get()), partition_index);
+        }
     } // create_initial_deterministic_algorithm() }}}
 
     bdd cola::tnba_complement::get_support_at(unsigned s) {

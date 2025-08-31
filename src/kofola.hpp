@@ -368,7 +368,7 @@ namespace cola
   is_accepting_nondetscc(const std::string& scc_types, unsigned scc);
 
   bool
-  is_initial_deterministic_scc(const std::string& scc_types, unsigned scc);
+  is_accepting_initial_detscc(const std::string& scc_types, unsigned scc);
 
   bool
   is_deterministic_scc(unsigned scc, const spot::scc_info& si,
