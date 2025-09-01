@@ -183,7 +183,7 @@ bool kofola::is_reduction_suitable(const spot::twa_graph_ptr& aut) {
 	unsigned num_aps = aut->get_dict()->var_map.size();
 	
 	// Check if number of APs is too large
-	if (num_aps > 10) {
+	if (num_aps > 5) {
 		return false;
 	}
 	
