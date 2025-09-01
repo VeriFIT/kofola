@@ -73,6 +73,9 @@ add_executable(kofola
 # Include the directory with the generated version header
 target_include_directories(kofola PRIVATE ${CMAKE_BINARY_DIR}/src)
 
+# Ensure version.hpp is generated before building kofola
+add_dependencies(kofola generate_version)
+
 target_compile_options(kofola PRIVATE ${CXX_FLAGS})
 
 # target_compile_features(kofola PUBLIC cxx_std_17)
