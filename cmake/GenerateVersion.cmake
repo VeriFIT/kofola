@@ -1,5 +1,8 @@
 # Script to generate version.hpp with current git hash at build time
 
+# Set CMake policy to avoid warnings
+cmake_policy(SET CMP0053 NEW)
+
 # Get git hash at build time
 execute_process(
 	COMMAND git rev-parse HEAD
@@ -14,11 +17,14 @@ if(NOT GIT_HASH)
 	set(GIT_HASH "unknown")
 endif()
 
-# Read the template file
-file(READ "${SOURCE_DIR}/src/version.hpp.in" VERSION_TEMPLATE)
+# Generate the version header content directly
+set(VERSION_CONTENT "#ifndef KOFOLA_VERSION_HPP
+#define KOFOLA_VERSION_HPP
 
-# Replace the placeholder with the actual git hash
-string(REPLACE "@GIT_HASH@" "${GIT_HASH}" VERSION_CONTENT "${VERSION_TEMPLATE}")
+#define KOFOLA_GIT_HASH \"${GIT_HASH}\"
+
+#endif // KOFOLA_VERSION_HPP
+")
 
 # Check if the file already exists and has the same content
 set(VERSION_FILE "${BINARY_DIR}/src/version.hpp")
