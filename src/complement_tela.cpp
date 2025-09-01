@@ -23,9 +23,46 @@
 #include <spot/twaalgos/product.hh>
 #include <spot/twaalgos/complete.hh>
 #include <spot/twaalgos/isdet.hh>
+#include <spot/twaalgos/complement.hh>
 
 // standard library
 #include <queue>
+
+spot::twa_graph_ptr kofola::complement_deterministic(const spot::twa_graph_ptr& aut)
+{
+	// Make the automaton complete
+	auto complete_aut = spot::complete(aut);
+	complete_aut->set_acceptance(complete_aut->get_acceptance().complement());
+
+	// Apply postprocessing using the shared function
+	return apply_postprocessing(complete_aut, aut);
+}
+
+spot::twa_graph_ptr kofola::apply_postprocessing(const spot::twa_graph_ptr& aut, const spot::twa_graph_ptr& original_aut)
+{
+	spot::twa_graph_ptr result = aut;
+	
+	// postprocessing  TODO: should also consider other options
+	if (!kofola::has_value("raw", "yes", kofola::OPTIONS.params)) {
+		spot::postprocessor p_post;
+		if ("buchi" == kofola::OPTIONS.output_type) {
+			p_post.set_type(spot::postprocessor::Buchi);
+		}
+        else if("tgba" == kofola::OPTIONS.output_type) {
+            p_post.set_type(spot::postprocessor::GeneralizedBuchi);
+        } else {
+			p_post.set_type(spot::postprocessor::Generic);
+		}
+
+		// for automata with many APs the reduction timeoutes
+		if(is_post_reduction_suitable(original_aut)) {
+			p_post.set_level(spot::postprocessor::Low);
+			result = p_post.run(result);
+		}
+	}
+
+	return result;
+}
 
 spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 {
@@ -36,6 +73,12 @@ spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 		aut_reduced = aut_tmp;
 	else
 		aut_reduced = aut;
+
+	// Special case: if the automaton is deterministic, complement by
+	// making it complete and complementing the acceptance condition
+	if (spot::is_deterministic(aut_reduced)) {
+		return complement_deterministic(aut_reduced);
+	}
 
 	spot::scc_info scc(aut_reduced, spot::scc_info_options::ALL);
 
@@ -128,26 +171,7 @@ spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 	auto res = kofola::complement_sync(aut_to_compl);
 	DEBUG_PRINT_LN("finished call to run_new()");
 
-	// postprocessing  TODO: should also consider other options
-	if (!kofola::has_value("raw", "yes", kofola::OPTIONS.params)) {
-		spot::postprocessor p_post;
-		if ("buchi" == kofola::OPTIONS.output_type) {
-			p_post.set_type(spot::postprocessor::Buchi);
-		}
-        else if("tgba" == kofola::OPTIONS.output_type) {
-            p_post.set_type(spot::postprocessor::GeneralizedBuchi);
-        } else {
-			p_post.set_type(spot::postprocessor::Generic);
-		}
-
-		// for automata with many APs the reduction timeoutes
-		if(is_post_reduction_suitable(aut_reduced)) {
-			p_post.set_level(spot::postprocessor::Low);
-			res = p_post.run(res);
-		}
-	}
-
-	return res;
+	return apply_postprocessing(res, aut_reduced);
 }
 
 bool kofola::is_reduction_suitable(const spot::twa_graph_ptr& aut) {
