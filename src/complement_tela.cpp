@@ -22,6 +22,7 @@
 #include <spot/twaalgos/postproc.hh>
 #include <spot/twaalgos/product.hh>
 #include <spot/twaalgos/complete.hh>
+#include <spot/twaalgos/isdet.hh>
 
 // standard library
 #include <queue>
@@ -115,7 +116,12 @@ spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 	} else {
 		p.set_type(spot::postprocessor::Buchi);
 	}
-	p.set_level(spot::postprocessor::High);
+	if (is_reduction_suitable(aut_reduced)) {
+		p.set_level(spot::postprocessor::High);
+	} else {
+		p.set_level(spot::postprocessor::Low);
+	}
+		
 	spot::twa_graph_ptr aut_to_compl;
 	aut_to_compl = p.run(aut_reduced);
 
@@ -134,9 +140,44 @@ spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 			p_post.set_type(spot::postprocessor::Generic);
 		}
 
-		p_post.set_level(spot::postprocessor::Low);
-		res = p_post.run(res);
+		// for automata with many APs the reduction timeoutes
+		if(is_post_reduction_suitable(aut_reduced)) {
+			p_post.set_level(spot::postprocessor::Low);
+			res = p_post.run(res);
+		}
 	}
 
 	return res;
+}
+
+bool kofola::is_reduction_suitable(const spot::twa_graph_ptr& aut) {
+	// The automaton is not suitable if:
+	// 1. The number of APs is bigger than 10
+	// 2. The automaton is deterministic
+	
+	// Get the number of atomic propositions from the dictionary
+	unsigned num_aps = aut->get_dict()->var_map.size();
+	
+	// Check if number of APs is too large
+	if (num_aps > 10) {
+		return false;
+	}
+	
+	// Check if the automaton is deterministic
+	if (spot::is_deterministic(aut)) {
+		return false;
+	}
+	
+	return true;
+}
+
+bool kofola::is_post_reduction_suitable(const spot::twa_graph_ptr& aut) {
+	// Get the number of atomic propositions from the dictionary
+	unsigned num_aps = aut->get_dict()->var_map.size();
+	
+	// Check if number of APs is too large
+	if (num_aps > 10) {
+		return false;
+	}
+	return true;
 }
