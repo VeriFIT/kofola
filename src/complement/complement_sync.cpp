@@ -16,13 +16,13 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // kofola
-#include "kofola.hpp"
-#include "types.hpp"
+#include "../kofola.hpp"
+#include "../types/types.hpp"
 #include "complement_tela.hpp"
 #include "decomposer.hpp"
-#include "util.hpp"
+#include "../util/util.hpp"
 
-#include "abstract_complement_alg.hpp"
+#include "../algorithms/abstract_complement_alg.hpp"
 #include "complement_alg_mh.hpp"
 #include "complement_alg_ncsb.hpp"
 #include "complement_alg_ncsb_delay.hpp"

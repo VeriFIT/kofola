@@ -17,10 +17,10 @@
 
 // kofola
 #include "kofola.hpp"
-#include "complement_tela.hpp"
-#include "emptiness_check.hpp"
-#include "util.hpp"
-#include "inclusion_check.hpp"
+#include "complement/complement_tela.hpp"
+#include "inclusion/emptiness_check.hpp"
+#include "util/util.hpp"
+#include "inclusion/inclusion_check.hpp"
 #include "version.hpp"
 
 // standard library headers

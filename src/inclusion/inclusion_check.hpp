@@ -11,8 +11,8 @@
 #pragma once
 
 // kofola
-#include "emptiness_check.hpp"
-#include "kofola.hpp"
+#include "../kofola.hpp"
+#include "../complement/complement_sync.hpp"
 
 namespace kofola {
     class  inclusion_check;

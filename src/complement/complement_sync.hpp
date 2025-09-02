@@ -18,20 +18,20 @@
 #pragma once
 
 // kofola
-#include "kofola.hpp"
-#include "types.hpp"
+#include "../kofola.hpp"
+#include "../types/types.hpp"
 #include "complement_tela.hpp"
-#include "util.hpp"
+#include "../util/util.hpp"
 
-#include "abstract_complement_alg.hpp"
-#include "complement_alg_mh.hpp"
-#include "complement_alg_ncsb.hpp"
-#include "complement_alg_ncsb_delay.hpp"
-#include "complement_alg_safra.hpp"
-// #include "complement_alg_rank.hpp"
-#include "complement_alg_rank2.hpp"
-#include "complement_alg_init_det.hpp"
-#include "complement_alg_subs_tuple.hpp"
+#include "../algorithms/abstract_complement_alg.hpp"
+#include "../algorithms/complement_alg_mh.hpp"
+#include "../algorithms/complement_alg_ncsb.hpp"
+#include "../algorithms/complement_alg_ncsb_delay.hpp"
+#include "../algorithms/complement_alg_safra.hpp"
+// #include "../algorithms/complement_alg_rank.hpp"
+#include "../algorithms/complement_alg_rank2.hpp"
+#include "../algorithms/complement_alg_init_det.hpp"
+#include "../algorithms/complement_alg_subs_tuple.hpp"
 
 #include <deque>
 #include <map>

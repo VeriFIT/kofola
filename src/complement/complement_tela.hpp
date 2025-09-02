@@ -16,7 +16,7 @@
 #pragma once
 
 // kofola
-#include "kofola.hpp"
+#include "../kofola.hpp"
 
 // spot
 #include <spot/twa/twa.hh>

@@ -15,7 +15,7 @@
 #include <spot/twaalgos/sccinfo.hh>
 
 // Kofola headers
-#include "complement_sync.hpp"
+#include "complement/complement_sync.hpp"
 #include "kofola.hpp"
 
 // Test utilities

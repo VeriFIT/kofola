@@ -15,7 +15,7 @@
 
 // kofola
 #include "complement_tela.hpp"
-#include "util.hpp"
+#include "../util/util.hpp"
 #include "decomposer.hpp"
 
 // Spot
