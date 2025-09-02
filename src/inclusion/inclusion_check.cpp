@@ -11,7 +11,7 @@
 // kofola
 #include "inclusion_check.hpp"
 #include "emptiness_check.hpp"
-#include "../kofola.hpp"
+#include "../util/kofola.hpp"
 #include "../complement/complement_tela.hpp"
 #include "../util/util.hpp"
 #include "../complement/decomposer.hpp"

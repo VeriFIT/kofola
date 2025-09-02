@@ -16,7 +16,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // kofola
-#include "../kofola.hpp"
+#include "../util/kofola.hpp"
 #include "../types/types.hpp"
 #include "complement_tela.hpp"
 #include "decomposer.hpp"

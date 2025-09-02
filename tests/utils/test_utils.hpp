@@ -14,7 +14,7 @@
 
 // Kofola headers
 #include "complement/complement_tela.hpp"
-#include "kofola.hpp"
+#include "util/kofola.hpp"
 
 namespace test_utils {
 

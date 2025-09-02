@@ -16,7 +16,7 @@
 
 // Kofola headers
 #include "complement/complement_sync.hpp"
-#include "kofola.hpp"
+#include "util/kofola.hpp"
 
 // Test utilities
 #include "../utils/test_utils.hpp"

@@ -25,7 +25,7 @@ include_directories(${CMAKE_SOURCE_DIR}/src/util)
 # Define the same KOFOLA_SOURCES as parent with new paths
 set(KOFOLA_SOURCES
     ${CMAKE_SOURCE_DIR}/src/algorithms/abstract_complement_alg.cpp
-    ${CMAKE_SOURCE_DIR}/src/kofola.cpp
+    ${CMAKE_SOURCE_DIR}/src/util/kofola.cpp
     ${CMAKE_SOURCE_DIR}/src/util/util.cpp
     ${CMAKE_SOURCE_DIR}/src/complement/complement_tela.cpp
     ${CMAKE_SOURCE_DIR}/src/complement/complement_sync.cpp

@@ -18,7 +18,7 @@
 #pragma once
 
 // kofola
-#include "../kofola.hpp"
+#include "../util/kofola.hpp"
 #include "../types/types.hpp"
 #include "complement_tela.hpp"
 #include "../util/util.hpp"

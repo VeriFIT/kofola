@@ -11,7 +11,7 @@
 #pragma once
 
 // kofola
-#include "../kofola.hpp"
+#include "../util/kofola.hpp"
 #include "../complement/complement_sync.hpp"
 
 namespace kofola {

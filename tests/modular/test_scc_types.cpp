@@ -5,7 +5,7 @@
 #include <spot/twaalgos/sccinfo.hh>
 #include <spot/misc/bddlt.hh>
 
-#include "kofola.hpp"
+#include "util/kofola.hpp"
 #include "../utils/test_utils.hpp"
 
 TEST_CASE("cola::get_scc_types - scc_det.hoa", "[scc_types]") {

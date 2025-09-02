@@ -19,7 +19,7 @@
 
 // Kofola headers
 #include "complement_tela.hpp"
-#include "kofola.hpp"
+#include "util/kofola.hpp"
 
 /**
  * @brief Load an automaton from a HOA file.

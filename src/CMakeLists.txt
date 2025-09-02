@@ -37,7 +37,6 @@ add_subdirectory(util)
 # Collect all source files from subdirectories
 set(ALL_SOURCES
 	main.cpp
-	kofola.cpp
 )
 
 # Add sources from subdirectories with proper paths

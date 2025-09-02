@@ -1,11 +1,13 @@
 # Util module
 set(UTIL_SOURCES
     util.cpp
+    kofola.cpp
 )
 
 set(UTIL_HEADERS
     dataflow.hpp
     util.hpp
+    kofola.hpp
 )
 
 # Make the sources available to parent scope

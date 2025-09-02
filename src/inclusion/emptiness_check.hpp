@@ -11,7 +11,7 @@
 #pragma once
 
 // kofola
-#include "../kofola.hpp"
+#include "../util/kofola.hpp"
 #include "../algorithms/abstract_complement_alg.hpp"
 #include "../complement/complement_sync.hpp"
 #include "inclusion_check.hpp"

@@ -2,7 +2,7 @@
 #include <catch2/matchers/catch_matchers_vector.hpp>
 
 #include "algorithms/abstract_complement_alg.hpp"
-#include "kofola.hpp"
+#include "util/kofola.hpp"
 
 // SPOT includes
 #include <spot/twa/acc.hh>

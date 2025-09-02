@@ -18,7 +18,7 @@
 #pragma once
 
 // kofola
-#include "../kofola.hpp"
+#include "../util/kofola.hpp"
 
 namespace kofola
 { // {{{

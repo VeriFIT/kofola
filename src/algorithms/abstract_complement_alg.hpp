@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "../kofola.hpp"
+#include "../util/kofola.hpp"
 
 // SPOT
 #include <spot/misc/bddlt.hh>
