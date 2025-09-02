@@ -22,9 +22,47 @@
 #include <spot/twaalgos/postproc.hh>
 #include <spot/twaalgos/product.hh>
 #include <spot/twaalgos/complete.hh>
+#include <spot/twaalgos/isdet.hh>
+#include <spot/twaalgos/complement.hh>
 
 // standard library
 #include <queue>
+
+spot::twa_graph_ptr kofola::complement_deterministic(const spot::twa_graph_ptr& aut)
+{
+	// Make the automaton complete
+	auto complete_aut = spot::complete(aut);
+	complete_aut->set_acceptance(complete_aut->get_acceptance().complement());
+
+	// Apply postprocessing using the shared function
+	return apply_postprocessing(complete_aut, aut);
+}
+
+spot::twa_graph_ptr kofola::apply_postprocessing(const spot::twa_graph_ptr& aut, const spot::twa_graph_ptr& original_aut)
+{
+	spot::twa_graph_ptr result = aut;
+	
+	// postprocessing  TODO: should also consider other options
+	if (!kofola::has_value("raw", "yes", kofola::OPTIONS.params)) {
+		spot::postprocessor p_post;
+		if ("buchi" == kofola::OPTIONS.output_type) {
+			p_post.set_type(spot::postprocessor::Buchi);
+		}
+        else if("tgba" == kofola::OPTIONS.output_type) {
+            p_post.set_type(spot::postprocessor::GeneralizedBuchi);
+        } else {
+			p_post.set_type(spot::postprocessor::Generic);
+		}
+
+		// for automata with many APs the reduction timeoutes
+		if(is_post_reduction_suitable(original_aut)) {
+			p_post.set_level(spot::postprocessor::Low);
+			result = p_post.run(result);
+		}
+	}
+
+	return result;
+}
 
 spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 {
@@ -35,6 +73,12 @@ spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 		aut_reduced = aut_tmp;
 	else
 		aut_reduced = aut;
+
+	// Special case: if the automaton is deterministic, complement by
+	// making it complete and complementing the acceptance condition
+	if (spot::is_deterministic(aut_reduced)) {
+		return complement_deterministic(aut_reduced);
+	}
 
 	spot::scc_info scc(aut_reduced, spot::scc_info_options::ALL);
 
@@ -115,28 +159,49 @@ spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 	} else {
 		p.set_type(spot::postprocessor::Buchi);
 	}
-	p.set_level(spot::postprocessor::High);
+	if (is_reduction_suitable(aut_reduced)) {
+		p.set_level(spot::postprocessor::High);
+	} else {
+		p.set_level(spot::postprocessor::Low);
+	}
+		
 	spot::twa_graph_ptr aut_to_compl;
 	aut_to_compl = p.run(aut_reduced);
 
 	auto res = kofola::complement_sync(aut_to_compl);
 	DEBUG_PRINT_LN("finished call to run_new()");
 
-	// postprocessing  TODO: should also consider other options
-	if (!kofola::has_value("raw", "yes", kofola::OPTIONS.params)) {
-		spot::postprocessor p_post;
-		if ("buchi" == kofola::OPTIONS.output_type) {
-			p_post.set_type(spot::postprocessor::Buchi);
-		}
-        else if("tgba" == kofola::OPTIONS.output_type) {
-            p_post.set_type(spot::postprocessor::GeneralizedBuchi);
-        } else {
-			p_post.set_type(spot::postprocessor::Generic);
-		}
+	return apply_postprocessing(res, aut_reduced);
+}
 
-		p_post.set_level(spot::postprocessor::Low);
-		res = p_post.run(res);
+bool kofola::is_reduction_suitable(const spot::twa_graph_ptr& aut) {
+	// The automaton is not suitable if:
+	// 1. The number of APs is bigger than 10
+	// 2. The automaton is deterministic
+	
+	// Get the number of atomic propositions from the dictionary
+	unsigned num_aps = aut->get_dict()->var_map.size();
+	
+	// Check if number of APs is too large
+	if (num_aps > 5) {
+		return false;
 	}
+	
+	// Check if the automaton is deterministic
+	if (spot::is_deterministic(aut)) {
+		return false;
+	}
+	
+	return true;
+}
 
-	return res;
+bool kofola::is_post_reduction_suitable(const spot::twa_graph_ptr& aut) {
+	// Get the number of atomic propositions from the dictionary
+	unsigned num_aps = aut->get_dict()->var_map.size();
+	
+	// Check if number of APs is too large
+	if (num_aps > 10) {
+		return false;
+	}
+	return true;
 }

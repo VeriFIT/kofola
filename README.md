@@ -57,7 +57,7 @@ is included in the language specified by `B.hoa` and prints the result to the st
 ./kofola A.hoa B.hoa --inclusion
 ```
 
-Additional parameters might be passed using `--params`, e.g., `--params='merge_iwa=True'`. 
+Additional parameters might be passed using `--params`, e.g., `--params='merge_iwa=yes'`. 
 In order to get a program help, run
 
 ```
@@ -81,6 +81,7 @@ The complementation and the inclusion checking might be adjusted by the followin
 | `early_plus_sim` | `yes`,`no`  | Use early+1 simulation for macrostate pruning (`--inclusion` only) |
 | `gfee` | `yes`,`no`  | Use a good for emptiness relation for early termination (`--inclusion` only) |
 | `tela` | `yes`,`no`  | If `yes`, use TELA-specific algorithms for complementation (if `no`, the input is converted to TBA) |
+| `sh-break` | `yes`,`no`  | Enable shared breakpoint across partial algorithms; when `yes` partial algorithms that support shared breakpoints propagate a common breakpoint across partitions |
 
 ## Testing
 

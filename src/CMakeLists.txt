@@ -2,10 +2,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# https://dane-bulat.medium.com/cmake-how-to-inspect-and-configure-the-compiler-877e6cb0317f
-set(CXX_FLAGS)
+# Compiler flags: common warnings and per-build-type optimizations
+set(CXX_FLAGS "")
 list(APPEND CXX_FLAGS "-Wall")
-list(APPEND CXX_FLAGS "-g")
 list(APPEND CXX_FLAGS "-pedantic-errors")
 list(APPEND CXX_FLAGS "-Wextra")
 list(APPEND CXX_FLAGS "-Wfloat-equal")
@@ -52,6 +51,9 @@ add_executable(kofola
 
 # Include the directory with the generated version header
 target_include_directories(kofola PRIVATE ${CMAKE_BINARY_DIR}/src)
+
+# Ensure version.hpp is generated before building kofola
+add_dependencies(kofola generate_version)
 
 target_compile_options(kofola PRIVATE ${CXX_FLAGS})
 

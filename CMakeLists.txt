@@ -7,25 +7,16 @@ project(kofola
 	VERSION 1.0
 )
 
-# Get git hash at compile time
-execute_process(
-	COMMAND git rev-parse HEAD
+# Create a custom target to generate git hash at build time
+# This runs every time make is called to ensure fresh git hash
+add_custom_target(generate_version ALL
+	COMMAND ${CMAKE_COMMAND}
+		-DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+		-DBINARY_DIR=${CMAKE_BINARY_DIR}
+		-P ${CMAKE_SOURCE_DIR}/cmake/GenerateVersion.cmake
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-	OUTPUT_VARIABLE GIT_HASH
-	OUTPUT_STRIP_TRAILING_WHITESPACE
-	ERROR_QUIET
-)
-
-# If git command failed, set a default value
-if(NOT GIT_HASH)
-	set(GIT_HASH "unknown")
-endif()
-
-# Configure version header
-configure_file(
-	${CMAKE_SOURCE_DIR}/src/version.hpp.in
-	${CMAKE_BINARY_DIR}/src/version.hpp
-	@ONLY
+	COMMENT "Generating version header with current git hash"
+	VERBATIM
 )
 
 if (APPLE) # we need to set correct path for Spot on Mac OS/homebrew

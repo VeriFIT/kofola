@@ -294,13 +294,45 @@ namespace cola
       // other type is 0
       res[sc] = type;
     }
+
+    // Compute predecessors map from SCC successors
+    std::vector<std::set<unsigned>> preds(nc);
+    for (unsigned sc = 0; sc < nc; ++sc) {
+      for (unsigned succ : si.succ(sc)) {
+        preds[succ].insert(sc);
+      }
+    }
+
+    // Fixpoint computation for initial deterministic components
+    std::vector<bool> is_initial_det(nc, false);
+    bool changed = true;
+    while (changed) {
+      changed = false;
+      for (unsigned sc = 0; sc < nc; ++sc) {
+        if ((res[sc] & SCC_DET_TYPE) && !is_initial_det[sc]) {
+          bool all_preds_det = true;
+          for (unsigned pred : preds[sc]) {
+            if (!(res[pred] & SCC_DET_TYPE) || !is_initial_det[pred]) {
+              all_preds_det = false;
+              break;
+            }
+          }
+          if (preds[sc].empty() || all_preds_det) {
+            is_initial_det[sc] = true;
+            res[sc] |= SCC_INITIAL_DET_TYPE;
+            changed = true;
+          }
+        }
+      }
+    }
+
     return res;
   }
 
   void
-  print_scc_types(std::string& scc_types, spot::scc_info &scc)
+  print_scc_types(const std::string& scc_types, const spot::scc_info &scc)
   {
-    std::vector<bool> reach_sccs = get_accepting_reachable_sccs(scc);
+    std::vector<bool> reach_sccs = get_accepting_reachable_sccs(const_cast<spot::scc_info&>(scc));
     for (unsigned i = 0; i < scc.scc_count(); i ++)
     {
       std::cout << "Scc " << i;
@@ -315,6 +347,10 @@ namespace cola
       if (scc_types[i] & SCC_DET_TYPE)
       {
         std::cout << " det";
+      }
+      if (scc_types[i] & SCC_INITIAL_DET_TYPE)
+      {
+        std::cout << " initial-det";
       }
       if (scc_types[i] & SCC_ACC)
       {
@@ -378,10 +414,15 @@ namespace cola
     return (scc_types[scc] & SCC_WEAK_TYPE) == 0 && (scc_types[scc] & SCC_INSIDE_DET_TYPE) > 0 && (scc_types[scc] & SCC_ACC) > 0;
   }
 
+  bool is_accepting_initial_detscc(const std::string& scc_types, unsigned scc)
+  {
+    return  (scc_types[scc] & SCC_ACC) > 0 && (scc_types[scc] & SCC_INITIAL_DET_TYPE) > 0;
+  }
+
   bool
   is_accepting_weakscc(const std::string& scc_types, unsigned scc)
   {
-    return (scc_types[scc] & SCC_WEAK_TYPE) > 0 && (scc_types[scc] & SCC_ACC) > 0;
+    return (scc_types[scc] & SCC_WEAK_TYPE) > 0 && (scc_types[scc] & SCC_ACC) > 0 && (scc_types[scc] & SCC_INITIAL_DET_TYPE) == 0;
   }
 
   bool
