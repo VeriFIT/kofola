@@ -16,27 +16,6 @@ list(APPEND CXX_FLAGS "-fPIC")
 list(APPEND CXX_FLAGS "-fno-strict-aliasing")
 list(APPEND CXX_FLAGS "-Weffc++")
 
-# Default to Release when not specified to favor maximum performance builds
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
-endif()
-
-message(STATUS "CMake build type: ${CMAKE_BUILD_TYPE}")
-
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-  # Debug: include debug symbols and no optimizations
-  list(APPEND CXX_FLAGS "-g" "-O0" "-DDEBUG")
-elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
-  # RelWithDebInfo: reasonable optimizations + debug info
-  list(APPEND CXX_FLAGS "-O2" "-g")
-elseif(CMAKE_BUILD_TYPE STREQUAL "Coverage")
-  # Coverage: keep instrumentation
-  list(APPEND CXX_FLAGS "-g" "--coverage" "-O0")
-else()
-  # Release (or other): maximum optimization for performance
-  list(APPEND CXX_FLAGS "-O3" "-ffast-math" "-march=native" "-flto" "-DNDEBUG" "-fomit-frame-pointer" "-funroll-loops")
-endif()
-
 # for counting states in inclusion
 option(ENABLE_CNT "Enable counter debugging" OFF)
 
