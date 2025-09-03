@@ -132,26 +132,8 @@ namespace helpers
         // Number of states in the input automaton.
         unsigned nb_states_;
 
-        // state_simulator
-        // state_simulator simulator_;
-
-        // delayed simulation
-        // delayed_simulation delayed_simulator_;
-
         // The parity automata being built.
         spot::twa_graph_ptr res_;
-
-        // the number of indices
-        unsigned sets_ = 0;
-
-        unsigned num_colors_;
-
-        // Association between labelling states and state numbers of the
-        // DPA.
-        // std::unordered_map<complement_mstate, unsigned, complement_mstate_hash> rank2n_;
-
-        // States to process.
-        // std::deque<std::pair<complement_mstate, unsigned>> todo_;
 
         // Support for each state of the source automaton.
         std::vector<bdd> support_;
@@ -165,22 +147,8 @@ namespace helpers
         // Whether a SCC is deterministic or not
         std::string scc_types_;
 
-        // State names for graphviz display
-        std::vector<std::string>* names_;
-
-        // the index of each weak SCCs
-        std::vector<unsigned> weaksccs_;
-        // the index of each deterministic accepting SCCs
-        std::vector<unsigned> acc_detsccs_;
-        // the index of each deterministic accepting SCCs
-        std::vector<unsigned> acc_nondetsccs_;
-
         // Show Rank states in state name to help debug
         bool show_names_;
-
-        std::map<std::pair<std::set<unsigned>, std::set<unsigned>>, unsigned> rank_bounds_; // TODO
-
-        std::string get_det_string(const std::vector<state_rank> &states);
 
 
     public:
@@ -199,12 +167,6 @@ namespace helpers
         // ######################################################################
         // NEW INTERFACE
         // ######################################################################
-
-        /*using abs_cmpl_alg_p = std::unique_ptr<kofola::abstract_complement_alg>;
-        using vec_algorithms = std::vector<abs_cmpl_alg_p>;
-
-        using abs_cmpl_ms_p = std::shared_ptr<kofola::abstract_complement_alg::mstate>;
-        using vec_macrostates = std::vector<abs_cmpl_ms_p>;*/
 
         /// the uberstate - combination of all partial macrostates
         class uberstate
@@ -458,9 +420,6 @@ namespace helpers
 
         /// new modular complementation procedure
         spot::twa_graph_ptr run_new();
-
-        ///
-        void prep_for_compl();
 
         ///
         std::vector<spot::acc_cond> get_vec_acc_cond();
