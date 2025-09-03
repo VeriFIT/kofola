@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../util/kofola.hpp"
+#include "../util/helpers.hpp"
 #include "complement_class.hpp"
 
-namespace cola
+namespace helpers
 {
     class mh_compl : public complement_class
     {

@@ -17,7 +17,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "kofola.hpp"
+#include "helpers.hpp"
 
 #include <vector>
 #include <sstream>
@@ -42,7 +42,7 @@ unsigned kofola::LOG_VERBOSITY = 0;
 // program options
 options kofola::OPTIONS;
 
-namespace cola
+namespace helpers
 {
   bool
   is_elevator_automaton(const spot::const_twa_graph_ptr &aut)

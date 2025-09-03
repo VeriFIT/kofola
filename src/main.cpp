@@ -16,7 +16,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // kofola
-#include "util/kofola.hpp"
+#include "util/helpers.hpp"
 #include "complement/complement_tela.hpp"
 #include "inclusion/emptiness_check.hpp"
 #include "util/util.hpp"
@@ -55,30 +55,30 @@ void output_scc_info(spot::twa_graph_ptr aut)
   unsigned num_nacs_states = 0;
   unsigned num_max_nacs_states = 0;
 
-  std::string types = cola::get_scc_types(si);
+  std::string types = helpers::get_scc_types(si);
   for (unsigned sc = 0; sc < si.scc_count(); sc++)
   {
     unsigned num = si.states_of(sc).size();
-    if (cola::is_weakscc(types, sc))
+    if (helpers::is_weakscc(types, sc))
     {
       num_iwcs_states += num;
       num_iwcs++;
       num_max_iwcs_states = std::max(num_max_iwcs_states, num);
     }
-    if (cola::is_accepting_weakscc(types, sc))
+    if (helpers::is_accepting_weakscc(types, sc))
     {
       num_acciwcs_states += num;
       num_acc_iwcs++;
       num_max_acciwcs_states = std::max(num_max_acciwcs_states, num);
     }
 
-    if (cola::is_accepting_detscc(types, sc))
+    if (helpers::is_accepting_detscc(types, sc))
     {
       num_dacs_states += num;
       num_dacs++;
       num_max_dacs_states = std::max(num_max_dacs_states, num);
     }
-    if (cola::is_accepting_nondetscc(types, sc))
+    if (helpers::is_accepting_nondetscc(types, sc))
     {
       num_nacs_states += num;
       num_nacs++;
@@ -340,8 +340,8 @@ int main(int argc, char *argv[])
 					assert(false);
 				} else if (options.operation == "scc-types") {
 					spot::scc_info si(aut, spot::scc_info_options::ALL);
-					std::string scc_types = cola::get_scc_types(si);
-					cola::print_scc_types(scc_types, si);
+					std::string scc_types = helpers::get_scc_types(si);
+					helpers::print_scc_types(scc_types, si);
 				} else {
 					throw std::runtime_error("invalid operation: " + options.operation);
 				}

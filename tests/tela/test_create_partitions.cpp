@@ -16,7 +16,7 @@
 
 // Kofola headers
 #include "complement/complement_sync.hpp"
-#include "util/kofola.hpp"
+#include "util/helpers.hpp"
 
 // Test utilities
 #include "../utils/test_utils.hpp"
@@ -39,7 +39,7 @@ test_create_partitions(const spot::twa_graph_ptr& aut, const kofola::options& op
     spot::scc_info scc_inf(aut);
     
     // Call create_partitions
-    auto result = cola::tnba_complement::create_partitions(scc_inf, options);
+    auto result = helpers::tnba_complement::create_partitions(scc_inf, options);
     
     return result;
 }

@@ -18,7 +18,7 @@
 #pragma once
 
 // kofola
-#include "../util/kofola.hpp"
+#include "../util/helpers.hpp"
 #include "../types/types.hpp"
 #include "complement_tela.hpp"
 #include "../util/util.hpp"
@@ -59,7 +59,7 @@
 #include <spot/misc/version.hh>
 #include <spot/twa/acc.hh>
 
-namespace cola
+namespace helpers
 {
     // complementation Buchi automata
     class tnba_complement

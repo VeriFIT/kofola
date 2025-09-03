@@ -12,7 +12,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "../util/kofola.hpp"
+#include "../util/helpers.hpp"
 
 #include <functional>
 #include <set>
@@ -21,7 +21,7 @@
 #include <spot/misc/optionmap.hh>
 
 
-namespace cola
+namespace helpers
 {
     class decomposer
     {

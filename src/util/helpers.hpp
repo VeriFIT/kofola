@@ -281,7 +281,7 @@ namespace kofola
 } // namespace kofola }}}
 
 
-namespace cola
+namespace helpers
 {
 
   // ============================ helper functions ===================================

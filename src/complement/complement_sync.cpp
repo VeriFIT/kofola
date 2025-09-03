@@ -16,7 +16,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // kofola
-#include "../util/kofola.hpp"
+#include "../util/helpers.hpp"
 #include "../types/types.hpp"
 #include "complement_tela.hpp"
 #include "decomposer.hpp"
@@ -67,7 +67,7 @@
 // 2. deterministic accepting SCCs (DACs): states in the SCC have at most one successor remain in the same SCC for a letter
 // 3. nondeterministic accepting SCCs (NACs): has an accepting transition and nondeterministic
 
-namespace cola {
+namespace helpers {
 
     std::string
     get_det_string(const std::vector<state_rank> &states) {
@@ -1140,9 +1140,9 @@ namespace cola {
     // unique_ptr (no copy is therefore allowed).
 
     /// maps uberstates to state numbers
-    std::map<const cola::tnba_complement::uberstate *, unsigned, cola::tnba_complement::uberstate_ptr_less_ftor> uberstate_to_num_map_;
+    std::map<const helpers::tnba_complement::uberstate *, unsigned, helpers::tnba_complement::uberstate_ptr_less_ftor> uberstate_to_num_map_;
     /// maps state numbers to uberstates
-    std::vector<std::shared_ptr<cola::tnba_complement::uberstate>> num_to_uberstate_map_;
+    std::vector<std::shared_ptr<helpers::tnba_complement::uberstate>> num_to_uberstate_map_;
     /// counter of states (to be assigned to uberstates) - 0 is reserved for sink
     unsigned cnt_state_ = 0;
 
@@ -1153,7 +1153,7 @@ namespace cola {
     };
 
     /// accessor into the uberstate table
-    unsigned cola::tnba_complement::uberstate_to_num(const cola::tnba_complement::uberstate &us) const { // {{{
+    unsigned helpers::tnba_complement::uberstate_to_num(const helpers::tnba_complement::uberstate &us) const { // {{{
         auto it = this->uberstate_to_num_map_.find(&us);
         if (this->uberstate_to_num_map_.end() != it) {
             return it->second;
@@ -1164,7 +1164,7 @@ namespace cola {
     } // uberstate_to_num() }}}
 
     /// translates state number to uberstate
-    const cola::tnba_complement::uberstate &cola::tnba_complement::num_to_uberstate(unsigned num) const { // {{{
+    const helpers::tnba_complement::uberstate &helpers::tnba_complement::num_to_uberstate(unsigned num) const { // {{{
         assert(num < this->num_to_uberstate_map_.size());
         assert(this->num_to_uberstate_map_[num]);
         return *this->num_to_uberstate_map_[num];
@@ -1173,7 +1173,7 @@ namespace cola {
     /// inserts an uberstate (by moving) and returns its assigned number (if
     /// not present), or just returns the number of an equal uberstate (if
     /// present)
-    unsigned cola::tnba_complement::insert_uberstate(const cola::tnba_complement::uberstate &us) { // {{{
+    unsigned helpers::tnba_complement::insert_uberstate(const helpers::tnba_complement::uberstate &us) { // {{{
         DEBUG_PRINT_LN("inserting uberstate " + us.to_string());
         auto it = this->uberstate_to_num_map_.find(&us);
         if (this->uberstate_to_num_map_.end() == it) { // not found
@@ -1196,7 +1196,7 @@ namespace cola {
     } // insert_uberstate() }}}
 
 
-    int cola::tnba_complement::get_next_active_scc(const cola::tnba_complement::vec_algorithms &alg_vec, int prev) { // {{{
+    int helpers::tnba_complement::get_next_active_scc(const helpers::tnba_complement::vec_algorithms &alg_vec, int prev) { // {{{
         for (size_t i = prev + 1; i < alg_vec.size(); ++i) {
             if (alg_vec[i]->use_round_robin()) {
                 return i;
@@ -1213,7 +1213,7 @@ namespace cola {
     } // get_next_active_scc() }}}
 
 
-    kofola::PartitionToSCCMap cola::tnba_complement::create_part_to_scc_map(
+    kofola::PartitionToSCCMap helpers::tnba_complement::create_part_to_scc_map(
             const kofola::SCCToPartitionMap &scc_to_part_map) { // {{{
         kofola::PartitionToSCCMap part_to_scc_map;
         for (const auto &scc_part_pair: scc_to_part_map) {
@@ -1229,7 +1229,7 @@ namespace cola {
     } // create_part_to_scc_map() }}}
 
 
-    kofola::SCCToSCCSetMap cola::tnba_complement::create_scc_to_pred_sccs_map(
+    kofola::SCCToSCCSetMap helpers::tnba_complement::create_scc_to_pred_sccs_map(
             const spot::scc_info &si,
             const kofola::ReachableVector &reach_vec) { // {{{
         DEBUG_PRINT_LN("in create_scc_to_pred_sccs_map");
@@ -1261,14 +1261,14 @@ namespace cola {
         return scc_to_pred_sccs_map;
     } // create_scc_to_pred_sccs_map() }}}
 
-    bool cola::tnba_complement::subsum_less_early(unsigned a, unsigned b) {
+    bool helpers::tnba_complement::subsum_less_early(unsigned a, unsigned b) {
         auto uber_a = num_to_uberstate(a);
         auto uber_b = num_to_uberstate(b);
 
         return uber_a.subsum_less_early(uber_b);
     }
 
-    bool cola::tnba_complement::subsum_less_early_plus(unsigned a, unsigned b) {
+    bool helpers::tnba_complement::subsum_less_early_plus(unsigned a, unsigned b) {
         auto uber_a = num_to_uberstate(a);
         auto uber_b = num_to_uberstate(b);
 
@@ -1277,8 +1277,8 @@ namespace cola {
 
     /// gets all successors of an uberstate wrt a vector of algorithms and a
     /// symbol
-    cola::tnba_complement::vec_state_taggedcol cola::tnba_complement::get_succ_uberstates(
-            const cola::tnba_complement::uberstate &src,
+    helpers::tnba_complement::vec_state_taggedcol helpers::tnba_complement::get_succ_uberstates(
+            const helpers::tnba_complement::uberstate &src,
             const bdd &symbol) { // {{{
         DEBUG_PRINT_LN("Processing uberstate " + std::to_string(src) +
                        " for symbol " + std::to_string(symbol));
@@ -1434,7 +1434,7 @@ namespace cola {
 
     /// gets all initial uberstates wrt a vector of algorithms
     std::vector<unsigned>
-    cola::tnba_complement::get_initial_uberstates() { // {{{
+    helpers::tnba_complement::get_initial_uberstates() { // {{{
         std::set<unsigned> initial_states = {aut_->get_init_state_number()};
 
         int init_active = get_next_active_scc(alg_vec_, INACTIVE_SCC);
@@ -1511,12 +1511,12 @@ namespace cola {
             kofola::SCCToPartitionMap,
             kofola::PartitionToAccMap
     >
-    cola::tnba_complement::create_partitions(
+    helpers::tnba_complement::create_partitions(
             const spot::scc_info &scc_inf,
             const kofola::options &options) { // {{{
         using kofola::PartitionType;
 
-        std::string scc_types = cola::get_scc_types(scc_inf);
+        std::string scc_types = helpers::get_scc_types(scc_inf);
         size_t part_index = 0;
 
         kofola::PartitionToTypeMap part_to_type_map;
@@ -1536,7 +1536,7 @@ namespace cola {
         if (merge_iwa) {
             DEBUG_PRINT_LN("Merge IWA");
             for (size_t i = 0; i < scc_inf.scc_count(); ++i) {
-                if (cola::is_accepting_weakscc(scc_types, i)) { // if there is some IWA
+                if (helpers::is_accepting_weakscc(scc_types, i)) { // if there is some IWA
                     iwa_index = part_index;
                     ++part_index;
                     part_to_type_map[iwa_index] = PartitionType::INHERENTLY_WEAK;
@@ -1549,7 +1549,7 @@ namespace cola {
         if (merge_det) {
             DEBUG_PRINT_LN("Merge DET");
             for (size_t i = 0; i < scc_inf.scc_count(); ++i) {
-                if (cola::is_accepting_detscc(scc_types, i)) { // if there is some DAC
+                if (helpers::is_accepting_detscc(scc_types, i)) { // if there is some DAC
                     dac_index = part_index;
                     ++part_index;
                     part_to_type_map[dac_index] = PartitionType::DETERMINISTIC;
@@ -1562,13 +1562,13 @@ namespace cola {
         for (size_t i = 0; i < scc_inf.scc_count(); ++i) {
             DEBUG_PRINT_LN("Processing SCC " + std::to_string(i));
             DEBUG_PRINT_LN("scc_partition map: " + std::to_string(scc_to_part_map));
-            if (!cola::is_accepting_scc(scc_types, i)) {
+            if (!helpers::is_accepting_scc(scc_types, i)) {
                 scc_to_part_map[i] = -1;
                 continue; // we don't care about nonaccepting SCCs
             }
 
             scc_to_part_map[i] = part_index;
-            if (cola::is_accepting_weakscc(scc_types, i)) {
+            if (helpers::is_accepting_weakscc(scc_types, i)) {
                 DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is IWA");
                 if (merge_iwa) { // merging IWAs
                     if (-1 == iwa_index) {
@@ -1583,11 +1583,11 @@ namespace cola {
                     ++part_index;
                 }
             // TODO: add initial deterministic
-            } else if (cola::is_accepting_initial_detscc(scc_types, i)) {
+            } else if (helpers::is_accepting_initial_detscc(scc_types, i)) {
                 DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is INIT DET");
                 part_to_type_map[part_index] = PartitionType::INITIAL_DETERMINISTIC;
                 ++part_index;
-            } else if (cola::is_accepting_detscc(scc_types, i)) {
+            } else if (helpers::is_accepting_detscc(scc_types, i)) {
                 DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is DAC");
                 if (merge_det) { // merging DACs
                     if (-1 == dac_index) {
@@ -1601,7 +1601,7 @@ namespace cola {
                     scc_to_part_map[i] = part_index;
                     ++part_index;
                 }
-            } else if (cola::is_accepting_nondetscc(scc_types, i)) {
+            } else if (helpers::is_accepting_nondetscc(scc_types, i)) {
                 DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is NAC");
                 part_to_type_map[part_index] = PartitionType::NONDETERMINISTIC;
                 ++part_index;
@@ -1642,11 +1642,11 @@ namespace cola {
 
 
     /// selects the algorithms to run on the SCCs
-    void cola::tnba_complement::select_algorithms()  { // {{{
+    void helpers::tnba_complement::select_algorithms()  { // {{{
         using kofola::PartitionType;
 
         for (size_t i = 0; i < this->info_->num_partitions_; ++i) { // determine which algorithms to run on each of the SCCs
-            cola::tnba_complement::abs_cmpl_alg_p alg;
+            helpers::tnba_complement::abs_cmpl_alg_p alg;
             
             const PartitionType partition_type = this->info_->part_to_type_map_.at(i);
             
@@ -1685,8 +1685,8 @@ namespace cola {
      * @param partition_index Index of the partition for which the algorithm is created.
      * @return Unique pointer to the abstract complementation algorithm for inherently weak SCCs.
      */
-    cola::tnba_complement::abs_cmpl_alg_p 
-    cola::tnba_complement::create_inherently_weak_algorithm(size_t partition_index) { // {{{
+    helpers::tnba_complement::abs_cmpl_alg_p 
+    helpers::tnba_complement::create_inherently_weak_algorithm(size_t partition_index) { // {{{
         return std::make_unique<kofola::complement_mh>(*(this->info_.get()), partition_index);
     } // create_inherently_weak_algorithm() }}}
 
@@ -1700,8 +1700,8 @@ namespace cola {
      * @param partition_index Index of the partition for which the algorithm is created.
      * @return Unique pointer to the abstract complementation algorithm for deterministic SCCs.
      */
-    cola::tnba_complement::abs_cmpl_alg_p 
-    cola::tnba_complement::create_deterministic_algorithm(size_t partition_index) { // {{{
+    helpers::tnba_complement::abs_cmpl_alg_p 
+    helpers::tnba_complement::create_deterministic_algorithm(size_t partition_index) { // {{{
         // take the acceptance condition simplified according to the partition
         bool is_buchi = this->info_->part_to_acc_map_.at(partition_index).is_buchi();
         
@@ -1726,8 +1726,8 @@ namespace cola {
      * @param partition_index Index of the partition for which the algorithm is created.
      * @return Unique pointer to the abstract complementation algorithm for strongly deterministic SCCs.
      */
-    cola::tnba_complement::abs_cmpl_alg_p 
-    cola::tnba_complement::create_strongly_deterministic_algorithm(size_t partition_index) { // {{{
+    helpers::tnba_complement::abs_cmpl_alg_p 
+    helpers::tnba_complement::create_strongly_deterministic_algorithm(size_t partition_index) { // {{{
         // take the acceptance condition simplified according to the partition
         bool is_buchi = this->info_->part_to_acc_map_.at(partition_index).is_buchi();
 
@@ -1749,8 +1749,8 @@ namespace cola {
      * @return Unique pointer to the abstract complementation algorithm for nondeterministic SCCs.
      * @throws std::runtime_error if the algorithm for general components is not implemented.
      */
-    cola::tnba_complement::abs_cmpl_alg_p 
-    cola::tnba_complement::create_nondeterministic_algorithm(size_t partition_index) { // {{{
+    helpers::tnba_complement::abs_cmpl_alg_p 
+    helpers::tnba_complement::create_nondeterministic_algorithm(size_t partition_index) { // {{{
         bool is_buchi = this->info_->part_to_acc_map_.at(partition_index).is_buchi();
 
         if(!is_buchi) {
@@ -1780,8 +1780,8 @@ namespace cola {
      * @param partition_index Index of the partition for which the algorithm is created.
      * @return Unique pointer to the abstract complementation algorithm for the initial deterministic SCC.
      */
-    cola::tnba_complement::abs_cmpl_alg_p 
-    cola::tnba_complement::create_initial_deterministic_algorithm(size_t partition_index) { // {{{
+    helpers::tnba_complement::abs_cmpl_alg_p 
+    helpers::tnba_complement::create_initial_deterministic_algorithm(size_t partition_index) { // {{{
         // initial deterministic component
         bool is_buchi = this->info_->part_to_acc_map_.at(partition_index).is_buchi();
         if (is_buchi) {
@@ -1791,23 +1791,23 @@ namespace cola {
         }
     } // create_initial_deterministic_algorithm() }}}
 
-    bdd cola::tnba_complement::get_support_at(unsigned s) {
+    bdd helpers::tnba_complement::get_support_at(unsigned s) {
         return support_[s];
     }
 
-    bdd cola::tnba_complement::get_compat_at(unsigned s) {
+    bdd helpers::tnba_complement::get_compat_at(unsigned s) {
         return compat_[s];
     }
 
-    unsigned int cola::tnba_complement::get_cnt_state_() {
+    unsigned int helpers::tnba_complement::get_cnt_state_() {
         return cnt_state_;
     }
 
-    void cola::tnba_complement::inc_cnt_state_() {
+    void helpers::tnba_complement::inc_cnt_state_() {
         ++this->cnt_state_;
     }
 
-    void cola::tnba_complement::handle_sink_state()
+    void helpers::tnba_complement::handle_sink_state()
     {
         if (!is_sink_created_) {
             is_sink_created_ = true;
@@ -1819,19 +1819,19 @@ namespace cola {
         }
     }
 
-    bool cola::tnba_complement::get_is_sink_created()
+    bool helpers::tnba_complement::get_is_sink_created()
     {
         return is_sink_created_;
     }
 
-    unsigned cola::tnba_complement::get_sink_state()
+    unsigned helpers::tnba_complement::get_sink_state()
     {
         return sink_state_;
     }
 
     /// new modular complementation procedure
     spot::twa_graph_ptr
-    cola::tnba_complement::run_new() { // {{{
+    helpers::tnba_complement::run_new() { // {{{
         DEBUG_PRINT_LN("selecting algorithms");
         // creates a vector of algorithms, for every SCC of aut one
         select_algorithms();
@@ -2023,27 +2023,27 @@ namespace cola {
         return result;
     } // run_new() }}}
 
-    std::vector<spot::acc_cond> cola::tnba_complement::get_vec_acc_cond()
+    std::vector<spot::acc_cond> helpers::tnba_complement::get_vec_acc_cond()
     {
         return vec_acc_code_;
     }
 
-    spot::acc_cond::acc_code cola::tnba_complement::get_final_acc_code()
+    spot::acc_cond::acc_code helpers::tnba_complement::get_final_acc_code()
     {
         return final_code_;
     }
 
-    unsigned int cola::tnba_complement::get_alg_vec_mincolour_at_i(unsigned i)
+    unsigned int helpers::tnba_complement::get_alg_vec_mincolour_at_i(unsigned i)
     {
         return alg_vec_[i]->get_min_colour();
     }
 
-    std::map<unsigned int, unsigned int> cola::tnba_complement::get_part_col_offset()
+    std::map<unsigned int, unsigned int> helpers::tnba_complement::get_part_col_offset()
     {
         return part_col_offset_;
     }
 
-    std::set<unsigned> cola::tnba_complement::set_acc_cond() {
+    std::set<unsigned> helpers::tnba_complement::set_acc_cond() {
         num_colours_ = RESERVED_COLOURS;
         int rr_colour = -1;     // colour for round robin
         int sh_br_colour = -2;  // colour for shared breakpoint
@@ -2104,7 +2104,7 @@ spot::twa_graph_ptr kofola::complement_sync(const spot::twa_graph_ptr& aut)
     }
     
 
-    auto comp = cola::tnba_complement(aut, si);
+    auto comp = helpers::tnba_complement(aut, si);
     auto res = comp.run_new();
 
     return res;

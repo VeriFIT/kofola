@@ -11,7 +11,7 @@
 // kofola
 #include "inclusion_check.hpp"
 #include "emptiness_check.hpp"
-#include "../util/kofola.hpp"
+#include "../util/helpers.hpp"
 #include "../complement/complement_tela.hpp"
 #include "../util/util.hpp"
 #include "../complement/decomposer.hpp"
@@ -100,7 +100,7 @@ namespace kofola {
         return res;
     }
 
-    cola::tnba_complement inclusion_check::init_compl_aut_b(const spot::twa_graph_ptr &aut_B) {
+    helpers::tnba_complement inclusion_check::init_compl_aut_b(const spot::twa_graph_ptr &aut_B) {
         spot::twa_graph_ptr aut_to_compl = aut_B;
         if(kofola::OPTIONS.params.count("preproc_incl_B") != 0 && kofola::OPTIONS.params["preproc_incl_B"] == "high") {
             spot::postprocessor p;
@@ -124,7 +124,7 @@ namespace kofola {
 
         kofola::OPTIONS.output_type = "tgba";
         spot::scc_info si_B(aut_B, spot::scc_info_options::ALL);
-        cola::tnba_complement comp(aut_to_compl, si_B);
+        helpers::tnba_complement comp(aut_to_compl, si_B);
         return comp;
     }
 
@@ -261,8 +261,8 @@ namespace kofola {
         return (a->state_.first == b->state_.first && aut_B_compl_.subsum_less_early_plus(a->state_.second, b->state_.second));
     }
 
-    cola::tnba_complement::vec_state_taggedcol inclusion_check::get_successors_compl(unsigned compl_state, const bdd& letter) {
-        cola::tnba_complement::vec_state_taggedcol succs_B;
+    helpers::tnba_complement::vec_state_taggedcol inclusion_check::get_successors_compl(unsigned compl_state, const bdd& letter) {
+        helpers::tnba_complement::vec_state_taggedcol succs_B;
         
         // no succs yet
         if(compl_state_storage_.count(compl_state) == 0){
@@ -278,7 +278,7 @@ namespace kofola {
         }
         // if not computed yet, compute
         if(succs_B.empty()) {
-            const cola::tnba_complement::uberstate &us_B = aut_B_compl_.num_to_uberstate(compl_state);
+            const helpers::tnba_complement::uberstate &us_B = aut_B_compl_.num_to_uberstate(compl_state);
             succs_B = aut_B_compl_.get_succ_uberstates(us_B, letter);
             compl_state_storage_[compl_state].emplace_back(std::pair(succs_B, letter));
         }
@@ -312,7 +312,7 @@ namespace kofola {
             // if(succs_A.empty())
             //     continue;
 
-            cola::tnba_complement::vec_state_taggedcol succs_B;
+            helpers::tnba_complement::vec_state_taggedcol succs_B;
             if(!aut_B_compl_.get_is_sink_created() || compl_state != aut_B_compl_.get_sink_state())
             {
                 succs_B = get_successors_compl(compl_state, letter);
@@ -346,7 +346,7 @@ namespace kofola {
 
     std::vector<std::shared_ptr<inclusion_mstate>>
     inclusion_check::get_cartesian_prod(unsigned aut_A_src, std::set<unsigned> &states_A,
-                                        cola::tnba_complement::vec_state_taggedcol &states_B, const bdd &letter) {
+                                        helpers::tnba_complement::vec_state_taggedcol &states_B, const bdd &letter) {
         std::vector<std::shared_ptr<inclusion_mstate>> cartesian_prod;
         // COMPUTATION OF COLORS IS TAKEN FROM complement_sync.cpp might be better to create method in the complement_sync class
 
