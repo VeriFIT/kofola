@@ -158,13 +158,6 @@ namespace cola {
         this->names_ = new std::vector<std::string>();   // FIXME: allocate at one place
         this->show_names_ = true;     // FIXME: set from parameters
 
-        // validate our input is a BA
-        // if (this->aut_->get_acceptance() != spot::acc_cond::acc_code::inf({0})) {
-        //     throw std::runtime_error(
-        //             "complement_tnba(): input is not Buchi! acceptance condition: " +
-        //             std::to_string(this->aut_->get_acceptance()));
-        // }
-
         // compute vector of accepting states, supports, etc.
         for (unsigned i = 0; i < this->aut_->num_states(); ++i) {
             bdd res_support = bddtrue;

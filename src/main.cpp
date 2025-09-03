@@ -38,37 +38,6 @@
 #include <chrono>
 #include <iomanip>
 
-//void output_input_type(spot::twa_graph_ptr aut)
-//{
-//  bool type = false;
-//  if (spot::is_deterministic(aut))
-//  {
-//    type = true;
-//    std::cout << "deterministic" << std::endl;
-//  }
-//  if (spot::is_semi_deterministic(aut))
-//  {
-//    type = true;
-//    std::cout << "limit-deterministic" << std::endl;
-//  }
-//  if (cola::is_elevator_automaton(aut))
-//  {
-//    std::cout << "elevator" << std::endl;
-//  }
-//  if (cola::is_weak_automaton(aut))
-//  {
-//    std::cout << "inherently weak" << std::endl;
-//  }
-//  if (spot::is_unambiguous(aut))
-//  {
-//    std::cout << "unambiguous" << std::endl;
-//  }
-//  if (!type)
-//  {
-//    std::cout << "nondeterministic" << std::endl;
-//  }
-//}
-
 void output_scc_info(spot::twa_graph_ptr aut)
 {
   // strengther
@@ -329,18 +298,6 @@ int main(int argc, char *argv[])
 
             kofola::inclusion_check inclusion_checker(aut_A, aut_B);
             bool kofola_res = inclusion_checker.inclusion();
-
-			// to test correctness against spot
-            // if(options.params.count("incl_correctness") != 0 && options.params["incl_correctness"] == "yes") {
-            //     bool spot_res = !aut_A->intersects(spot::complement(aut_B));
-            //     if(spot_res == kofola_res) {
-            //         printf("PASS!\n");
-            //     }
-            //     else {
-            //         printf("ERR!\n");
-            //     }
-            // }
-            // else {
 			if(kofola_res) {
 				printf("Inclusion holds!\n");
 				return 0;
@@ -349,8 +306,6 @@ int main(int argc, char *argv[])
 				printf("Inclusion does not hold!\n");
 				return 1;
 			}
-            // }
-
         }
         catch (const std::exception& ex) {
             std::cerr << "Error: " << ex.what() << "\n";
@@ -399,157 +354,4 @@ int main(int argc, char *argv[])
 	}
 
 	return EXIT_SUCCESS;
-
-  // options
-//  bool aut_type = false;
-//  bool print_scc = false;
-//
-//  postprocess_level preprocess = Low;
-//  postprocess_level post_process = Low;
-//
-//  output_aut_type output_type = Generic;
-
-//  for (int i = 1; i < argc; i++)
-//  {
-//    std::string arg = argv[i];
-//    if (arg.find("--preprocess=") != std::string::npos)
-//    {
-//      unsigned level = 0;//parse_int(arg);
-//      if (level == 0)
-//      {
-//        preprocess = None;
-//      }
-//      else if (level == 1)
-//      {
-//        preprocess = Low;
-//      }
-//      else if (level == 2)
-//      {
-//        preprocess = Medium;
-//      }
-//      else if (level == 3)
-//      {
-//        preprocess = High;
-//      }
-//    }
-//    else if (arg == "--print-scc")
-//    {
-//      print_scc = true;
-//    }
-//    else if (arg == "--debug") {
-//      kofola::LOG_VERBOSITY = 42;
-//    }
-//    else if (arg == "--type") {
-//        aut_type = true;
-//    }
-//    else if (arg == "--low-red-interm") {
-//      decomp_options.low_red_interm = true;
-//    }
-//    else if (arg == "--merge-iwa")
-//    {
-//      decomp_options.merge_iwa = true;
-//    }
-//    else if (arg == "--merge-det")
-//    {
-//      decomp_options.merge_det = true;
-//    }
-//    else if (arg == "--tgba")
-//    {
-//      decomp_options.tgba = true;
-//    }
-//    else if (arg == "--tba")
-//    {
-//      decomp_options.tba = true;
-//    }
-//    else if (arg == "--raw")
-//    {
-//      decomp_options.raw = true;
-//    }
-//    else if (arg == "--rank")
-//    {
-//      decomp_options.rank_for_nacs = true;
-//    }
-//    else if (arg == "--iw-sim")
-//    {
-//      decomp_options.iw_sim = true;
-//    }
-//    else if (arg == "--det-sim")
-//    {
-//      decomp_options.det_sim = true;
-//    }
-//    else if (arg == "--scc-compl")
-//    {
-//      decomp_options.scc_compl = true;
-//    }
-//    else if (arg == "--scc-high")
-//    {
-//      decomp_options.scc_compl_high = true;
-//    }
-//    else if (arg == "--no-sat")
-//    {
-//      decomp_options.sat = false;
-//    }
-//    else if (arg == "--dataflow")
-//    {
-//      decomp_options.dataflow = true;
-//    }
-//    else if (arg == "--version")
-//    {
-//      std::cout << "kofola x.y"
-//                   " (using Spot "
-//                << spot::version() << ")\n\n"
-//                                      "Copyright (C) 2020  The cola Authors.\n"
-//                                      "License GPLv3+: GNU GPL version 3 or later"
-//                                      " <http://gnu.org/licenses/gpl.html>.\n"
-//                                      "This is free software: you are free to change "
-//                                      "and redistribute it.\n"
-//                                      "There is NO WARRANTY, to the extent permitted by law.\n"
-//                << std::flush;
-//      return 0;
-//    }
-//  }
-
-
-//  for (std::string &path_to_file : path_to_files)
-//  {
-//    spot::automaton_stream_parser parser(path_to_file);
-//
-//    for (;;)
-//    {
-//      spot::parsed_aut_ptr parsed_aut = parser.parse(dict);
-//
-//      if (parsed_aut->format_errors(std::cerr))
-//        return 1;
-//
-//      // input automata
-//      spot::twa_graph_ptr aut = parsed_aut->aut;
-//
-//      if (!aut)
-//        break;
-//
-//      // Check if input is TGBA
-////      if (aut->acc().is_generalized_buchi())
-////      {
-////        aut = spot::degeneralize_tba(aut);
-////      }
-//
-//      if (!aut->acc().is_buchi())
-//      {
-//        std::cerr << "cola requires Buchi condition on input.\n";
-//        return 1;
-//      }
-//
-//      if (aut_type)
-//      {
-////        output_input_type(aut);
-//        break;
-//      }
-//
-//      if (print_scc)
-//      {
-//        output_scc_info(aut);
-//        break;
-//      }
-//    }
-//  }
 } // main() }}}
