@@ -15,7 +15,7 @@
 
 // kofola
 #include "complement_tela.hpp"
-#include "util.hpp"
+#include "../util/util.hpp"
 #include "decomposer.hpp"
 
 // Spot
@@ -91,7 +91,7 @@ spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 		}
 
 		// decompose source automaton - TODO: this should be done properly
-		cola::decomposer decomp(aut_reduced);
+		helpers::decomposer decomp(aut_reduced);
 		auto decomposed = decomp.run(
 			true,
 			kofola::has_value("merge_iwa", "yes", kofola::OPTIONS.params),

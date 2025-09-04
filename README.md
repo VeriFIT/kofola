@@ -104,15 +104,6 @@ Alternatively, use the convenience script:
 ./tests/run_tests.sh
 ```
 
-### Test Coverage
-
-The test suite currently includes:
-- Tests for the `acc_code_dnf` method with various acceptance conditions
-- Büchi, co-Büchi, and generalized Büchi acceptance handling
-- Complex acceptance conditions (Rabin, Streett, mixed)
-- DNF structure validation
-- Edge cases and deterministic behavior validation
-
 For more details, see the [tests README](tests/README.md).
 
 ## Publications

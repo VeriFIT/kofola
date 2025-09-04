@@ -64,7 +64,7 @@ set(TEST_SOURCES
 # Create test sources that need to be compiled from main project
 set(KOFOLA_SOURCES
     ${CMAKE_SOURCE_DIR}/src/abstract_complement_alg.cpp
-    ${CMAKE_SOURCE_DIR}/src/kofola.cpp
+    ${CMAKE_SOURCE_DIR}/src/util/helpers.cpp
     ${CMAKE_SOURCE_DIR}/src/util.cpp
     ${CMAKE_SOURCE_DIR}/src/complement_tela.cpp
     ${CMAKE_SOURCE_DIR}/src/complement_sync.cpp

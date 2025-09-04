@@ -16,28 +16,33 @@ list(APPEND CXX_FLAGS "-fno-strict-aliasing")
 
 # Include directories
 include_directories(${CMAKE_SOURCE_DIR}/src)
+include_directories(${CMAKE_SOURCE_DIR}/src/algorithms)
+include_directories(${CMAKE_SOURCE_DIR}/src/complement)
+include_directories(${CMAKE_SOURCE_DIR}/src/inclusion)
+include_directories(${CMAKE_SOURCE_DIR}/src/types)
+include_directories(${CMAKE_SOURCE_DIR}/src/util)
 
-# Define the same KOFOLA_SOURCES as parent
+# Define the same KOFOLA_SOURCES as parent with new paths
 set(KOFOLA_SOURCES
-    ${CMAKE_SOURCE_DIR}/src/abstract_complement_alg.cpp
-    ${CMAKE_SOURCE_DIR}/src/kofola.cpp
-    ${CMAKE_SOURCE_DIR}/src/util.cpp
-    ${CMAKE_SOURCE_DIR}/src/complement_tela.cpp
-    ${CMAKE_SOURCE_DIR}/src/complement_sync.cpp
-    ${CMAKE_SOURCE_DIR}/src/decomposer.cpp
-    ${CMAKE_SOURCE_DIR}/src/complement_alg_init_det.cpp
-    ${CMAKE_SOURCE_DIR}/src/complement_alg_mh.cpp
-    ${CMAKE_SOURCE_DIR}/src/complement_alg_ncsb.cpp
-    ${CMAKE_SOURCE_DIR}/src/complement_alg_ncsb_delay.cpp
+    ${CMAKE_SOURCE_DIR}/src/algorithms/abstract_complement_alg.cpp
+    ${CMAKE_SOURCE_DIR}/src/util/helpers.cpp
+    ${CMAKE_SOURCE_DIR}/src/util/util.cpp
+    ${CMAKE_SOURCE_DIR}/src/complement/complement_tela.cpp
+    ${CMAKE_SOURCE_DIR}/src/complement/complement_sync.cpp
+    ${CMAKE_SOURCE_DIR}/src/complement/decomposer.cpp
+    ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_init_det.cpp
+    ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_mh.cpp
+    ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_ncsb.cpp
+    ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_ncsb_delay.cpp
     # Excluding rank algorithms due to compilation issues
-    # ${CMAKE_SOURCE_DIR}/src/complement_alg_rank.cpp
-    # ${CMAKE_SOURCE_DIR}/src/complement_alg_rank2.cpp
-    # ${CMAKE_SOURCE_DIR}/src/ranking.cpp
-    ${CMAKE_SOURCE_DIR}/src/complement_alg_safra.cpp
-    ${CMAKE_SOURCE_DIR}/src/complement_alg_sd_tela.cpp
-    ${CMAKE_SOURCE_DIR}/src/complement_alg_subs_tuple.cpp
-    ${CMAKE_SOURCE_DIR}/src/emptiness_check.cpp
-    ${CMAKE_SOURCE_DIR}/src/inclusion_check.cpp
+    # ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_rank.cpp
+    # ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_rank2.cpp
+    # ${CMAKE_SOURCE_DIR}/src/types/ranking.cpp
+    ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_safra.cpp
+    ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_sd_tela.cpp
+    ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_subs_tuple.cpp
+    ${CMAKE_SOURCE_DIR}/src/inclusion/emptiness_check.cpp
+    ${CMAKE_SOURCE_DIR}/src/inclusion/inclusion_check.cpp
 )
 
 # Create test utilities library

@@ -12,10 +12,10 @@
 #include <tuple>
 
 // kofola
-#include "complement_tela.hpp"
-#include "util.hpp"
-#include "decomposer.hpp"
-#include "complement_sync.hpp"
+#include "../complement/complement_tela.hpp"
+#include "../util/util.hpp"
+#include "../complement/decomposer.hpp"
+#include "../complement/complement_sync.hpp"
 #include "inclusion_check.hpp"
 
 // Spot

@@ -1,8 +1,8 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_vector.hpp>
 
-#include "abstract_complement_alg.hpp"
-#include "kofola.hpp"
+#include "algorithms/abstract_complement_alg.hpp"
+#include "util/helpers.hpp"
 
 // SPOT includes
 #include <spot/twa/acc.hh>

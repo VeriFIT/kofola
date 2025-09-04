@@ -11,8 +11,8 @@
 #pragma once
 
 // kofola
-#include "emptiness_check.hpp"
-#include "kofola.hpp"
+#include "../util/helpers.hpp"
+#include "../complement/complement_sync.hpp"
 
 namespace kofola {
     class  inclusion_check;
@@ -75,13 +75,13 @@ namespace kofola {
         /// is not used, should be deleted 
         std::map<intersect_mstate , vec_state_col> intersect_states_;
         /// to not generate redundantly new instances
-        std::map<unsigned, std::vector<std::pair<cola::tnba_complement::vec_state_taggedcol, bdd>>> compl_state_storage_;
+        std::map<unsigned, std::vector<std::pair<helpers::tnba_complement::vec_state_taggedcol, bdd>>> compl_state_storage_;
 
         std::vector<std::shared_ptr<kofola::inclusion_mstate>> init_states_;
         spot::twa_graph_ptr aut_A_;
         std::vector<bdd> support_;
         std::vector<bdd> compat_;
-        cola::tnba_complement aut_B_compl_;
+        helpers::tnba_complement aut_B_compl_;
         /// acc_cond that should be satisfied for inclusion to not hold
         spot::acc_cond::acc_code acc_cond_;
         /// acc mark for aut_A
@@ -107,7 +107,7 @@ namespace kofola {
         spot::twa_graph_ptr init_aut_A(const spot::twa_graph_ptr &aut_A);
 
         /// to obtain cola::tnba_complement instance in the constructor and preprocess if required
-        cola::tnba_complement init_compl_aut_b(const spot::twa_graph_ptr &aut_B);
+        helpers::tnba_complement init_compl_aut_b(const spot::twa_graph_ptr &aut_B);
 
         /// returns union of aut_A and aut_B for the purpose of simulations, firstly states from aut_A are inserted, then states 
         /// frin aut_B and finally, initial state of union automaton with transitions to initial state of aut_A and aut_B respectively
@@ -128,7 +128,7 @@ namespace kofola {
         std::vector<std::shared_ptr<inclusion_mstate>> get_initial_states();
 
         /// get successors for complement from compl_state over letter
-        cola::tnba_complement::vec_state_taggedcol get_successors_compl(unsigned compl_state, const bdd& letter);
+        helpers::tnba_complement::vec_state_taggedcol get_successors_compl(unsigned compl_state, const bdd& letter);
 
         /// returns set of all successors (inclusion macrostates) for given inclusion macrostate, for the need of emptiness check
         std::vector<std::shared_ptr<inclusion_mstate>> get_succs(const std::shared_ptr<inclusion_mstate> &src);
@@ -148,7 +148,7 @@ namespace kofola {
         /// returns product: states_A x states_B
         std::vector<std::shared_ptr<inclusion_mstate>>
         get_cartesian_prod(unsigned aut_A_src, std::set<unsigned> &states_A,
-                           cola::tnba_complement::vec_state_taggedcol &states_B,
+                           helpers::tnba_complement::vec_state_taggedcol &states_B,
                            const bdd &letter);
 
     };

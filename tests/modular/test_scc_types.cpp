@@ -5,7 +5,7 @@
 #include <spot/twaalgos/sccinfo.hh>
 #include <spot/misc/bddlt.hh>
 
-#include "kofola.hpp"
+#include "util/helpers.hpp"
 #include "../utils/test_utils.hpp"
 
 TEST_CASE("cola::get_scc_types - scc_det.hoa", "[scc_types]") {
@@ -17,7 +17,7 @@ TEST_CASE("cola::get_scc_types - scc_det.hoa", "[scc_types]") {
     spot::scc_info scc_info(aut);
     
     // Get SCC types
-    std::string scc_types = cola::get_scc_types(scc_info);
+    std::string scc_types = helpers::get_scc_types(scc_info);
     
     // Verify the automaton has 2 SCCs
     REQUIRE(scc_info.scc_count() == 2);
@@ -52,8 +52,8 @@ TEST_CASE("cola::get_scc_types - scc_det.hoa", "[scc_types]") {
     REQUIRE((scc_types[1] & SCC_WEAK_TYPE) != 0);       // Not inherently weak
     
     // Verify individual SCC determinism using cola::is_deterministic_scc
-    REQUIRE(cola::is_deterministic_scc(0, scc_info) == true);  // SCC 0 is deterministic
-    REQUIRE(cola::is_deterministic_scc(1, scc_info) == true);  // SCC 1 is deterministic
+    REQUIRE(helpers::is_deterministic_scc(0, scc_info) == true);  // SCC 0 is deterministic
+    REQUIRE(helpers::is_deterministic_scc(1, scc_info) == true);  // SCC 1 is deterministic
     
     // Verify SCC acceptance
     REQUIRE(scc_info.is_accepting_scc(0) == true);   // SCC 0 (state 1) is accepting
@@ -67,25 +67,25 @@ TEST_CASE("cola::get_scc_types - utility functions", "[scc_types]") {
     
     // Create SCC info
     spot::scc_info scc_info(aut);
-    std::string scc_types = cola::get_scc_types(scc_info);
+    std::string scc_types = helpers::get_scc_types(scc_info);
     
     // Test utility functions for SCC type checking
-    REQUIRE(cola::is_accepting_scc(scc_types, 0) == true);   // SCC 0 is accepting
-    REQUIRE(cola::is_accepting_scc(scc_types, 1) == false);  // SCC 1 is not accepting
+    REQUIRE(helpers::is_accepting_scc(scc_types, 0) == true);   // SCC 0 is accepting
+    REQUIRE(helpers::is_accepting_scc(scc_types, 1) == false);  // SCC 1 is not accepting
     
     // SCC 0 is weak and accepting, so it's not a "deterministic" SCC in the sense of is_accepting_detscc
     // (which excludes weak SCCs)
-    REQUIRE(cola::is_accepting_detscc(scc_types, 0) == false);  // SCC 0 is weak, not "det" in this context
-    REQUIRE(cola::is_accepting_detscc(scc_types, 1) == false);  // SCC 1 is not accepting
+    REQUIRE(helpers::is_accepting_detscc(scc_types, 0) == false);  // SCC 0 is weak, not "det" in this context
+    REQUIRE(helpers::is_accepting_detscc(scc_types, 1) == false);  // SCC 1 is not accepting
     
-    REQUIRE(cola::is_accepting_weakscc(scc_types, 0) == true);  // SCC 0 is weak and accepting
-    REQUIRE(cola::is_accepting_weakscc(scc_types, 1) == false); // SCC 1 is not accepting
+    REQUIRE(helpers::is_accepting_weakscc(scc_types, 0) == true);  // SCC 0 is weak and accepting
+    REQUIRE(helpers::is_accepting_weakscc(scc_types, 1) == false); // SCC 1 is not accepting
     
-    REQUIRE(cola::is_weakscc(scc_types, 0) == true);   // SCC 0 is weak
-    REQUIRE(cola::is_weakscc(scc_types, 1) == true);  // SCC 1 is inherently weak
+    REQUIRE(helpers::is_weakscc(scc_types, 0) == true);   // SCC 0 is weak
+    REQUIRE(helpers::is_weakscc(scc_types, 1) == true);  // SCC 1 is inherently weak
     
-    REQUIRE(cola::is_accepting_nondetscc(scc_types, 0) == false); // SCC 0 is deterministic and weak
-    REQUIRE(cola::is_accepting_nondetscc(scc_types, 1) == false); // SCC 1 is not accepting
+    REQUIRE(helpers::is_accepting_nondetscc(scc_types, 0) == false); // SCC 0 is deterministic and weak
+    REQUIRE(helpers::is_accepting_nondetscc(scc_types, 1) == false); // SCC 1 is not accepting
 }
 
 TEST_CASE("cola::get_scc_types - automaton properties", "[scc_types]") {
@@ -95,12 +95,12 @@ TEST_CASE("cola::get_scc_types - automaton properties", "[scc_types]") {
     
     // Create SCC info
     spot::scc_info scc_info(aut);
-    std::string scc_types = cola::get_scc_types(scc_info);
+    std::string scc_types = helpers::get_scc_types(scc_info);
     
     // Test higher-level automaton properties
-    REQUIRE(cola::is_elevator_automaton(scc_info, scc_types) == true);  // Should be elevator (all SCCs det or weak)
-    REQUIRE(cola::is_weak_automaton(scc_info, scc_types) == true);      // Should be weak (SCC 0 is weak)
-    REQUIRE(cola::is_limit_deterministic_automaton(scc_info, scc_types) == true); // Should be limit deterministic
+    REQUIRE(helpers::is_elevator_automaton(scc_info, scc_types) == true);  // Should be elevator (all SCCs det or weak)
+    REQUIRE(helpers::is_weak_automaton(scc_info, scc_types) == true);      // Should be weak (SCC 0 is weak)
+    REQUIRE(helpers::is_limit_deterministic_automaton(scc_info, scc_types) == true); // Should be limit deterministic
 }
 
 TEST_CASE("cola::get_scc_types - initial deterministic components", "[scc_types]") {
@@ -128,7 +128,7 @@ TEST_CASE("cola::get_scc_types - initial deterministic components", "[scc_types]
         REQUIRE(aut != nullptr);
         
         spot::scc_info scc_info(aut);
-        std::string scc_types = cola::get_scc_types(scc_info);
+        std::string scc_types = helpers::get_scc_types(scc_info);
         
         REQUIRE(scc_info.scc_count() == 1);
         // Single deterministic SCC should be marked as initial deterministic
@@ -163,7 +163,7 @@ TEST_CASE("cola::get_scc_types - initial deterministic components", "[scc_types]
         REQUIRE(aut != nullptr);
         
         spot::scc_info scc_info(aut);
-        std::string scc_types = cola::get_scc_types(scc_info);
+        std::string scc_types = helpers::get_scc_types(scc_info);
         
         // All deterministic SCCs in a chain should be initial deterministic
         for (unsigned sc = 0; sc < scc_info.scc_count(); ++sc) {
@@ -201,7 +201,7 @@ TEST_CASE("cola::get_scc_types - initial deterministic components", "[scc_types]
         REQUIRE(aut != nullptr);
         
         spot::scc_info scc_info(aut);
-        std::string scc_types = cola::get_scc_types(scc_info);
+        std::string scc_types = helpers::get_scc_types(scc_info);
         
         // Find the nondeterministic SCC (should contain state 0)
         // and deterministic SCCs (should contain states 1 and 2)
@@ -258,7 +258,7 @@ TEST_CASE("cola::get_scc_types - initial deterministic components", "[scc_types]
         REQUIRE(aut != nullptr);
         
         spot::scc_info scc_info(aut);
-        std::string scc_types = cola::get_scc_types(scc_info);
+        std::string scc_types = helpers::get_scc_types(scc_info);
         
         // Check that only initial deterministic SCCs are marked as such
         for (unsigned sc = 0; sc < scc_info.scc_count(); ++sc) {

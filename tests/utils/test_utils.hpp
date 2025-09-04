@@ -13,8 +13,8 @@
 #include <spot/twaalgos/hoa.hh>
 
 // Kofola headers
-#include "complement_tela.hpp"
-#include "kofola.hpp"
+#include "complement/complement_tela.hpp"
+#include "util/helpers.hpp"
 
 namespace test_utils {
 

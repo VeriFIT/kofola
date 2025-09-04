@@ -17,7 +17,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "kofola.hpp"
+#include "helpers.hpp"
 
 #include <vector>
 #include <sstream>
@@ -42,7 +42,7 @@ unsigned kofola::LOG_VERBOSITY = 0;
 // program options
 options kofola::OPTIONS;
 
-namespace cola
+namespace helpers
 {
   bool
   is_elevator_automaton(const spot::const_twa_graph_ptr &aut)
@@ -105,40 +105,6 @@ namespace cola
     return true;
   }
 
-
-  std::vector<bool>
-  get_deterministic_sccs(spot::scc_info &si)
-  {
-    std::vector<bool> res;
-    unsigned nc = si.scc_count();
-    for (unsigned scc = 0; scc < nc; ++scc)
-    {
-      res.push_back(is_deterministic_scc(scc, si));
-    }
-    return res;
-  }
-
-  std::string
-  get_set_string_box(const std::set<int> &set)
-  {
-    std::string res = "{";
-    bool first = true;
-    for (int s : set)
-    {
-      if (first)
-      {
-        first = false;
-      }
-      else
-      {
-        res += ", ";
-      }
-      res += std::to_string(s);
-    }
-    res += "}";
-    return res;
-  }
-
   // NOTE: copied from spot/twaalgos/deterministic.cc in SPOT
   //res[i + scccount*j] = 1 iff SCC i is reachable from SCC j
   std::vector<bool>
@@ -171,66 +137,6 @@ namespace cola
     return res;
   }
 
-  /// Output a vector res such that res[i + (j+1)*j/2] = 1 iff SCC i is reachable from SCC j
-  std::vector<bool>
-  find_scc_paths_(const spot::scc_info &scc)
-  {
-    unsigned scccount = scc.scc_count();
-    std::vector<bool> res(scccount * (scccount + 1) / 2 , false);
-    for (unsigned i = 0; i < scccount; ++i)
-      {
-        // reach itself
-        res[i + i * (i + 1) / 2] = true;
-      }
-    for (unsigned i = 0; i < scccount; ++i)
-    {
-      unsigned ibase = (i * ( i + 1)) / 2;
-      for (unsigned d : scc.succ(i))
-      {
-        // we necessarily have d < i because of the way SCCs are
-        // numbered, so we can build the transitive closure by
-        // just ORing any SCC reachable from d.
-        unsigned dbase = d * (d + 1) / 2;
-        // j reach d (i can reach d, so res[d + i * scccount] = 1)
-        for (unsigned j = 0; j <= d; ++j)
-        {
-          // j is reachable from i if j is reachable from d (d > j)
-          res[ibase + j] = res[ibase + j] || res[dbase + j];
-        }
-      }
-    }
-    return res;
-  }
-
-  void output_file(spot::const_twa_graph_ptr aut, const char *file)
-  {
-    const char *opts = nullptr;
-    std::ofstream outfile;
-    std::string file_name(file);
-    outfile.open(file_name);
-
-    spot::print_hoa(outfile, aut, opts);
-    outfile.close();
-  }
-
-    /// \brief Output an automaton to a file
-  // std::vector<bool>
-  // is_reachable_weak_sccs(const spot::scc_info &si, state_simulator& sim)
-  // {
-  //   std::vector<bool> res;
-  //   unsigned nc = si.scc_count();
-  //   for (unsigned sc = 0; sc < nc; ++sc)
-  //   {
-  //     res.push_back(false);
-  //     if( spot::is_inherently_weak_scc(s, sc) && )
-  //     {
-
-  //     }
-  //     if (is_deterministic_scc(scc, si) || spot::is_inherently_weak_scc(si, scc))
-  //       continue;
-  //     return false;
-  //   }
-  // }
   std::vector<bool>
   get_accepting_reachable_sccs(const spot::scc_info &si)
   {
@@ -360,28 +266,6 @@ namespace cola
     }
   }
 
-  void
-  check_equivalence(spot::const_twa_graph_ptr nba, spot::twa_graph_ptr dpa)
-  {
-    spot::twa_graph_ptr dualized_dpa = spot::complement(dpa);
-    spot::twa_word_ptr word = nba->intersecting_word(dualized_dpa);
-    std::stringstream ss;
-    if (word != nullptr)
-    {
-      ss << (*word);
-      std::cout << "dpa should accept word: " << ss.str() << std::endl;
-      exit(-1);
-    }
-    spot::twa_graph_ptr dualized_nba = spot::complement(nba);
-    word = dpa->intersecting_word(dualized_nba);
-    if (word != nullptr)
-    {
-      ss << (*word);
-      std::cout << "dpa should not accept word: " <<  ss.str() << std::endl;
-      exit(-1);
-    }
-  }
-  // copied from siminator/cutdet.cpp, this function is similar to spot/is_det.cpp/ about semi-deterministic..
   bool
   is_deterministic_scc(unsigned scc, const spot::scc_info& si,
                      bool inside_only)

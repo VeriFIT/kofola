@@ -281,15 +281,8 @@ namespace kofola
 } // namespace kofola }}}
 
 
-namespace cola
+namespace helpers
 {
-
-  /// \brief Complementation
-  ///
-  /// The automaton \a aut should be an elevator automaton for now.
-  /// Output a generalized Buchi automaton
-  spot::twa_graph_ptr
-  complement_tnba(const spot::twa_graph_ptr &aut, spot::option_map &om, compl_decomp_options decomp_options);
 
   // ============================ helper functions ===================================
 
@@ -312,30 +305,12 @@ namespace cola
   bool
   is_limit_deterministic_automaton(const spot::scc_info &scc, std::string& scc_str);
 
-  /// \brief Output the set of states
-  ///
-  std::string
-  get_set_string(const std::set<unsigned> &set);
-
-  std::string
-  get_set_string_box(const std::set<int> &set);
-
   /// \brief Compute the reachability of the SCCs
   ///
   ///
   /// Output a vector res such that res[i + scccount*j] = 1 iff SCC i is reachable from SCC j
   std::vector<bool>
   find_scc_paths(const spot::scc_info &scc);
-  /// Output a vector res such that res[i + (j+1)*j/2] = 1 iff SCC i is reachable from SCC
-  /// Must ensure that j >= i
-  std::vector<bool>
-  find_scc_paths_(const spot::scc_info &scc);
-
-  /// \brief Output an automaton to a file
-  void output_file(spot::const_twa_graph_ptr aut, const char *file);
-
-  std::vector<bool>
-  get_deterministic_sccs(const spot::scc_info &scc);
 
   std::vector<bool>
   get_accepting_reachable_sccs(const spot::scc_info &scc);
@@ -347,10 +322,6 @@ namespace cola
   // is_reachable_weak_sccs(const spot::scc_info &scc, state_simulator& sim);
   void
   print_scc_types(const std::string& scc_types, const spot::scc_info &scc);
-
-  // Check the equivalence of the constructed dpa and the input nba
-  void
-  check_equivalence(spot::const_twa_graph_ptr nba, spot::twa_graph_ptr dpa);
 
   bool
   is_accepting_scc(const std::string& scc_types, unsigned scc);

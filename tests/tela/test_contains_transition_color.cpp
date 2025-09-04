@@ -1,6 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
-#include "complement_alg_sd_tela.hpp"
-#include "complement_sync.hpp"  // for cola::tnba_complement
+#include "algorithms/complement_alg_sd_tela.hpp"
+#include "complement/complement_sync.hpp"  // for cola::tnba_complement
 #include <spot/twaalgos/sccinfo.hh>
 #include <spot/tl/parse.hh>
 #include <spot/twaalgos/translate.hh>

@@ -23,7 +23,7 @@
 #include <spot/twaalgos/postproc.hh>
 
 
-namespace cola
+namespace helpers
 {
 
 std::vector<spot::twa_graph_ptr>

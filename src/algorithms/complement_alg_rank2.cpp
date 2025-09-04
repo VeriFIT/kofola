@@ -15,8 +15,8 @@
 
 // kofola
 #include "complement_alg_rank2.hpp"
-#include "ranking.hpp"
-#include "util.hpp"
+#include "../types/ranking.hpp"
+#include "../util/util.hpp"
 #include <optional>
 
 using namespace kofola;

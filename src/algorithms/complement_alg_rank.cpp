@@ -1,7 +1,7 @@
 // implementation of rank-based complementation from Sven Schewe's paper
 
 #include "complement_alg_rank.hpp"
-#include "ranking.hpp"
+#include "../types/ranking.hpp"
 
 using namespace kofola;
 using mstate_set = abstract_complement_alg::mstate_set;
