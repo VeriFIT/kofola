@@ -59,6 +59,7 @@ set(TEST_SOURCES
     tela/test_create_partitions.cpp
     modular/test_complement_modular.cpp
     modular/test_scc_types.cpp
+    inclusion/test_inclusion.cpp
 )
 
 # Create test sources that need to be compiled from main project
