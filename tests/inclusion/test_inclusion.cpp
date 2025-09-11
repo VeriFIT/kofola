@@ -25,8 +25,6 @@ bool check_inclusion_kofola(const spot::twa_graph_ptr& A, const spot::twa_graph_
     // kofola::OPTIONS.params["early_sim"] = "yes";
     // kofola::OPTIONS.params["preproc_incl_A"] = "low";
     kofola::OPTIONS.params["preproc_incl_B"] = "low";
-    kofola::OPTIONS.params["merge_iwa"] = "yes";
-    kofola::OPTIONS.params["merge_det"] = "yes";
     kofola::OPTIONS.params["nac-alg"] = "subs_tup";
 
     kofola::inclusion_check checker(A, B);

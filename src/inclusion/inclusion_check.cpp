@@ -122,9 +122,12 @@ namespace kofola {
         }
 
 
-        kofola::OPTIONS.output_type = "tgba";
-        spot::scc_info si_B(aut_B, spot::scc_info_options::ALL);
-        helpers::tnba_complement comp(aut_to_compl, si_B);
+    kofola::OPTIONS.output_type = "tgba";
+    // Build SCC info for the exact automaton we are going to complement.
+    // Using a different automaton here (e.g., the un-preprocessed aut_B)
+    // leads to mismatched state indices and scc_of() returning (unsigned)-1.
+    spot::scc_info si_B(aut_to_compl, spot::scc_info_options::ALL);
+    helpers::tnba_complement comp(aut_to_compl, si_B);
         return comp;
     }
 
