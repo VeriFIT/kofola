@@ -26,6 +26,7 @@ bool check_inclusion_kofola(const spot::twa_graph_ptr& A, const spot::twa_graph_
     // kofola::OPTIONS.params["preproc_incl_A"] = "low";
     kofola::OPTIONS.params["preproc_incl_B"] = "low";
     kofola::OPTIONS.params["nac-alg"] = "subs_tup";
+    kofola::OPTIONS.operation = "inclusion";
 
     kofola::inclusion_check checker(A, B);
     return checker.inclusion();
@@ -33,14 +34,14 @@ bool check_inclusion_kofola(const spot::twa_graph_ptr& A, const spot::twa_graph_
 }
 
 TEST_CASE("E2E inclusion: vector of automata pairs checked via Kofola", "[inclusion][e2e]") {
-    // Build a vector of pairs (A, B) as file paths
-    const std::vector<std::pair<std::string, std::string>> test_pairs = {
-        {"tests/test_data/NI_correct_NI_formula_A.hoa", "tests/test_data/NI_correct_NI_formula_B.hoa"},
+    // Build a vector of triples (A path, B path, expected inclusion result)
+    const std::vector<std::tuple<std::string, std::string, bool>> test_cases = {
+        {"tests/test_data/NI_correct_NI_formula_A.hoa", "tests/test_data/NI_correct_NI_formula_B.hoa", true},
+        {"tests/test_data/bakery_3procs_bakery_formula_sym1_3proc_A.hoa", "tests/test_data/bakery_3procs_bakery_formula_sym1_3proc_B.hoa", false},
     };
 
-    for (const auto& paths : test_pairs) {
-        const auto& a_path = paths.first;
-        const auto& b_path = paths.second;
+    for (const auto& tc : test_cases) {
+        const auto& [a_path, b_path, expected] = tc;
 
         SECTION(std::string("Checking inclusion for pair: ") + a_path + " ⊆ " + b_path) {
             auto A = test_utils::load_automaton_from_file(a_path);
@@ -48,7 +49,7 @@ TEST_CASE("E2E inclusion: vector of automata pairs checked via Kofola", "[inclus
 
             // Kofola inclusion decides emptiness of A ∩ ¬B; returns true iff inclusion holds
             bool a_subset_b = check_inclusion_kofola(A, B);
-            CHECK(a_subset_b);
+            CHECK(a_subset_b == expected);
         }
     }
 }

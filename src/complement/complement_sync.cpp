@@ -808,12 +808,13 @@ namespace helpers {
                     scc_to_part_map[i] = part_index;
                     ++part_index;
                 }
-            // TODO: add initial deterministic
-            } else if (helpers::is_accepting_initial_detscc(scc_types, i)) {
+            } else if (kofola::OPTIONS.operation != "inclusion" && helpers::is_accepting_initial_detscc(scc_types, i)) {
+                // for inclusion we treat initial deterministic SCCs as DACs --> we don't have 
+                // emptiness checking for general TELA
                 DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is INIT DET");
                 part_to_type_map[part_index] = PartitionType::INITIAL_DETERMINISTIC;
                 ++part_index;
-            } else if (helpers::is_accepting_detscc(scc_types, i)) {
+            } else if (helpers::is_accepting_detscc(scc_types, i) || (kofola::OPTIONS.operation == "inclusion" && helpers::is_accepting_initial_detscc(scc_types, i))) {
                 DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is DAC");
                 if (merge_det) { // merging DACs
                     if (-1 == dac_index) {
