@@ -435,5 +435,7 @@ namespace helpers
 
         ///
         std::set<unsigned>  set_acc_cond();
+
+        const spot::const_twa_graph_ptr & get_aut() const { return aut_; }
     };
 }

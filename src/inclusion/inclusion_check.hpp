@@ -15,6 +15,13 @@
 #include "../complement/complement_sync.hpp"
 
 namespace kofola {
+    /// Three-valued result for inclusion checking
+    enum class inclusion_result {
+        TRUE,     // inclusion holds
+        FALSE,    // inclusion does not hold
+        UNKNOWN   // cannot determine (e.g., non-deterministic automaton)
+    };
+
     class  inclusion_check;
     /// (aut_A,aut_B)
     using intersect_mstate = std::pair<unsigned, unsigned>;
@@ -70,6 +77,11 @@ namespace kofola {
         /// vec_state_col where colours are tagged by their partition
         using vec_state_col = std::vector<state_col>;
     private:
+        /// original inputs provided to the constructor; used to defer setup until inclusion() is called
+        spot::twa_graph_ptr aut_A_input_;
+        spot::twa_graph_ptr aut_B_input_;
+        /// whether setup_for_inclusion() has already been executed
+        bool initialized_ = false;
         /// can be omitted
         spot::twa_graph_ptr preprocessed_orig_aut_B_;
         /// is not used, should be deleted 
@@ -97,8 +109,11 @@ namespace kofola {
         /// constructor that stores automata such that aut_A subset aut_B can be decided (calling inclusion() method should follow)
         inclusion_check(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B);
 
+        /// perform all heavy initialization previously done in the constructor; idempotent
+        void setup_for_inclusion();
+
         /// decide which states from aut_B simulate states in aut_A
-        void compute_simulation(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B);
+        void compute_simulation(const spot::twa_graph_ptr &aut_A, const spot::const_twa_graph_ptr &aut_B);
 
         /// for debugging purposes only
         void print_mstate(const std::shared_ptr<inclusion_mstate> a);
@@ -112,10 +127,13 @@ namespace kofola {
         /// returns union of aut_A and aut_B for the purpose of simulations, firstly states from aut_A are inserted, then states 
         /// frin aut_B and finally, initial state of union automaton with transitions to initial state of aut_A and aut_B respectively
         /// TODO should be done properly (so far suffices)
-        spot::twa_graph_ptr aut_union(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B);
+        spot::twa_graph_ptr aut_union(const spot::const_twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B);
 
         /// method to be called after instantiation of this class to decide inclusion, calls emptiness checker 
         bool inclusion();
+
+        /// simplified inclusion test for deterministic automata using spot functions
+        inclusion_result inclusion_simple(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B);
 
         /// to preprocess autB
         /// TODO just copypaste from complement_sync.cpp
