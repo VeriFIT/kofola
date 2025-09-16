@@ -23,6 +23,7 @@
 #include <spot/twaalgos/complete.hh>
 #include <spot/twaalgos/isdet.hh>
 #include <spot/twaalgos/emptiness.hh>
+#include <spot/twaalgos/remfin.hh>
 
 namespace kofola {
     bool operator<(const inclusion_mstate& lhs,
@@ -228,11 +229,21 @@ namespace kofola {
 
         // Make the automaton complete
         auto complete_aut = spot::complete(aut_B);
+        // Complement acceptance of B
         complete_aut->set_acceptance(complete_aut->get_acceptance().complement());
-        bool result = complete_aut->intersects(aut_A);
 
-        // If product is empty, then L(aut_A) ⊆ L(aut_B)
-        return !result ? inclusion_result::TRUE : inclusion_result::FALSE;
+        // Convert to a Fin-less automaton (i.e., remove any Fin in acceptance)
+        // Prefer the version that returns a new automaton to avoid mutating shared graphs.
+        auto finless = spot::remove_fin(complete_aut);
+
+        spot::postprocessor p;
+        p.set_type(spot::postprocessor::GeneralizedBuchi);
+        p.set_level(spot::postprocessor::Low);
+        finless = p.run(finless);
+
+        auto aut_A_red = p.run(aut_A);
+        auto res = aut_A_red->intersects(finless);
+        return !res ? inclusion_result::TRUE : inclusion_result::FALSE;
     }
 
     bool inclusion_check::is_accepting(spot::acc_cond::mark_t inf_cond) {
