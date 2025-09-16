@@ -223,7 +223,7 @@ namespace kofola {
 
     inclusion_result inclusion_check::inclusion_simple(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B) {
         // Check if the second automaton is deterministic
-        if (!spot::is_deterministic(aut_B)) {
+        if (!spot::is_deterministic(aut_B) || aut_B->ap().size() < 12) {
             return inclusion_result::UNKNOWN; // Cannot use simple method, need to fall back to complex algorithm
         }
 
