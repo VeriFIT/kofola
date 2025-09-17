@@ -280,6 +280,8 @@ int main(int argc, char *argv[])
     if(options.operation == "inclusion") {
 		// default params for efficient inclusion test
 		if(kofola::OPTIONS.params.count("preproc_incl_B") == 0) kofola::OPTIONS.params["preproc_incl_B"] = "low";
+		// default algorithm for nondeterministic accepting components in inclusion
+		if(kofola::OPTIONS.params.count("nac-alg") == 0) kofola::OPTIONS.params["nac-alg"] = "subs_tup";
 		if(kofola::OPTIONS.params.count("merge_iwa") == 0) kofola::OPTIONS.params["merge_iwa"] = "yes";
 		if(kofola::OPTIONS.params.count("merge_det") == 0) kofola::OPTIONS.params["merge_det"] = "yes";
 

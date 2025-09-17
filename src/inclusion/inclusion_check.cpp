@@ -21,6 +21,9 @@
 #include <spot/twaalgos/postproc.hh>
 #include <spot/twaalgos/product.hh>
 #include <spot/twaalgos/complete.hh>
+#include <spot/twaalgos/isdet.hh>
+#include <spot/twaalgos/emptiness.hh>
+#include <spot/twaalgos/remfin.hh>
 
 namespace kofola {
     bool operator<(const inclusion_mstate& lhs,
@@ -29,14 +32,21 @@ namespace kofola {
     }
 
     inclusion_check::inclusion_check(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B)
-    : aut_A_(init_aut_A(aut_A)), 
-      support_(aut_A_->num_states()), 
-      compat_(aut_A_->num_states()), 
-      aut_B_compl_(init_compl_aut_b(aut_B))
-    {
-        symbols_from_A(aut_A);
-        // msupport_ = tmp_bdds.second;
-        // n_s_compat_ = tmp_bdds.first;
+        : aut_A_input_(aut_A),
+            aut_B_input_(aut_B),
+            aut_A_(init_aut_A(aut_A)),
+            support_(aut_A_->num_states()),
+            compat_(aut_A_->num_states()),
+            aut_B_compl_(init_compl_aut_b(aut_B))
+        {
+            // Heavy work from the original constructor body is deferred to setup_for_inclusion(),
+            // which is invoked at the start of inclusion().
+        }
+
+    void inclusion_check::setup_for_inclusion() {
+        if (initialized_) return;
+
+        symbols_from_A(aut_A_input_);
 
         unsigned init_A = aut_A_->get_init_state_number();
 
@@ -46,7 +56,7 @@ namespace kofola {
         DEBUG_PRINT_LN("algorithms selected");
 
         if(kofola::OPTIONS.params.count("dir_sim") != 0 && kofola::OPTIONS.params["dir_sim"] == "yes")
-            compute_simulation(aut_A_, aut_B);
+            compute_simulation(aut_A_, aut_B_compl_.get_aut());
 
         // store initial uberstates
         auto init_vec{aut_B_compl_.get_initial_uberstates()};
@@ -74,6 +84,8 @@ namespace kofola {
         first_col_to_use_ = infs_from_compl_.size() + 1;
         acc_cond_ = aut_B_compl_.get_final_acc_code();
         acc_cond_ &= spot::acc_cond::acc_code::inf({first_col_to_use_});
+
+        initialized_ = true;
     }
 
     spot::twa_graph_ptr inclusion_check::init_aut_A(const spot::twa_graph_ptr &aut_A) {
@@ -122,13 +134,16 @@ namespace kofola {
         }
 
 
-        kofola::OPTIONS.output_type = "tgba";
-        spot::scc_info si_B(aut_B, spot::scc_info_options::ALL);
-        helpers::tnba_complement comp(aut_to_compl, si_B);
+    kofola::OPTIONS.output_type = "tgba";
+    // Build SCC info for the exact automaton we are going to complement.
+    // Using a different automaton here (e.g., the un-preprocessed aut_B)
+    // leads to mismatched state indices and scc_of() returning (unsigned)-1.
+    spot::scc_info si_B(aut_to_compl, spot::scc_info_options::ALL);
+    helpers::tnba_complement comp(aut_to_compl, si_B);
         return comp;
     }
 
-    spot::twa_graph_ptr inclusion_check::aut_union(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B) {
+    spot::twa_graph_ptr inclusion_check::aut_union(const spot::const_twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B) {
         auto res = spot::make_twa_graph(aut_A->get_dict());
         res->copy_ap_of(aut_A);
         res->set_acceptance(aut_A->acc());
@@ -168,7 +183,7 @@ namespace kofola {
         return res;
     }
 
-    void inclusion_check::compute_simulation(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B) {
+    void inclusion_check::compute_simulation(const spot::twa_graph_ptr &aut_A, const spot::const_twa_graph_ptr &aut_B) {
         auto uni = aut_union(aut_B, aut_A);
         //spot::print_hoa(std::cout, uni);
 
@@ -188,9 +203,47 @@ namespace kofola {
     }
 
     bool inclusion_check::inclusion() {
+        // Try simple inclusion test first if second automaton is deterministic
+        auto simple_result = inclusion_simple(aut_A_input_, aut_B_input_);
+        
+        if (simple_result == inclusion_result::TRUE) {
+            return true;
+        } else if (simple_result == inclusion_result::FALSE) {
+            return false;
+        }
+        // If UNKNOWN, fall back to complex algorithm
+
+        // Fall back to complex algorithm for non-deterministic automata
+        // Ensure heavy-weight initialization is performed once, here
+        setup_for_inclusion();
         emptiness_check emptiness_checker(this);
         auto res = emptiness_checker.empty();
         return res;
+    }
+
+    inclusion_result inclusion_check::inclusion_simple(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B) {
+        // Check if the second automaton is deterministic
+        if (!spot::is_deterministic(aut_B) || aut_B->ap().size() < 12) {
+            return inclusion_result::UNKNOWN; // Cannot use simple method, need to fall back to complex algorithm
+        }
+
+        // Make the automaton complete
+        auto complete_aut = spot::complete(aut_B);
+        // Complement acceptance of B
+        complete_aut->set_acceptance(complete_aut->get_acceptance().complement());
+
+        // Convert to a Fin-less automaton (i.e., remove any Fin in acceptance)
+        // Prefer the version that returns a new automaton to avoid mutating shared graphs.
+        auto finless = spot::remove_fin(complete_aut);
+
+        spot::postprocessor p;
+        p.set_type(spot::postprocessor::GeneralizedBuchi);
+        p.set_level(spot::postprocessor::Low);
+        finless = p.run(finless);
+
+        auto aut_A_red = p.run(aut_A);
+        auto res = aut_A_red->intersects(finless);
+        return !res ? inclusion_result::TRUE : inclusion_result::FALSE;
     }
 
     bool inclusion_check::is_accepting(spot::acc_cond::mark_t inf_cond) {
