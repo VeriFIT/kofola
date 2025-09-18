@@ -53,6 +53,26 @@ TEST_CASE("complement_tela with default modular settings produces language-equiv
     }
 }
 
+// Specific regression test with simulation-based pruning enabled
+TEST_CASE("modular complement with sim-ms-prune on ostrowski_thms-heur-197-autfilt.hoa", "[complement_modular][sim]") {
+    // Ensure modular pipeline (no tela) and enable simulation-based pruning
+    setup_modular_options();
+    kofola::OPTIONS.params["sim-ms-prune"] = "yes";
+
+    const std::string filename = "tests/test_data/ostrowski_thms-heur-197-autfilt.hoa";
+
+    SECTION("Testing with sim-ms-prune=yes on ostrowski_thms-heur-197-autfilt.hoa") {
+        spot::twa_graph_ptr aut = test_utils::load_automaton_from_file(filename);
+        REQUIRE(aut != nullptr);
+
+        bool equivalent = test_utils::test_complement_equivalence(aut, false);
+        CHECK(equivalent);
+    }
+
+    // Clean up to avoid side-effects on other tests
+    kofola::OPTIONS.params.erase("sim-ms-prune");
+}
+
 // Manual test function that can be called from main
 void run_modular_complement_test_on_file(const std::string& filename) {
     std::cout << "Testing modular complement equivalence for file: " << filename << std::endl;

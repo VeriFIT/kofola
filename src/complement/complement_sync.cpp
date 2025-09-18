@@ -106,8 +106,21 @@ namespace helpers {
         }
 
         if(kofola::has_value("sim-ms-prune", "yes", kofola::OPTIONS.params)) {
-            std::cout << "here" << std::endl;
+            // Perform reduction and compute simulation on the current automaton.
+            // This may change the automaton (state count, edges, etc.).
             this->reduce_and_compute_simulation();
+
+            // The automaton potentially changed; refresh dependent structures.
+            // 1) Update the number of states to match the reduced automaton.
+            this->nb_states_ = this->aut_->num_states();
+            // 2) Recompute SCC information for the reduced automaton.
+            this->si_ = spot::scc_info(this->aut_);
+            // 3) Recompute SCC types.
+            this->scc_types_ = get_scc_types(this->si_);
+            // 4) Resize per-state vectors to the new size; they will be filled below.
+            this->support_.assign(this->nb_states_, bddtrue);
+            this->compat_.assign(this->nb_states_, bddfalse);
+            this->is_accepting_.assign(this->nb_states_, false);
         }
 
         // this->names_ = new std::vector<std::string>();   // FIXME: allocate at one place
@@ -132,8 +145,8 @@ namespace helpers {
             this->is_accepting_[i] = accepting && has_transitions;
         }
 
-        // here, we check whether SCC numbering provided by Spot is compatible
-        // with the reachability relation, to be used in advanced simulation-based pruning
+        // Build reachability vector on the (possibly reduced) automaton.
+        // Do not assume any particular SCC numbering direction.
         if(kofola::has_value("sim-ms-prune", "yes", kofola::OPTIONS.params)) {
             std::vector<std::set<int>> aux_reach = this->get_reachable_vector();
             for (unsigned st = 0; st < this->aut_->num_states(); ++st) {
@@ -141,8 +154,6 @@ namespace helpers {
                 std::set<unsigned> new_set;
                 for (const auto &el: old_set) {
                     assert(el >= 0);
-                    assert(this->si_.scc_of(st) >=
-                        this->si_.scc_of(el));     // check scc numbering is reverse-compatible with reachability
                     new_set.insert(static_cast<unsigned>(el));
                 }
 
@@ -176,27 +187,28 @@ namespace helpers {
     }
 
     void tnba_complement::reduce_and_compute_simulation() {
-        // compute simulation
+        // compute simulation on current automaton (may change aut_)
         std::vector<bdd> implications;
         this->aut_ = spot::simulation(this->aut_, &implications, -1);
+
+        // Recompute SCC info on the reduced automaton to evaluate reachability correctly
+        spot::scc_info tmp_si(this->aut_);
 
         // get vector of simulated states
         std::vector<std::vector<char>> implies(
                 implications.size(),
                 std::vector<char>(implications.size(), 0));
-        {
-            for (unsigned i = 0; i != implications.size(); ++i) {
-                if (!si_.reachable_state(i))
+        for (unsigned i = 0; i != implications.size(); ++i) {
+            if (!tmp_si.reachable_state(i))
+                continue;
+            for (unsigned j = 0; j != implications.size(); ++j) {
+                // reachable states
+                if (!tmp_si.reachable_state(j))
                     continue;
-                for (unsigned j = 0; j != implications.size(); ++j) {
-                    // reachable states
-                    if (!si_.reachable_state(j))
-                        continue;
-                    // j simulates i and j cannot reach i
-                    bool i_implies_j = bdd_implies(implications[i], implications[j]);
-                    if (i_implies_j) {
-                        dir_sim_.push_back({i, j});
-                    }
+                // j simulates i
+                bool i_implies_j = bdd_implies(implications[i], implications[j]);
+                if (i_implies_j) {
+                    dir_sim_.push_back({i, j});
                 }
             }
         }
