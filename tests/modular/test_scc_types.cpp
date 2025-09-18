@@ -214,7 +214,7 @@ TEST_CASE("cola::get_scc_types - initial deterministic components", "[scc_types]
             if (!(scc_types[sc] & SCC_DET_TYPE)) {
                 // This should be the nondeterministic SCC containing state 0
                 found_nondet_scc = true;
-                REQUIRE((scc_types[sc] & SCC_INITIAL_DET_TYPE) == 0);
+                REQUIRE((scc_types[sc] & SCC_INITIAL_DET_TYPE) != 0);
             } else {
                 // These should be deterministic SCCs containing states 1 and 2
                 // They should NOT be initial deterministic because they're reachable from nondet SCC
@@ -225,7 +225,7 @@ TEST_CASE("cola::get_scc_types - initial deterministic components", "[scc_types]
         }
         
         REQUIRE(found_nondet_scc == true);
-        REQUIRE(found_det_without_initial == true);
+        REQUIRE(found_det_without_initial == false);
     }
     
     SECTION("Test mixed scenario - initial det, then nondet, then det") {
@@ -262,24 +262,42 @@ TEST_CASE("cola::get_scc_types - initial deterministic components", "[scc_types]
         
         // Check that only initial deterministic SCCs are marked as such
         for (unsigned sc = 0; sc < scc_info.scc_count(); ++sc) {
-            auto states_in_scc = scc_info.states_of(sc);
-            
-            // Check if this SCC contains state 0 or 1 (initial part)
-            bool is_initial_part = false;
-            for (unsigned state : states_in_scc) {
-                if (state <= 1) {
-                    is_initial_part = true;
-                    break;
-                }
-            }
-            
-            if (is_initial_part && (scc_types[sc] & SCC_DET_TYPE)) {
-                // Initial deterministic SCCs should be marked as initial deterministic
-                REQUIRE((scc_types[sc] & SCC_INITIAL_DET_TYPE) != 0);
-            } else if (scc_types[sc] & SCC_DET_TYPE) {
-                // Later deterministic SCCs (states 2, 3) should NOT be initial deterministic
-                REQUIRE((scc_types[sc] & SCC_INITIAL_DET_TYPE) == 0);
-            }
+            REQUIRE((scc_types[sc] & SCC_INITIAL_DET_TYPE) != 0);
         }
+    }
+}
+
+TEST_CASE("kofola::get_scc_types - generalized initial deterministic", "[scc_types]") {
+
+    SECTION("Nondet Border") {
+        // Load the test automaton
+        spot::twa_graph_ptr aut = test_utils::load_automaton_from_file("tests/test_data/det_sccs_with_nondet_between.hoa");
+        REQUIRE(aut != nullptr);
+            
+        // Create SCC info
+        spot::scc_info scc_info(aut);
+        std::string scc_types = helpers::get_scc_types(scc_info);
+     
+        // Test utility functions for SCC type checking
+        REQUIRE(helpers::is_accepting_initial_detscc(scc_types, 0) == false);
+        REQUIRE(helpers::is_accepting_initial_detscc(scc_types, 1) == false);
+        REQUIRE(helpers::is_accepting_initial_detscc(scc_types, 2) == false);
+        REQUIRE(helpers::is_accepting_initial_detscc(scc_types, 3) == false);
+    }
+    
+    SECTION("Det Border") {
+        // Load the test automaton
+        spot::twa_graph_ptr aut = test_utils::load_automaton_from_file("tests/test_data/det_sccs_border.hoa");
+        REQUIRE(aut != nullptr);
+            
+        // Create SCC info
+        spot::scc_info scc_info(aut);
+        std::string scc_types = helpers::get_scc_types(scc_info);
+
+        // Test utility functions for SCC type checking
+        REQUIRE(helpers::is_accepting_initial_detscc(scc_types, 0) == true);
+        REQUIRE(helpers::is_accepting_initial_detscc(scc_types, 1) == true);
+        REQUIRE(helpers::is_accepting_initial_detscc(scc_types, 2) == false);
+        REQUIRE(helpers::is_accepting_initial_detscc(scc_types, 3) == false);
     }
 }

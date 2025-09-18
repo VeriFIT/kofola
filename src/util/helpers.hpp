@@ -31,6 +31,7 @@ static const char SCC_INSIDE_DET_TYPE = 2;
 static const char SCC_DET_TYPE = 4;
 static const char SCC_ACC = 8;
 static const char SCC_INITIAL_DET_TYPE = 16;
+static const char SCC_DET_BORDER_NONDET_TYPE = 32;
 
 namespace kofola
 { // {{{
@@ -283,6 +284,8 @@ namespace kofola
 
 namespace helpers
 {
+  // Controls the scope for determinism check in an SCC
+  enum class DeterminismScope { ALL, INSIDE_ONLY, BORDER_NONDET };
 
   // ============================ helper functions ===================================
 
@@ -343,7 +346,7 @@ namespace helpers
 
   bool
   is_deterministic_scc(unsigned scc, const spot::scc_info& si,
-                     bool inside_only = true);
+                     DeterminismScope scope = DeterminismScope::INSIDE_ONLY);
 
 }
 

@@ -194,7 +194,8 @@ namespace helpers
     {
       char type = 0;
       type |= is_deterministic_scc(sc, si) ? SCC_INSIDE_DET_TYPE : 0; // only care about the states inside SCC
-      type |= is_deterministic_scc(sc, si, false) ? SCC_DET_TYPE : 0; // must also be deterministic for all transitions after accepting
+      type |= is_deterministic_scc(sc, si, DeterminismScope::ALL) ? SCC_DET_TYPE : 0; // must also be deterministic for all transitions after accepting
+      type |= is_deterministic_scc(sc, si, DeterminismScope::BORDER_NONDET) ? SCC_DET_BORDER_NONDET_TYPE : 0;
       type |=  spot::is_inherently_weak_scc(si_copy, sc) ? SCC_WEAK_TYPE : 0;
       type |= si.is_accepting_scc(sc) ? SCC_ACC : 0;
       // other type is 0
@@ -215,10 +216,10 @@ namespace helpers
     while (changed) {
       changed = false;
       for (unsigned sc = 0; sc < nc; ++sc) {
-        if ((res[sc] & SCC_DET_TYPE) && !is_initial_det[sc]) {
+        if ((res[sc] & SCC_DET_BORDER_NONDET_TYPE) && !is_initial_det[sc]) {
           bool all_preds_det = true;
           for (unsigned pred : preds[sc]) {
-            if (!(res[pred] & SCC_DET_TYPE) || !is_initial_det[pred]) {
+            if (!(res[pred] & SCC_DET_BORDER_NONDET_TYPE) || !is_initial_det[pred]) {
               all_preds_det = false;
               break;
             }
@@ -258,6 +259,10 @@ namespace helpers
       {
         std::cout << " initial-det";
       }
+      if (scc_types[i] & SCC_DET_BORDER_NONDET_TYPE)
+      {
+        std::cout << " det-border-nondet";
+      }
       if (scc_types[i] & SCC_ACC)
       {
         std::cout << " accepting";
@@ -268,19 +273,30 @@ namespace helpers
 
   bool
   is_deterministic_scc(unsigned scc, const spot::scc_info& si,
-                     bool inside_only)
+                     DeterminismScope scope)
   {
     for (unsigned src: si.states_of(scc))
     {
       bdd available = bddtrue;
+      bdd border = bddfalse;
       for (auto& t: si.get_aut()->out(src))
       {
-        if (inside_only && (si.scc_of(t.dst) != scc))
+        if (scope == DeterminismScope::INSIDE_ONLY && (si.scc_of(t.dst) != scc))
           continue;
+
+        // deterministic inside; nondeterministic on the border (to other SCCs)
+        if (scope == DeterminismScope::BORDER_NONDET && (si.scc_of(t.dst) != scc)) {
+          border |= t.cond;
+          continue;
+        }
+
         if (!bdd_implies(t.cond, available))
           return false;
         else
           available -= t.cond;
+      }
+      if (scope == DeterminismScope::BORDER_NONDET && !bdd_implies(border, available)) {
+        return false;
       }
     }
     return true;
