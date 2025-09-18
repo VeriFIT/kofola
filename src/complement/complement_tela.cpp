@@ -51,12 +51,12 @@ spot::twa_graph_ptr kofola::apply_postprocessing(const spot::twa_graph_ptr& aut,
         else if("tgba" == kofola::OPTIONS.output_type) {
             p_post.set_type(spot::postprocessor::GeneralizedBuchi);
         } else {
-			p_post.set_type(spot::postprocessor::Parity);
+			p_post.set_type(spot::postprocessor::Generic);
 		}
 
 		// for automata with many APs the reduction timeoutes
 		if(is_post_reduction_suitable(original_aut)) {
-			// p_post.set_level(spot::postprocessor::Low);
+			p_post.set_level(spot::postprocessor::Low);
 			result = p_post.run(result);
 		}
 	}
