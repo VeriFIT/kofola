@@ -271,6 +271,9 @@ int main(int argc, char *argv[])
 	if (EXIT_SUCCESS != rv) { return EXIT_FAILURE; }
 	kofola::OPTIONS = options;   // set the global variable
 
+	if(kofola::OPTIONS.params.count("merge_iwa") == 0) kofola::OPTIONS.params["merge_iwa"] = "yes";
+	if(kofola::OPTIONS.params.count("merge_det") == 0) kofola::OPTIONS.params["merge_det"] = "yes";
+
 	DEBUG_PRINT_LN("filenames: " + std::to_string(options.filenames));
 	DEBUG_PRINT_LN("operation: " + std::to_string(options.operation));
 	DEBUG_PRINT_LN("params: " + std::to_string(options.params));
@@ -282,8 +285,6 @@ int main(int argc, char *argv[])
 		if(kofola::OPTIONS.params.count("preproc_incl_B") == 0) kofola::OPTIONS.params["preproc_incl_B"] = "low";
 		// default algorithm for nondeterministic accepting components in inclusion
 		if(kofola::OPTIONS.params.count("nac-alg") == 0) kofola::OPTIONS.params["nac-alg"] = "subs_tup";
-		if(kofola::OPTIONS.params.count("merge_iwa") == 0) kofola::OPTIONS.params["merge_iwa"] = "yes";
-		if(kofola::OPTIONS.params.count("merge_det") == 0) kofola::OPTIONS.params["merge_det"] = "yes";
 
         spot::parsed_aut_ptr parsed_aut_A = nullptr;
         spot::parsed_aut_ptr parsed_aut_B = nullptr;
