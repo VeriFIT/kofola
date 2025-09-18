@@ -18,16 +18,16 @@ private: // DATA MEMBERS
   std::set<unsigned> states_;
   std::set<unsigned> breakpoint_;
   bool active_;
+  std::set<unsigned> empty_set_;
 
 public: // METHODS
 
   /// constructor
   mstate_init_det(
     const std::set<unsigned>&  states,
-    const std::set<unsigned>&  breakpoint,
+    // const std::set<unsigned>&  breakpoint,
     bool                       active
   ) : states_(states),
-    breakpoint_(breakpoint),
     active_(active)
   { }
 
@@ -37,8 +37,8 @@ public: // METHODS
   virtual bool lt(const mstate& rhs) const override;
   virtual ~mstate_init_det() override { }
 
-  virtual const std::set<unsigned>& get_breakpoint() const override { return this->breakpoint_; }
-  virtual void set_breakpoint(const std::set<unsigned>& breakpoint) override { this->breakpoint_ = get_set_intersection(breakpoint, this->states_); }
+  virtual const std::set<unsigned>& get_breakpoint() const override { return this->empty_set_; }
+  virtual void set_breakpoint(const std::set<unsigned>& breakpoint) override { (void)breakpoint; }
 
   friend class kofola::complement_init_det;
 }; // mstate_init_det }}}
@@ -48,9 +48,6 @@ std::string mstate_init_det::to_string() const
 {
   std::string res = std::string("[INIT_DET(") + ((this->active_)? "A" : "T") + "): ";
   res += "C=" + std::to_string(this->states_);
-  if (this->active_) {
-    res += ", B=" + std::to_string(this->breakpoint_);
-  }
   res += "]";
   return res;
 }
@@ -59,8 +56,7 @@ bool mstate_init_det::eq(const mstate& rhs) const
 {
   const mstate_init_det* rhs_mh = dynamic_cast<const mstate_init_det*>(&rhs);
   assert(rhs_mh);
-  return (this->states_ == rhs_mh->states_) &&
-    (this->breakpoint_ == rhs_mh->breakpoint_);
+  return (this->states_ == rhs_mh->states_);
 }
 
 bool mstate_init_det::lt(const mstate& rhs) const
@@ -69,7 +65,6 @@ bool mstate_init_det::lt(const mstate& rhs) const
   assert(rhs_mh);
 
   if (this->states_ != rhs_mh->states_) { return this->states_ < rhs_mh->states_; }
-  if (this->breakpoint_ != rhs_mh->breakpoint_) { return this->breakpoint_ < rhs_mh->breakpoint_; }
 
   return false;   // if all are equal
 }
@@ -90,7 +85,7 @@ mstate_set complement_init_det::get_init()
   }
 
   mstate_set result;
-  std::shared_ptr<mstate> ms(new mstate_init_det(init_state, {}, false));
+  std::shared_ptr<mstate> ms(new mstate_init_det(init_state, false));
   result.push_back(ms);
 
   return result;
@@ -118,7 +113,7 @@ mstate_col_set complement_init_det::get_succ_track(
     }
   }
 
-  std::shared_ptr<mstate> ms(new mstate_init_det(states, {}, false));
+  std::shared_ptr<mstate> ms(new mstate_init_det(states, false));
   return {{ms, {}}};
 } // get_succ_track() }}}
 
@@ -128,7 +123,7 @@ mstate_set complement_init_det::lift_track_to_active(const mstate* src)
   assert(src_mh);
   assert(!src_mh->active_);
 
-  std::shared_ptr<mstate> ms(new mstate_init_det(src_mh->states_, {}, true));
+  std::shared_ptr<mstate> ms(new mstate_init_det(src_mh->states_, true));
   return {ms};
 } // lift_track_to_active() }}}
 
@@ -144,7 +139,7 @@ mstate_col_set complement_init_det::get_succ_active(
   assert(src_mh->active_);
 
   DEBUG_PRINT_LN("tracking successor of: " + std::to_string(*src_mh));
-  mstate_init_det tmp(src_mh->states_, {}, false);
+  mstate_init_det tmp(src_mh->states_, false);
   mstate_col_set track_succ = this->get_succ_track(glob_reached, &tmp, symbol);
 
   if (track_succ.size() == 0) { return {};}
@@ -155,11 +150,11 @@ mstate_col_set complement_init_det::get_succ_active(
 
   DEBUG_PRINT_LN("obtained track ms: " + std::to_string(*track_ms));
 
-  std::set<unsigned> succ_break = kofola::get_all_successors_in_scc(
-    this->info_.aut_, this->info_.scc_info_, src_mh->breakpoint_, symbol);
+  // std::set<unsigned> succ_break = kofola::get_all_successors_in_scc(
+  //   this->info_.aut_, this->info_.scc_info_, src_mh->breakpoint_, symbol);
 
   // intersect with what is really reachable (for simulation pruning)
-  succ_break = kofola::get_set_intersection(succ_break, glob_reached);
+ //  succ_break = kofola::get_set_intersection(succ_break, glob_reached);
 
   bool generate_condition = false;
   spot::acc_cond::mark_t acc = {0};
@@ -179,16 +174,20 @@ mstate_col_set complement_init_det::get_succ_active(
 
   mstate_col_set result;
   if (generate_condition) {
-    if (this->use_round_robin()) {
-      std::shared_ptr<mstate> ms(new mstate_init_det(track_ms->states_, {}, false));
+    // if (this->use_round_robin()) {
+    //   std::shared_ptr<mstate> ms(new mstate_init_det(track_ms->states_, {}, false));
+    //   result.push_back({ms, {1}});
+    // } else { // no round robin
+    //   std::shared_ptr<mstate> ms(new mstate_init_det(track_ms->states_, {}, true));
+    //   result.push_back({ms, {1}});
+    // }
+
+    // round-robin not used
+    std::shared_ptr<mstate> ms(new mstate_init_det(track_ms->states_, true));
       result.push_back({ms, {1}});
-    } else { // no round robin
-      std::shared_ptr<mstate> ms(new mstate_init_det(track_ms->states_, {}, true));
-      result.push_back({ms, {1}});
-    }
   }
   else {
-    std::shared_ptr<mstate> ms(new mstate_init_det(track_ms->states_, {}, true));
+    std::shared_ptr<mstate> ms(new mstate_init_det(track_ms->states_, true));
     result.push_back({ms, {}});
   }
 

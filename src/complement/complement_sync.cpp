@@ -753,6 +753,7 @@ namespace helpers {
 
         int iwa_index = -1;
         int dac_index = -1;
+        int init_det_index = -1;
 
         bool merge_iwa = kofola::has_value("merge_iwa", "yes", options.params);
         bool merge_det = kofola::has_value("merge_det", "yes", options.params);
@@ -775,7 +776,7 @@ namespace helpers {
         if (merge_det) {
             DEBUG_PRINT_LN("Merge DET");
             for (size_t i = 0; i < scc_inf.scc_count(); ++i) {
-                if (helpers::is_accepting_detscc(scc_types, i)) { // if there is some DAC
+                if (helpers::is_accepting_detscc(scc_types, i) && !helpers::is_accepting_initial_detscc(scc_types, i)) { // if there is some DAC
                     dac_index = part_index;
                     ++part_index;
                     part_to_type_map[dac_index] = PartitionType::DETERMINISTIC;
@@ -812,8 +813,17 @@ namespace helpers {
                 // for inclusion we treat initial deterministic SCCs as DACs --> we don't have 
                 // emptiness checking for general TELA
                 DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is INIT DET");
-                part_to_type_map[part_index] = PartitionType::INITIAL_DETERMINISTIC;
-                ++part_index;
+                if(merge_det) {
+                    if (-1 == init_det_index) {
+                        init_det_index = part_index;
+                        part_to_type_map[init_det_index] = PartitionType::INITIAL_DETERMINISTIC;
+                        ++part_index;
+                    }
+                    scc_to_part_map[i] = init_det_index;
+                } else {
+                    part_to_type_map[part_index] = PartitionType::INITIAL_DETERMINISTIC;
+                    ++part_index;
+                }
             } else if (helpers::is_accepting_detscc(scc_types, i) || (kofola::OPTIONS.operation == "inclusion" && helpers::is_accepting_initial_detscc(scc_types, i))) {
                 DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is DAC");
                 if (merge_det) { // merging DACs

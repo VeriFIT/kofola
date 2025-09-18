@@ -15,6 +15,8 @@
 // Test files specific to modular complementation testing
 const std::vector<std::string> MODULAR_TEST_FILES = {
     "tests/test_data/simple_buchi.hoa",
+    "tests/test_data/det_sccs_with_nondet_between.hoa",
+    "tests/test_data/det_sccs_border.hoa",
 };
 
 /**

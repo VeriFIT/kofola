@@ -28,7 +28,8 @@ public: // METHODS
 
   virtual bool use_round_robin() const override { return false; }
 
-  virtual bool use_shared_breakpoint() const override { return this->info_.shared_breakpoint_; }
+  // no breakpoint at all
+  virtual bool use_shared_breakpoint() const override { return false; }
 
   virtual spot::acc_cond get_acc_cond() override
   { return spot::acc_cond(2, spot::acc_cond::fin({1})); }
