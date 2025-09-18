@@ -106,7 +106,7 @@ namespace helpers {
         }
 
         // we don't use pruning of macrostates for large automata
-        if(aut->num_states() >= 10000) {
+        if(aut->num_states() >= 8000) {
             kofola::OPTIONS.params["sim-ms-prune"] = "no";
         }
 
