@@ -105,6 +105,11 @@ namespace helpers {
             std::cerr << "\n\n\n\n";
         }
 
+        // we don't use pruning of macrostates for large automata
+        if(aut->num_states() >= 10000) {
+            kofola::OPTIONS.params["sim-ms-prune"] = "no";
+        }
+
         if(kofola::has_value("sim-ms-prune", "yes", kofola::OPTIONS.params)) {
             // Perform reduction and compute simulation on the current automaton.
             // This may change the automaton (state count, edges, etc.).
