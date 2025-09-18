@@ -775,7 +775,7 @@ namespace helpers {
         if (merge_det) {
             DEBUG_PRINT_LN("Merge DET");
             for (size_t i = 0; i < scc_inf.scc_count(); ++i) {
-                if (helpers::is_accepting_detscc(scc_types, i)) { // if there is some DAC
+                if (helpers::is_accepting_detscc(scc_types, i) && !helpers::is_accepting_initial_detscc(scc_types, i)) { // if there is some DAC
                     dac_index = part_index;
                     ++part_index;
                     part_to_type_map[dac_index] = PartitionType::DETERMINISTIC;
