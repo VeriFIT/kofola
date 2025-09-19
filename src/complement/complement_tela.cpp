@@ -56,7 +56,11 @@ spot::twa_graph_ptr kofola::apply_postprocessing(const spot::twa_graph_ptr& aut,
 
 		// for automata with many APs the reduction timeoutes
 		if(is_post_reduction_suitable(original_aut)) {
-			p_post.set_level(spot::postprocessor::Low);
+			if((kofola::OPTIONS.output_type == "buchi" || kofola::OPTIONS.output_type == "tgba")) {
+				if(result->num_states() < 2000) p_post.set_level(spot::postprocessor::Low);
+			} else {
+				p_post.set_level(spot::postprocessor::Low);
+			}
 			result = p_post.run(result);
 		}
 	}
