@@ -77,6 +77,7 @@ The complementation and the inclusion checking might be adjusted by the followin
 | `nac-alg` | `subs_tup`,`rank`  | Algorithm applied on nondeterministic accepting components. `subs_tup` = subset tuple construction (default for `--inclusion`), `rank` = rank-based complementation (experimental). If not specified otherwise, complementation may use determinization-based construction. |
 | `postponed` | `yes`,`no`  | Use postponed construction instead the synchronous one (`--complement` only) |
 | `dir_sim` | `yes`,`no`  | Use direct simulation for macrostate pruning |
+| `sim-ms-prune` | `yes`,`no`  | Use simulation-based pruning of macrostates during complementation (default: `yes`; may auto-disable for very large automata) |
 | `early_sim` | `yes`,`no`  | Use early simulation for macrostate pruning (`--inclusion` only) |
 | `early_plus_sim` | `yes`,`no`  | Use early+1 simulation for macrostate pruning (`--inclusion` only) |
 | `gfee` | `yes`,`no`  | Use a good for emptiness relation for early termination (`--inclusion` only) |
