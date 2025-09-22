@@ -275,7 +275,7 @@ int main(int argc, char *argv[])
 	if(kofola::OPTIONS.params.count("merge_det") == 0) kofola::OPTIONS.params["merge_det"] = "yes";
 	// Default: enable simulation-based macrostate pruning unless user specified otherwise.
 	// (May be internally turned off for very large automata in the construction code.)
-	if(kofola::OPTIONS.params.count("sim-ms-prune") == 0) kofola::OPTIONS.params["sim-ms-prune"] = "yes";
+	if(options.operation != "inclusion" && kofola::OPTIONS.params.count("sim-ms-prune") == 0) kofola::OPTIONS.params["sim-ms-prune"] = "yes";
 
 	DEBUG_PRINT_LN("filenames: " + std::to_string(options.filenames));
 	DEBUG_PRINT_LN("operation: " + std::to_string(options.operation));
