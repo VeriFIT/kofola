@@ -17,6 +17,8 @@ const std::vector<std::string> MODULAR_TEST_FILES = {
     "tests/test_data/simple_buchi.hoa",
     "tests/test_data/det_sccs_with_nondet_between.hoa",
     "tests/test_data/det_sccs_border.hoa",
+    "tests/test_data/All_Sturmian_words_contain_cubes_sub.autfilt",
+    "tests/test_data/All_Sturmian_words_contain_cubes_sup.autfilt",
 };
 
 /**
@@ -32,6 +34,9 @@ void setup_modular_options() {
     
     // Clear any existing tela setting to ensure default modular behavior
     kofola::OPTIONS.params.erase("tela");
+
+    kofola::OPTIONS.params["merge_iwa"] = "yes";
+    kofola::OPTIONS.params["merge_det"] = "yes";
 }
 
 // Test case for modular complement comparison

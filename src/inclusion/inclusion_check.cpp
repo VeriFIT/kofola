@@ -24,6 +24,7 @@
 #include <spot/twaalgos/isdet.hh>
 #include <spot/twaalgos/emptiness.hh>
 #include <spot/twaalgos/remfin.hh>
+#include <spot/twaalgos/split.hh>
 
 namespace kofola {
     bool operator<(const inclusion_mstate& lhs,
@@ -46,7 +47,7 @@ namespace kofola {
     void inclusion_check::setup_for_inclusion() {
         if (initialized_) return;
 
-        symbols_from_A(aut_A_input_);
+        symbols_from_A(aut_A_);
 
         unsigned init_A = aut_A_->get_init_state_number();
 
@@ -108,6 +109,11 @@ namespace kofola {
             p.set_level(spot::postprocessor::Low);
             res = p.run(aut_A);
         }
+
+        // Split edges so that each edge has a literal-compatible label (explicit alphabet form).
+        // This allows later code to assume transitions correspond to disjoint letters.
+        // (May increase size; consider guarding by an option if needed.)
+        res = spot::split_edges(res);
 
         return res;
     }
