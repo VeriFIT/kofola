@@ -210,7 +210,10 @@ namespace kofola {
 
     bool inclusion_check::inclusion() {
         // Try simple inclusion test first if second automaton is deterministic
-        auto simple_result = inclusion_simple(aut_A_input_, aut_B_input_);
+        auto simple_result = inclusion_det_simple(aut_A_input_, aut_B_input_);
+        if(simple_result == inclusion_result::UNKNOWN) {
+            simple_result = inclusion_true_simple(aut_A_input_, aut_B_input_);
+        }
         
         if (simple_result == inclusion_result::TRUE) {
             return true;
@@ -227,7 +230,32 @@ namespace kofola {
         return res;
     }
 
-    inclusion_result inclusion_check::inclusion_simple(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B) {
+    inclusion_result inclusion_check::inclusion_true_simple(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B) {
+        if(!aut_B->is_sba()) {
+            return inclusion_result::UNKNOWN; // Cannot use simple method, need to fall back to complex algorithm
+        }
+        
+        // Check if all transitions of B are accepting (edge-based acceptance)
+        bool all_accepting = true;
+        for (unsigned s = 0; s < aut_B->num_states() && all_accepting; ++s) {
+            if(!aut_B->state_is_accepting(s)) {
+                all_accepting = false;
+                break;
+            }
+        }
+
+        if (!all_accepting) {
+            return inclusion_result::UNKNOWN;
+        }
+
+        auto B_complete = spot::complete(aut_B);
+        B_complete->set_acceptance(B_complete->get_acceptance().complement());
+        auto B_finless = spot::remove_fin(B_complete);
+        auto nonempty = aut_A->intersects(B_finless);
+        return !nonempty ? inclusion_result::TRUE : inclusion_result::FALSE;
+    }
+
+    inclusion_result inclusion_check::inclusion_det_simple(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B) {
         // Check if the second automaton is deterministic
         if (!spot::is_deterministic(aut_B) || aut_B->ap().size() < 12) {
             return inclusion_result::UNKNOWN; // Cannot use simple method, need to fall back to complex algorithm
