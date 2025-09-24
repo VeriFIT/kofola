@@ -113,7 +113,7 @@ namespace kofola {
         // Split edges so that each edge has a literal-compatible label (explicit alphabet form).
         // This allows later code to assume transitions correspond to disjoint letters.
         // (May increase size; consider guarding by an option if needed.)
-        res = spot::split_edges(res);
+        // res = spot::split_edges(res);
 
         return res;
     }
@@ -357,38 +357,68 @@ namespace kofola {
         bdd msupport = bddtrue;
         bdd n_s_compat = bddfalse;
 
+        auto [support_compl, compat_compl] = aut_B_compl_.uberstate_support(compl_state);
+
         msupport &= support_[state_of_A];
         n_s_compat |= compat_[state_of_A];
+        msupport &= support_compl;
+        n_s_compat |= compat_compl;
 
         bdd all = n_s_compat;
 
+        for(const auto& t : this->aut_A_->out(state_of_A)) {
 
-        while(all != bddfalse) {
-            bdd letter = bdd_satoneset(all, msupport,bddfalse);
-            all -= letter;
-            std::vector<unsigned> myVector = {state_of_A};
-            std::set<unsigned> succs_A = get_all_successors(aut_A_,myVector,letter);
-            // if(succs_A.empty())
-            //     continue;
+            bdd all = t.cond;
+            std::set<unsigned> succs_A = {t.dst};
 
-            helpers::tnba_complement::vec_state_taggedcol succs_B;
-            if(!aut_B_compl_.get_is_sink_created() || compl_state != aut_B_compl_.get_sink_state())
-            {
-                succs_B = get_successors_compl(compl_state, letter);
-            }
-            else
-            {
-                succs_B.push_back({aut_B_compl_.get_sink_state(), {}});
-            }
-            if(!succs_A.empty() && !succs_B.empty())
-            {
-                cartesian_prod = get_cartesian_prod(state_of_A, succs_A, succs_B,
-                    letter);
-                for (auto& succ : cartesian_prod) {
-                    result.emplace_back(std::move(succ));
+            while(all != bddfalse) {
+                bdd letter = bdd_satoneset(all, support_compl, bddfalse);
+                all -= letter;
+                helpers::tnba_complement::vec_state_taggedcol succs_B;
+                if(!aut_B_compl_.get_is_sink_created() || compl_state != aut_B_compl_.get_sink_state()) {
+                    succs_B = get_successors_compl(compl_state, letter);
                 }
+                else {
+                    succs_B.push_back({aut_B_compl_.get_sink_state(), {}});
+                }
+                if(!succs_B.empty()) {
+                    cartesian_prod = get_cartesian_prod(state_of_A, succs_A, succs_B, t.cond);
+                    for (auto& succ : cartesian_prod) {
+                        result.emplace_back(std::move(succ));
+                    }
+                }
+
             }
         }
+
+
+        // while(all != bddfalse) {
+
+        //     bdd letter = bdd_satoneset(all, msupport,bddfalse);
+        //     all -= letter;
+        //     std::vector<unsigned> myVector = {state_of_A};
+        //     std::set<unsigned> succs_A = get_all_successors(aut_A_,myVector,letter);
+        //     // if(succs_A.empty())
+        //     //     continue;
+
+        //     helpers::tnba_complement::vec_state_taggedcol succs_B;
+        //     if(!aut_B_compl_.get_is_sink_created() || compl_state != aut_B_compl_.get_sink_state())
+        //     {
+        //         succs_B = get_successors_compl(compl_state, letter);
+        //     }
+        //     else
+        //     {
+        //         succs_B.push_back({aut_B_compl_.get_sink_state(), {}});
+        //     }
+        //     if(!succs_A.empty() && !succs_B.empty())
+        //     {
+        //         cartesian_prod = get_cartesian_prod(state_of_A, succs_A, succs_B,
+        //             letter);
+        //         for (auto& succ : cartesian_prod) {
+        //             result.emplace_back(std::move(succ));
+        //         }
+        //     }
+        // }
         return result;
     }
 

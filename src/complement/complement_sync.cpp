@@ -413,6 +413,17 @@ namespace helpers {
         return *this->num_to_uberstate_map_[num];
     } // num_to_uberstate() }}}
 
+    std::pair<bdd, bdd> helpers::tnba_complement::uberstate_support(unsigned uberstateId) const {
+        const auto &us = num_to_uberstate(uberstateId);
+        bdd support = bddtrue;
+        bdd compat = bddfalse;
+        for (unsigned st: us.get_reach_set()) {
+            support &= support_[st];
+            compat |= compat_[st];
+        }
+        return {support, compat};
+    }
+
     /// inserts an uberstate (by moving) and returns its assigned number (if
     /// not present), or just returns the number of an equal uberstate (if
     /// present)

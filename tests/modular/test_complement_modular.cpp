@@ -19,6 +19,7 @@ const std::vector<std::string> MODULAR_TEST_FILES = {
     "tests/test_data/det_sccs_border.hoa",
     "tests/test_data/All_Sturmian_words_contain_cubes_sub.autfilt",
     "tests/test_data/All_Sturmian_words_contain_cubes_sup.autfilt",
+    "tests/test_data/bakery_3procs_bakery_formula_sym1_3proc_B.hoa",
 };
 
 /**
