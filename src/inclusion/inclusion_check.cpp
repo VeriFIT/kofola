@@ -248,10 +248,7 @@ namespace kofola {
             return inclusion_result::UNKNOWN;
         }
 
-        auto B_complete = spot::complete(aut_B);
-        B_complete->set_acceptance(B_complete->get_acceptance().complement());
-        auto B_finless = spot::remove_fin(B_complete);
-        auto nonempty = aut_A->intersects(B_finless);
+        auto nonempty = aut_A->intersects(spot::complement(aut_B));
         return !nonempty ? inclusion_result::TRUE : inclusion_result::FALSE;
     }
 
