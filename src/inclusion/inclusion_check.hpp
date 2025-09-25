@@ -135,8 +135,6 @@ namespace kofola {
         /// simplified inclusion test for deterministic automata using spot functions
         inclusion_result inclusion_det_simple(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B);
 
-        inclusion_result inclusion_true_simple(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B);
-
         /// to preprocess autB
         /// TODO just copypaste from complement_sync.cpp
         spot::twa_graph_ptr preprocess(const spot::twa_graph_ptr &aut);

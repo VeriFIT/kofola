@@ -110,11 +110,6 @@ namespace kofola {
             res = p.run(aut_A);
         }
 
-        // Split edges so that each edge has a literal-compatible label (explicit alphabet form).
-        // This allows later code to assume transitions correspond to disjoint letters.
-        // (May increase size; consider guarding by an option if needed.)
-        // res = spot::split_edges(res);
-
         return res;
     }
 
@@ -211,9 +206,6 @@ namespace kofola {
     bool inclusion_check::inclusion() {
         // Try simple inclusion test first if second automaton is deterministic
         auto simple_result = inclusion_det_simple(aut_A_input_, aut_B_input_);
-        // if(simple_result == inclusion_result::UNKNOWN) {
-        //     simple_result = inclusion_true_simple(aut_A_input_, aut_B_input_);
-        // }
         
         if (simple_result == inclusion_result::TRUE) {
             return true;
@@ -228,28 +220,6 @@ namespace kofola {
         emptiness_check emptiness_checker(this);
         auto res = emptiness_checker.empty();
         return res;
-    }
-
-    inclusion_result inclusion_check::inclusion_true_simple(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B) {
-        if(!aut_B->is_sba()) {
-            return inclusion_result::UNKNOWN; // Cannot use simple method, need to fall back to complex algorithm
-        }
-        
-        // Check if all transitions of B are accepting (edge-based acceptance)
-        bool all_accepting = true;
-        for (unsigned s = 0; s < aut_B->num_states() && all_accepting; ++s) {
-            if(!aut_B->state_is_accepting(s)) {
-                all_accepting = false;
-                break;
-            }
-        }
-
-        if (!all_accepting) {
-            return inclusion_result::UNKNOWN;
-        }
-
-        auto nonempty = aut_A->intersects(spot::complement(aut_B));
-        return !nonempty ? inclusion_result::TRUE : inclusion_result::FALSE;
     }
 
     inclusion_result inclusion_check::inclusion_det_simple(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B) {
@@ -378,23 +348,10 @@ namespace kofola {
         // extract A state and compl.B state from intersection macrostate to compute successors
         unsigned state_of_A = casted_src->state_.first;
         unsigned compl_state = casted_src->state_.second;
-
-        bdd msupport = bddtrue;
-        bdd n_s_compat = bddfalse;
-
         auto [support_compl, compat_compl] = aut_B_compl_.uberstate_support(compl_state);
 
-        msupport &= support_[state_of_A];
-        n_s_compat |= compat_[state_of_A];
-        msupport &= support_compl;
-        n_s_compat |= compat_compl;
-
-        bdd all = n_s_compat;
-
         for(const auto& t : this->aut_A_->out(state_of_A)) {
-
             bdd all = t.cond;
-
             if(all == bddfalse) {
                 continue;
             }
@@ -429,35 +386,6 @@ namespace kofola {
 
             }
         }
-
-
-        // while(all != bddfalse) {
-
-        //     bdd letter = bdd_satoneset(all, msupport,bddfalse);
-        //     all -= letter;
-        //     std::vector<unsigned> myVector = {state_of_A};
-        //     std::set<unsigned> succs_A = get_all_successors(aut_A_,myVector,letter);
-        //     // if(succs_A.empty())
-        //     //     continue;
-
-        //     helpers::tnba_complement::vec_state_taggedcol succs_B;
-        //     if(!aut_B_compl_.get_is_sink_created() || compl_state != aut_B_compl_.get_sink_state())
-        //     {
-        //         succs_B = get_successors_compl(compl_state, letter);
-        //     }
-        //     else
-        //     {
-        //         succs_B.push_back({aut_B_compl_.get_sink_state(), {}});
-        //     }
-        //     if(!succs_A.empty() && !succs_B.empty())
-        //     {
-        //         cartesian_prod = get_cartesian_prod(state_of_A, succs_A, succs_B,
-        //             letter);
-        //         for (auto& succ : cartesian_prod) {
-        //             result.emplace_back(std::move(succ));
-        //         }
-        //     }
-        // }
         return result;
     }
 
