@@ -415,10 +415,10 @@ namespace helpers
         void handle_sink_state();
 
         ///
-        bool get_is_sink_created();
+        bool get_is_sink_created() const;
 
         ///
-        unsigned get_sink_state();
+        unsigned get_sink_state() const;
 
         /// new modular complementation procedure
         spot::twa_graph_ptr run_new();

@@ -211,9 +211,9 @@ namespace kofola {
     bool inclusion_check::inclusion() {
         // Try simple inclusion test first if second automaton is deterministic
         auto simple_result = inclusion_det_simple(aut_A_input_, aut_B_input_);
-        if(simple_result == inclusion_result::UNKNOWN) {
-            simple_result = inclusion_true_simple(aut_A_input_, aut_B_input_);
-        }
+        // if(simple_result == inclusion_result::UNKNOWN) {
+        //     simple_result = inclusion_true_simple(aut_A_input_, aut_B_input_);
+        // }
         
         if (simple_result == inclusion_result::TRUE) {
             return true;
@@ -394,13 +394,27 @@ namespace kofola {
         for(const auto& t : this->aut_A_->out(state_of_A)) {
 
             bdd all = t.cond;
-            std::set<unsigned> succs_A = {t.dst};
+
+            if(all == bddfalse) {
+                continue;
+            }
+
+            std::set<unsigned> succs_A = {t.dst}; 
 
             while(all != bddfalse) {
-                bdd letter = bdd_satoneset(all, support_compl, bddfalse);
+                bdd letter = bdd_satoneset(all & compat_compl, support_compl, bddfalse);
+
                 all -= letter;
                 helpers::tnba_complement::vec_state_taggedcol succs_B;
-                if(!aut_B_compl_.get_is_sink_created() || compl_state != aut_B_compl_.get_sink_state()) {
+
+                if(letter == bddfalse) {
+                    all = bddfalse;
+                }
+                if(letter == bddfalse && !aut_B_compl_.get_is_sink_created()) {
+                    aut_B_compl_.handle_sink_state();
+                }
+
+                if((!aut_B_compl_.get_is_sink_created() || compl_state != aut_B_compl_.get_sink_state()) && letter != bddfalse) {
                     succs_B = get_successors_compl(compl_state, letter);
                 }
                 else {
@@ -473,9 +487,11 @@ namespace kofola {
                 const unsigned &state_B = state_cols.first;
                 auto cols = state_cols.second;
                 std::set<unsigned> new_cols;
+                bool is_sink = false;
 
                 if(aut_B_compl_.get_is_sink_created() && state_B == aut_B_compl_.get_sink_state()){
                     new_cols = infs_from_compl_; // TODO go to next iteration after the next if for A
+                    is_sink = true;
                 }
                 if (is_transition_acc(aut_A_, aut_A_src, state_A, letter)) {
                     new_cols.insert(first_col_to_use_); // accepting mark of A
@@ -499,13 +515,14 @@ namespace kofola {
                     //}
                 }
 
-
-                auto uberstate = aut_B_compl_.num_to_uberstate(state_B);
-                auto B_reach_set = uberstate.get_reach_set(); // (H,(C,S,B),...) -- B_reach_set is H
                 std::set<unsigned> A_B_intersect;
-                if(dir_simul_.count(state_A)) {
-                    set_intersection(dir_simul_[state_A].begin(), dir_simul_[state_A].end(), B_reach_set.begin(), B_reach_set.end(),
-                            std::inserter(A_B_intersect, A_B_intersect.begin()));
+                if(!is_sink) {
+                    auto uberstate = aut_B_compl_.num_to_uberstate(state_B);
+                    auto B_reach_set = uberstate.get_reach_set(); // (H,(C,S,B),...) -- B_reach_set is H
+                    if(dir_simul_.count(state_A)) {
+                        set_intersection(dir_simul_[state_A].begin(), dir_simul_[state_A].end(), B_reach_set.begin(), B_reach_set.end(),
+                                std::inserter(A_B_intersect, A_B_intersect.begin()));
+                    }
                 }
 
                 if(A_B_intersect.empty()) {
