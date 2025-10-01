@@ -291,6 +291,8 @@ namespace helpers
         /// translates state number to uberstate
         const uberstate& num_to_uberstate(unsigned num) const;
 
+        std::pair<bdd, bdd> uberstate_support(unsigned uberstateId) const;
+
         /// inserts an uberstate (by moving) and returns its assigned number (if
         /// not present), or just returns the number of an equal uberstate (if
         /// present)
@@ -413,10 +415,10 @@ namespace helpers
         void handle_sink_state();
 
         ///
-        bool get_is_sink_created();
+        bool get_is_sink_created() const;
 
         ///
-        unsigned get_sink_state();
+        unsigned get_sink_state() const;
 
         /// new modular complementation procedure
         spot::twa_graph_ptr run_new();

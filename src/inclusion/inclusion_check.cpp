@@ -24,6 +24,7 @@
 #include <spot/twaalgos/isdet.hh>
 #include <spot/twaalgos/emptiness.hh>
 #include <spot/twaalgos/remfin.hh>
+#include <spot/twaalgos/split.hh>
 
 namespace kofola {
     bool operator<(const inclusion_mstate& lhs,
@@ -46,7 +47,7 @@ namespace kofola {
     void inclusion_check::setup_for_inclusion() {
         if (initialized_) return;
 
-        symbols_from_A(aut_A_input_);
+        symbols_from_A(aut_A_);
 
         unsigned init_A = aut_A_->get_init_state_number();
 
@@ -204,7 +205,7 @@ namespace kofola {
 
     bool inclusion_check::inclusion() {
         // Try simple inclusion test first if second automaton is deterministic
-        auto simple_result = inclusion_simple(aut_A_input_, aut_B_input_);
+        auto simple_result = inclusion_det_simple(aut_A_input_, aut_B_input_);
         
         if (simple_result == inclusion_result::TRUE) {
             return true;
@@ -221,7 +222,7 @@ namespace kofola {
         return res;
     }
 
-    inclusion_result inclusion_check::inclusion_simple(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B) {
+    inclusion_result inclusion_check::inclusion_det_simple(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B) {
         // Check if the second automaton is deterministic
         if (!spot::is_deterministic(aut_B) || aut_B->ap().size() < 12) {
             return inclusion_result::UNKNOWN; // Cannot use simple method, need to fall back to complex algorithm
@@ -347,40 +348,42 @@ namespace kofola {
         // extract A state and compl.B state from intersection macrostate to compute successors
         unsigned state_of_A = casted_src->state_.first;
         unsigned compl_state = casted_src->state_.second;
+        auto [support_compl, compat_compl] = aut_B_compl_.uberstate_support(compl_state);
 
-        bdd msupport = bddtrue;
-        bdd n_s_compat = bddfalse;
-
-        msupport &= support_[state_of_A];
-        n_s_compat |= compat_[state_of_A];
-
-        bdd all = n_s_compat;
-
-
-        while(all != bddfalse) {
-            bdd letter = bdd_satoneset(all, msupport,bddfalse);
-            all -= letter;
-            std::vector<unsigned> myVector = {state_of_A};
-            std::set<unsigned> succs_A = get_all_successors(aut_A_,myVector,letter);
-            // if(succs_A.empty())
-            //     continue;
-
-            helpers::tnba_complement::vec_state_taggedcol succs_B;
-            if(!aut_B_compl_.get_is_sink_created() || compl_state != aut_B_compl_.get_sink_state())
-            {
-                succs_B = get_successors_compl(compl_state, letter);
+        for(const auto& t : this->aut_A_->out(state_of_A)) {
+            bdd all = t.cond;
+            if(all == bddfalse) {
+                continue;
             }
-            else
-            {
-                succs_B.push_back({aut_B_compl_.get_sink_state(), {}});
-            }
-            if(!succs_A.empty() && !succs_B.empty())
-            {
-                cartesian_prod = get_cartesian_prod(state_of_A, succs_A, succs_B,
-                    letter);
-                for (auto& succ : cartesian_prod) {
-                    result.emplace_back(std::move(succ));
+
+            std::set<unsigned> succs_A = {t.dst}; 
+
+            while(all != bddfalse) {
+                bdd letter = bdd_satoneset(all & compat_compl, support_compl, bddfalse);
+
+                all -= letter;
+                helpers::tnba_complement::vec_state_taggedcol succs_B;
+
+                if(letter == bddfalse) {
+                    all = bddfalse;
                 }
+                if(letter == bddfalse && !aut_B_compl_.get_is_sink_created()) {
+                    aut_B_compl_.handle_sink_state();
+                }
+
+                if((!aut_B_compl_.get_is_sink_created() || compl_state != aut_B_compl_.get_sink_state()) && letter != bddfalse) {
+                    succs_B = get_successors_compl(compl_state, letter);
+                }
+                else {
+                    succs_B.push_back({aut_B_compl_.get_sink_state(), {}});
+                }
+                if(!succs_B.empty()) {
+                    cartesian_prod = get_cartesian_prod(state_of_A, succs_A, succs_B, t.cond);
+                    for (auto& succ : cartesian_prod) {
+                        result.emplace_back(std::move(succ));
+                    }
+                }
+
             }
         }
         return result;
@@ -412,9 +415,11 @@ namespace kofola {
                 const unsigned &state_B = state_cols.first;
                 auto cols = state_cols.second;
                 std::set<unsigned> new_cols;
+                bool is_sink = false;
 
                 if(aut_B_compl_.get_is_sink_created() && state_B == aut_B_compl_.get_sink_state()){
                     new_cols = infs_from_compl_; // TODO go to next iteration after the next if for A
+                    is_sink = true;
                 }
                 if (is_transition_acc(aut_A_, aut_A_src, state_A, letter)) {
                     new_cols.insert(first_col_to_use_); // accepting mark of A
@@ -438,13 +443,14 @@ namespace kofola {
                     //}
                 }
 
-
-                auto uberstate = aut_B_compl_.num_to_uberstate(state_B);
-                auto B_reach_set = uberstate.get_reach_set(); // (H,(C,S,B),...) -- B_reach_set is H
                 std::set<unsigned> A_B_intersect;
-                if(dir_simul_.count(state_A)) {
-                    set_intersection(dir_simul_[state_A].begin(), dir_simul_[state_A].end(), B_reach_set.begin(), B_reach_set.end(),
-                            std::inserter(A_B_intersect, A_B_intersect.begin()));
+                if(!is_sink) {
+                    auto uberstate = aut_B_compl_.num_to_uberstate(state_B);
+                    auto B_reach_set = uberstate.get_reach_set(); // (H,(C,S,B),...) -- B_reach_set is H
+                    if(dir_simul_.count(state_A)) {
+                        set_intersection(dir_simul_[state_A].begin(), dir_simul_[state_A].end(), B_reach_set.begin(), B_reach_set.end(),
+                                std::inserter(A_B_intersect, A_B_intersect.begin()));
+                    }
                 }
 
                 if(A_B_intersect.empty()) {

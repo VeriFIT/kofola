@@ -38,6 +38,7 @@ TEST_CASE("E2E inclusion: vector of automata pairs checked via Kofola", "[inclus
     const std::vector<std::tuple<std::string, std::string, bool>> test_cases = {
         {"tests/test_data/NI_correct_NI_formula_A.hoa", "tests/test_data/NI_correct_NI_formula_B.hoa", true},
         {"tests/test_data/bakery_3procs_bakery_formula_sym1_3proc_A.hoa", "tests/test_data/bakery_3procs_bakery_formula_sym1_3proc_B.hoa", false},
+        {"tests/test_data/All_Sturmian_words_contain_cubes_sup.autfilt", "tests/test_data/All_Sturmian_words_contain_cubes_sub.autfilt", true}
     };
 
     for (const auto& tc : test_cases) {
