@@ -16,7 +16,13 @@ make kofola_tests
 ## Test Structure
 
 - `test_main.cpp`: Main test runner (uses Catch2WithMain)
-- `test_acc_code_dnf.cpp`: Tests for the `acc_code_dnf` method
+- `tela/`: Tests for TELA (Transition-based Emerson-Lei Automata) operations
+  - Acceptance code DNF conversion, complementation, transition colors, safe models, partitions
+- `modular/`: Tests for modular complementation algorithms
+  - Modular complementation, SCC type detection
+- `inclusion/`: Language inclusion tests
+- `utils/`: Utility tests and complement equivalence checks
+- `test_data/`: Test automata files
 
 ## Dependencies
 
