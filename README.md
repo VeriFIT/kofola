@@ -74,7 +74,7 @@ The complementation and the inclusion checking might be adjusted by the followin
 | `merge_det` | `yes`,`no`  | Merge deterministic components for the synchronous construction |
 | `preproc_incl_A` | `low`,`medium`,`high`  | Level of preprocessing applied on the first automaton (`--inclusion` only) |
 | `preproc_incl_B` | `low`,`medium`,`high`  | Level of preprocessing applied on the second automaton (`--inclusion` only) |
-| `nac-alg` | `subs_tup`,`rank`  | Algorithm applied on nondeterministic accepting components. `subs_tup` = subset tuple construction (default for `--inclusion`), `rank` = rank-based complementation (experimental). If not specified otherwise, complementation may use determinization-based construction. |
+| `nac-alg` | `subs_tup`  | Algorithm applied on nondeterministic accepting components. `subs_tup` = subset tuple construction (default for `--inclusion`). If not specified otherwise, complementation may use determinization-based construction. |
 | `postponed` | `yes`,`no`  | Use postponed construction instead the synchronous one (`--complement` only) |
 | `dir_sim` | `yes`,`no`  | Use direct simulation for macrostate pruning |
 | `sim-ms-prune` | `yes`,`no`  | Use simulation-based pruning of macrostates during complementation (default: `yes`; may auto-disable for very large automata) |
