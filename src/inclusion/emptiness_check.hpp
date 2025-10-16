@@ -42,15 +42,15 @@ namespace kofola
 
         void update_structures(const std::shared_ptr<inclusion_mstate>& src_mstate);
 
+        bool rabin_cond(std::shared_ptr<inclusion_mstate> src_mstate);
+
         /// implements the edited Gaiser and Schwoon algorithm suggested in the thesis
         /// path_cond can be omitted
-        /// TODO too deep of a recursion can cause mem. problems, rewrite to iteration
         bool gs_edited(std::shared_ptr<inclusion_mstate> src_mstate);
 
         /// implements Gaiser and Schwoon algorithm, with the possibility of subsumptions usage
         /// path_cond can be omitted
-        /// TODO too deep of a recursion can cause mem. problems, rewrite to iteration
-        bool gs(std::shared_ptr<inclusion_mstate> src_mstate);
+        bool gs(std::shared_ptr<inclusion_mstate> src_mstate, spot::acc_cond::mark_t fin_mark);
 
         /// decides whether there is a state p on the searchpath such that src_mstate is simul. (early or +1) less than p,
         /// without seeing acc. trans. if yes => true
@@ -97,6 +97,8 @@ namespace kofola
         /// to stop searching when counter-example
         bool decided_ = false;
         bool empty_ = true;
+
+        std::vector<std::shared_ptr<inclusion_mstate>> entry_states_; /// states to start the search from
 
         /// to know if early(+1) prunning should be used
         bool early_prune_ = false;

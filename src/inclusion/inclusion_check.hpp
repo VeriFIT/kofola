@@ -117,6 +117,9 @@ namespace kofola {
         /// decide which states from aut_B simulate states in aut_A
         void compute_simulation(const spot::twa_graph_ptr &aut_A, const spot::const_twa_graph_ptr &aut_B);
 
+        /// get acc cond for the intersection automaton
+        spot::acc_cond::acc_code get_acc_cond() const { return acc_cond_; }
+
         /// for debugging purposes only
         void print_mstate(const std::shared_ptr<inclusion_mstate> a);
 
