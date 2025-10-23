@@ -1504,7 +1504,6 @@ namespace helpers {
 
         final_code_ = alg_acc_code;
         DEBUG_PRINT_LN("final code: " + std::to_string(final_code_));
-        // std::cout << std::to_string(final_code_) << "\n";
         return used_infs_;
     }
 }

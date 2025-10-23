@@ -42,7 +42,8 @@ namespace kofola
 
         void update_structures(const std::shared_ptr<inclusion_mstate>& src_mstate);
 
-        bool rabin_cond(std::shared_ptr<inclusion_mstate> src_mstate);
+
+        bool gen_rabin(std::shared_ptr<inclusion_mstate> src_mstate, spot::acc_cond::mark_t fin_mark);
 
         /// implements the edited Gaiser and Schwoon algorithm suggested in the thesis
         /// path_cond can be omitted
@@ -83,11 +84,16 @@ namespace kofola
 
         /// GS algorithm variables
         std::map<std::shared_ptr<inclusion_mstate>, signed, shared_ptr_comparator> dfs_num_;
+        std::map<std::shared_ptr<inclusion_mstate>, signed, shared_ptr_comparator> lowlink_;
         std::map<std::shared_ptr<inclusion_mstate>, bool, shared_ptr_comparator> on_stack_;
         signed index_ = 0;
         std::vector<std::shared_ptr<inclusion_mstate>> tarjan_stack_;
         std::stack<std::shared_ptr<inclusion_mstate>> SCCs_;
         /// end of GS algorithm variables
+
+        std::unordered_map<unsigned int, std::vector<unsigned int>> infs_pos_; 
+        std::vector<unsigned int> fin_pos_;
+        std::map<std::shared_ptr<inclusion_mstate>, spot::acc_cond::mark_t, shared_ptr_comparator> prefix_;
 
         std::vector<std::pair<std::shared_ptr<inclusion_mstate>, spot::acc_cond::mark_t>> dfs_acc_stack_; /// this stack could probably be omitted and use SCCs_ instead
 

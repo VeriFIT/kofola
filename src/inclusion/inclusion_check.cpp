@@ -88,12 +88,17 @@ namespace kofola {
             }
         }
 
-        // setting accepting cond to acc of complement & Inf(the first unused color by aut_B_compl)
-        infs_from_compl_ = (aut_B_compl_.set_acc_cond());
-        first_col_to_use_ = infs_from_compl_.size() + 1;
+        // setting accepting cond to acc of complement & Inf (the first unused color by aut_B_compl)
+        aut_B_compl_.set_acc_cond();
         acc_cond_ = aut_B_compl_.get_final_acc_code();
+        spot::acc_cond cond(acc_cond_);
+        auto infs = cond.inf_unit().sets();
+        for(const auto& inf_set : infs) {
+            infs_from_compl_.insert(inf_set);
+        }
+        first_col_to_use_ = cond.all_sets().max_set();
+        
         acc_cond_ &= spot::acc_cond::acc_code::inf({first_col_to_use_});
-
         initialized_ = true;
     }
 
@@ -143,7 +148,7 @@ namespace kofola {
         }
 
 
-    kofola::OPTIONS.output_type = "tgba";
+    // kofola::OPTIONS.output_type = "tgba";
     // Build SCC info for the exact automaton we are going to complement.
     // Using a different automaton here (e.g., the un-preprocessed aut_B)
     // leads to mismatched state indices and scc_of() returning (unsigned)-1.
@@ -184,9 +189,10 @@ namespace kofola {
         }
 
         // creating initial state such that it has transitions to both initial states of A and B respectively
+        // FIXME: should not go to init states but to their successors
         new_st = res->new_state();
         res->new_edge(new_st, init_a, bdd_true());
-        res->new_edge(new_st, init_b, bdd_true());
+        res->new_edge(new_st, init_b, bdd_true()); 
         res->set_init_state(new_st);
         
         return res;
