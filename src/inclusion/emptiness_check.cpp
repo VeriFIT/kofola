@@ -60,12 +60,22 @@ namespace kofola {
 
         while (i < entry_states_.size()) {
             const auto& entry = entry_states_[i];
-            if (dfs_num_.at(entry) == UNDEFINED) {
+            if (dfs_num_[entry] == UNDEFINED) {
                 bool empty;
+                #ifdef ENABLE_COUNTER
+                    cnt_++;
+                #endif
+
                 if(kofola::OPTIONS.params.count("gfee") != 0 && kofola::OPTIONS.params["gfee"] == "yes")
                     empty = gs_edited(entry);
-                else
-                    empty = gs(entry, fin_mark);
+                else {
+                    if(code.is_generalized_buchi()) {
+                        empty = gs(entry, fin_mark);
+                    } else {
+                        empty = gen_rabin(entry, fin_mark);
+                        // empty = gs(entry, fin_mark);
+                    }                     
+                } 
                 if(!empty){
                     #ifdef ENABLE_COUNTER
                         std::cout << cnt_ << "\n";
@@ -105,10 +115,6 @@ namespace kofola {
     }
 
     bool emptiness_check::gs_edited(std::shared_ptr<inclusion_mstate> src_mstate) {
-        #ifdef ENABLE_COUNTER
-            cnt_ = 1;
-        #endif
-        
         // stacks to replace recursion
         std::stack<std::shared_ptr<inclusion_mstate>> src_mstates;
         src_mstates.push(nullptr); // default
@@ -223,15 +229,148 @@ namespace kofola {
     void emptiness_check::update_structures(const std::shared_ptr<inclusion_mstate>& src_mstate) {
         SCCs_.push(src_mstate);
         dfs_num_[src_mstate] = index_;
+        lowlink_[src_mstate] = index_;
         index_++;
         tarjan_stack_.push_back(src_mstate);
         on_stack_[src_mstate] = true;
     }
 
+    bool emptiness_check::gen_rabin(std::shared_ptr<inclusion_mstate> src_mstate, spot::acc_cond::mark_t fin_mark) {
+        // stacks to replace recursion
+        std::stack<std::shared_ptr<inclusion_mstate>> src_mstates;
+        src_mstates.push(nullptr); // default
+        std::stack<std::vector<std::shared_ptr<inclusion_mstate>>> successors;
+        successors.push({}); // default
+        std::stack<spot::acc_cond::mark_t> path_conds;
+        path_conds.push({}); // default
+        auto succs = incl_checker_->get_succs(src_mstate);
+        auto path_cond = spot::acc_cond::mark_t();
+
+        lowlink_[src_mstate] = index_;
+
+        update_structures(src_mstate);
+
+        while(src_mstate != nullptr) {
+            // early(+1) simul can decide nonemptiness
+            if(early_prune_ && incl_checker_->is_accepting(path_cond) && simulation_prunning(src_mstate))
+                return false;
+            
+            bool recursion_like = false;
+            while(!succs.empty()) {
+                auto dst_mstate = succs.back();
+                // std::cout << "--------------------------------------------------------------------\n";
+                // incl_checker_->print_mstate(src_mstate);
+                // std::cout << " --to--> \n";
+                // incl_checker_->print_mstate(dst_mstate);
+                // std::cout << "--------------------------------------------------------------------\n";
+                succs.pop_back();
+
+                if(empty_lang(dst_mstate)) {
+                    continue;
+                }
+
+                // init structure
+                if(dfs_num_.count(dst_mstate) == 0)
+                {
+                    dfs_num_.insert({dst_mstate, UNDEFINED});
+                    on_stack_.insert({dst_mstate, false});
+                    prefix_.insert({dst_mstate, spot::acc_cond::mark_t()});
+                }
+                // dfs_num_ initialised for dst_mstate
+
+                if (dfs_num_[dst_mstate] == UNDEFINED)
+                {
+                    dfs_acc_stack_.emplace_back(src_mstate, src_mstate->get_acc());
+                    #ifdef ENABLE_COUNTER
+                        cnt_++;
+                    #endif
+                    path_conds.push(path_cond);
+                    path_cond |= dst_mstate->get_acc();
+                    src_mstates.push(src_mstate);
+                    src_mstate = dst_mstate;
+                    successors.push(succs);
+                    succs = incl_checker_->get_succs(src_mstate);
+
+                    update_structures(src_mstate); 
+                    // mark last positions of 
+                    auto marks_container = src_mstate->get_acc().sets();
+                    for(const auto& mark: marks_container) {
+                        if(infs_pos_.count(mark) != 0) {
+                            // store the position (dfs number) for this infinitary mark
+                            infs_pos_[mark].push_back(dfs_num_[src_mstate]);
+                        } else {
+                            fin_pos_.push_back(dfs_num_[src_mstate]); // might be off by one error (which state src or dst??)
+                        }
+                    }
+                    // end of marking
+                    
+                    recursion_like = true; // to be able to 'jump'
+                    break; 
+                // } else if(on_stack_[dst_mstate] && merge_acc_marks(dst_mstate)) {
+                } else if(on_stack_[dst_mstate] && !(fin_mark & dst_mstate->get_acc())) { // here we can ignore the edge if fin is closing the cycle
+                    lowlink_[src_mstate] = std::min(lowlink_[src_mstate], dfs_num_[dst_mstate]);
+                    signed most_recent_fin_pos = fin_pos_.empty() ? -1 : fin_pos_.back();
+                    bool fin_not_in_cycle = !(dfs_num_[src_mstate] > most_recent_fin_pos && most_recent_fin_pos > dfs_num_[dst_mstate]) || (most_recent_fin_pos == -1);
+                    if(fin_not_in_cycle) {
+                        auto all_marks = prefix_[dst_mstate] | dst_mstate->get_acc();
+                        for (const auto& [inf, all_pos] : infs_pos_) {
+                            signed most_recent_inf_pos = all_pos.empty() ? -1 : all_pos.back();
+                            bool is_inf_in_cycle = (dfs_num_[src_mstate] > most_recent_inf_pos && most_recent_inf_pos > dfs_num_[dst_mstate]) && (most_recent_inf_pos != -1);
+                            if(is_inf_in_cycle) {
+                                all_marks.set(inf);
+                                // todo early exit if all_marks is accepting
+                            }
+                        }
+                        if(incl_checker_->is_accepting(all_marks)) {
+                            return false;
+                        }
+                    }
+                }
+            }
+
+            if(recursion_like)
+                continue;
+
+            if (SCCs_.top() == (src_mstate)) {
+                remove_SCC(src_mstate);
+            }
+            // backtracking from recursion
+            if(!dfs_acc_stack_.empty())
+                dfs_acc_stack_.pop_back();
+
+            if(src_mstates.top() == nullptr)
+                break;
+
+            auto backtrack_to = src_mstates.top(); 
+            // if(dfs_num_[backtrack_to] < dfs_num_[src_mstate] && !(src_mstate->get_acc() & fin_mark)) {
+            if(!(src_mstate->get_acc() & fin_mark) && lowlink_[src_mstate] <= lowlink_[backtrack_to]) {
+                prefix_[backtrack_to] = (src_mstate->get_acc() | prefix_[src_mstate]);
+                lowlink_[backtrack_to] = std::min(lowlink_[src_mstate], lowlink_[backtrack_to]);
+            }
+
+            // removes marking
+            auto marks_container = src_mstate->get_acc().sets();
+            for(const auto& mark: marks_container) {
+                if(infs_pos_.count(mark) != 0) {
+                    infs_pos_[mark].pop_back();
+                } else {
+                    fin_pos_.pop_back(); // might be off by one error (which state src or dst??)
+                }
+            }
+            // end of removing
+
+            src_mstate = backtrack_to;
+            src_mstates.pop();
+            succs = successors.top();
+            successors.pop();
+            path_cond = path_conds.top();
+            path_conds.pop();
+        }
+
+        return true;
+    }
+
     bool emptiness_check::gs(std::shared_ptr<inclusion_mstate> src_mstate, spot::acc_cond::mark_t fin_mark) {
-        #ifdef ENABLE_COUNTER
-            cnt_ = 1;
-        #endif
         // stacks to replace recursion
         std::stack<std::shared_ptr<inclusion_mstate>> src_mstates;
         src_mstates.push(nullptr); // default
