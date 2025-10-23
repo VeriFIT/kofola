@@ -83,8 +83,10 @@ namespace kofola {
                     if(code.is_generalized_buchi()) {
                         empty = gs(entry, fin_mark);
                     } else {
-                        empty = gen_rabin(entry, fin_mark);
-                        // empty = gs(entry, fin_mark);
+                        if(kofola::OPTIONS.params.count("rabin") != 0 && kofola::OPTIONS.params["rabin"] == "yes")
+                            empty = gen_rabin(entry, fin_mark);
+                        else
+                            empty = gs(entry, fin_mark);
                     }                     
                 } 
                 if(!empty){
