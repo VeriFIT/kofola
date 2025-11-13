@@ -344,9 +344,6 @@ namespace kofola {
             if(recursion_like)
                 continue;
 
-            if (SCCs_.top() == (src_mstate)) {
-                remove_SCC(src_mstate);
-            }
             // backtracking from recursion
             if(!dfs_acc_stack_.empty())
                 dfs_acc_stack_.pop_back();
@@ -371,6 +368,15 @@ namespace kofola {
                 }
             }
             // end of removing
+
+            if (lowlink_[src_mstate] == dfs_num_[src_mstate]) { // FIXME use separate lowlink for SCCs (other than the one currently used - this one is for emptiness)
+                std::shared_ptr<inclusion_mstate> tmp;
+                do {
+                    tmp = SCCs_.top(); SCCs_.pop();
+                    on_stack_[tmp] = false;
+                    // empty_lang_states_[tmp->get_intersect_state().first].emplace_back(tmp); // when here, each state has empty language, otherwise we would have ended
+                } while (src_mstate != tmp);
+            }
 
             src_mstate = backtrack_to;
             src_mstates.pop();
