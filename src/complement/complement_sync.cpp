@@ -519,6 +519,14 @@ namespace helpers {
     } // create_scc_to_pred_sccs_map() }}}
 
     bool helpers::tnba_complement::subsum_less_early(unsigned a, unsigned b) {
+        // If any operand is the sink state, avoid dereferencing the placeholder
+        // nullptr stored in num_to_uberstate_map_ for the sink. Only the sink
+        // trivially subsumes itself; otherwise, treat it as incomparable so we
+        // do not prune incorrectly.
+        if (get_is_sink_created() && (a == sink_state_ || b == sink_state_)) {
+            return a == b;
+        }
+
         auto uber_a = num_to_uberstate(a);
         auto uber_b = num_to_uberstate(b);
 
@@ -526,6 +534,10 @@ namespace helpers {
     }
 
     bool helpers::tnba_complement::subsum_less_early_plus(unsigned a, unsigned b) {
+        if (get_is_sink_created() && (a == sink_state_ || b == sink_state_)) {
+            return a == b;
+        }
+
         auto uber_a = num_to_uberstate(a);
         auto uber_b = num_to_uberstate(b);
 
