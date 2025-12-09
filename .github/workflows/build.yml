@@ -41,11 +41,11 @@ jobs:
           fi
   macos-build:
     name: "MacOS (build-&-test)"
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - name: Building MacOS dependencies
-        run: brew install spot@2.11.2
+        run: brew install spot
       - name: Compile
         run: make release
       - name: Test the library
