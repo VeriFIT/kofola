@@ -45,7 +45,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Building MacOS dependencies
-        run: brew install spot
+        run: brew install spot@2.11.2
       - name: Compile
         run: make release
       - name: Test the library
