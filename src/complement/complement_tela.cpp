@@ -105,7 +105,7 @@ spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 			std::vector<spot::twa_graph_ptr> part_res;
 
 			spot::postprocessor p_pre;
-			p_pre.set_type(spot::postprocessor::Buchi);
+			p_pre.set_type(spot::postprocessor::Generic);
 			p_pre.set_level(spot::postprocessor::High);
 
 			spot::postprocessor p_post;
@@ -154,7 +154,6 @@ spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 			assert(false);
 		}
 	}
-
 	// if tela=yes, we use Generic preprocessor, 
 	// otherwise we use Buchi preprocessor (the input is a TBA)
 	spot::postprocessor p;
@@ -168,9 +167,9 @@ spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 	} else {
 		p.set_level(spot::postprocessor::Low);
 	}
-		
 	spot::twa_graph_ptr aut_to_compl;
-	aut_to_compl = p.run(aut_reduced);
+	// aut_to_compl = p.run(aut_reduced);
+	aut_to_compl = aut_reduced; // skipping preproc for now
 
 	auto res = kofola::complement_sync(aut_to_compl);
 	DEBUG_PRINT_LN("finished call to run_new()");

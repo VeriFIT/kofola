@@ -156,6 +156,11 @@ namespace helpers
 
         unsigned get_num_states();
 
+        std::unique_ptr<kofola::cmpl_info> get_cmpl_info() { 
+            if (!info_) return nullptr;               // handle empty pointer
+            return std::make_unique<kofola::cmpl_info>(*info_); 
+        }
+
         spot::scc_info & get_scc_info();
 
         void reduce_and_compute_simulation();
