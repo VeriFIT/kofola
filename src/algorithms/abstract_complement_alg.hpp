@@ -148,6 +148,30 @@ struct cmpl_info
       return ret;
   }
 
+  /**
+   * @brief Convert an acceptance condition to its DNF form.
+   *
+   * This function takes a Spot acceptance condition code,
+   * converts it to Disjunctive Normal Form (DNF), and returns it as a vector of AccClause.
+   *
+   * @param code The Spot acceptance condition code to convert.
+   * @return CondDNF The acceptance condition in DNF.
+   */
+  static CondDNF preserve_acc_code_dnf(const spot::acc_cond::acc_code& code) {
+      spot::acc_cond::acc_code dnf_code = code.to_dnf();
+      std::vector<spot::acc_cond::acc_code> dnf_clauses = dnf_code.top_disjuncts();
+
+      CondDNF ret {};
+      for(const auto& clause : dnf_clauses) {
+        if (clause.empty()) {
+          continue; // Skip empty clauses
+        }
+        AccClause acc_clause(clause);
+        ret.push_back(acc_clause);
+      }
+      return ret;
+  }
+
 }; // struct cmpl_info }}}
 
 
