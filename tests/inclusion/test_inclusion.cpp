@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <functional>
 
 // Spot
 #include <spot/twa/twa.hh>
@@ -14,9 +15,13 @@
 
 namespace {
 // Simple harness that checks A ⊆ B using kofola::inclusion_check
-bool check_inclusion_kofola(const spot::twa_graph_ptr& A, const spot::twa_graph_ptr& B) {
+bool check_inclusion_kofola(const spot::twa_graph_ptr& A, const spot::twa_graph_ptr& B,
+                            const std::function<void(kofola::options&)>& customise_options = {}) {
     REQUIRE(A != nullptr);
     REQUIRE(B != nullptr);
+
+    // Preserve caller options to avoid cross-test contamination
+    auto saved_options = kofola::OPTIONS;
 
     // Configure reasonable defaults for inclusion (non-intrusive)
     // Users can adjust via OPTIONS if needed in future tests
@@ -28,8 +33,16 @@ bool check_inclusion_kofola(const spot::twa_graph_ptr& A, const spot::twa_graph_
     kofola::OPTIONS.params["nac-alg"] = "subs_tup";
     kofola::OPTIONS.operation = "inclusion";
 
+    if (customise_options) {
+        customise_options(kofola::OPTIONS);
+    }
+
     kofola::inclusion_check checker(A, B);
-    return checker.inclusion();
+    bool result = checker.inclusion();
+
+    // Restore previous options
+    kofola::OPTIONS = saved_options;
+    return result;
 }
 }
 
@@ -50,6 +63,33 @@ TEST_CASE("E2E inclusion: vector of automata pairs checked via Kofola", "[inclus
 
             // Kofola inclusion decides emptiness of A ∩ ¬B; returns true iff inclusion holds
             bool a_subset_b = check_inclusion_kofola(A, B);
+            CHECK(a_subset_b == expected);
+        }
+    }
+}
+
+TEST_CASE("Inclusion with early simulation enabled", "[inclusion][early_sim]") {
+    const std::vector<std::tuple<std::string, std::string, bool>> test_cases = {
+        {
+            "tests/test_data/AliasDarteFeautrierGonnord-SAS2010-nestedLoop_true-termination_true-no-overflow.c_Iteration2_A.ba.hoa",
+            "tests/test_data/AliasDarteFeautrierGonnord-SAS2010-nestedLoop_true-termination_true-no-overflow.c_Iteration2_B.ba.hoa",
+            false
+        }
+        // Add more tuples (A path, B path, expected result) as needed
+    };
+
+    for (const auto& tc : test_cases) {
+        const auto& [a_path, b_path, expected] = tc;
+
+        SECTION(std::string("Early-sim inclusion for pair: ") + a_path + " ⊆ " + b_path) {
+            auto A = test_utils::load_automaton_from_file(a_path);
+            auto B = test_utils::load_automaton_from_file(b_path);
+
+            // Early simulation pruning should not change the expected inclusion outcome for this pair
+            bool a_subset_b = check_inclusion_kofola(B, A, [](kofola::options& opts) {
+                opts.params["early_sim"] = "yes";
+            });
+
             CHECK(a_subset_b == expected);
         }
     }
