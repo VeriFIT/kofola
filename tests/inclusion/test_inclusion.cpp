@@ -69,16 +69,28 @@ TEST_CASE("E2E inclusion: vector of automata pairs checked via Kofola", "[inclus
 }
 
 TEST_CASE("Inclusion with early simulation enabled", "[inclusion][early_sim]") {
-    const std::string a_path = "tests/test_data/AliasDarteFeautrierGonnord-SAS2010-nestedLoop_true-termination_true-no-overflow.c_Iteration2_A.ba.hoa";
-    const std::string b_path = "tests/test_data/AliasDarteFeautrierGonnord-SAS2010-nestedLoop_true-termination_true-no-overflow.c_Iteration2_B.ba.hoa";
+    const std::vector<std::tuple<std::string, std::string, bool>> test_cases = {
+        {
+            "tests/test_data/AliasDarteFeautrierGonnord-SAS2010-nestedLoop_true-termination_true-no-overflow.c_Iteration2_A.ba.hoa",
+            "tests/test_data/AliasDarteFeautrierGonnord-SAS2010-nestedLoop_true-termination_true-no-overflow.c_Iteration2_B.ba.hoa",
+            false
+        }
+        // Add more tuples (A path, B path, expected result) as needed
+    };
 
-    auto A = test_utils::load_automaton_from_file(a_path);
-    auto B = test_utils::load_automaton_from_file(b_path);
+    for (const auto& tc : test_cases) {
+        const auto& [a_path, b_path, expected] = tc;
 
-    // Early simulation pruning should not change the expected inclusion outcome for this pair
-    bool a_subset_b = check_inclusion_kofola(B, A, [](kofola::options&opts) {
-        opts.params["early_sim"] = "yes";
-    });
+        SECTION(std::string("Early-sim inclusion for pair: ") + a_path + " ⊆ " + b_path) {
+            auto A = test_utils::load_automaton_from_file(a_path);
+            auto B = test_utils::load_automaton_from_file(b_path);
 
-    CHECK(a_subset_b == false);
+            // Early simulation pruning should not change the expected inclusion outcome for this pair
+            bool a_subset_b = check_inclusion_kofola(B, A, [](kofola::options& opts) {
+                opts.params["early_sim"] = "yes";
+            });
+
+            CHECK(a_subset_b == expected);
+        }
+    }
 }
