@@ -15,7 +15,7 @@ if (APPLE) # we need to set correct path for Spot on Mac OS/homebrew
 endif()
 
 # Test configuration
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -52,6 +52,7 @@ include_directories(${CMAKE_SOURCE_DIR}/src)
 # Test source files
 set(TEST_SOURCES
     test_main.cpp
+    types/test_binary_tree.cpp
     tela/test_acc_code_dnf.cpp
     tela/test_complement_tela.cpp
     tela/test_guess_safe_models.cpp
