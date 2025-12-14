@@ -6,8 +6,13 @@
 
 #include <compare>
 #include <ostream>
+#include <sstream>
+#include <stdexcept>
 
 #include "../types/binary_tree.hpp"
+
+// SPOT
+#include <spot/twa/acc.hh>
 
 namespace kofola { // {{{
 
@@ -33,6 +38,14 @@ namespace sd_inductive {
 
     /** @brief Set of safe states relevant for the Fin-check. */
     std::set<unsigned> safe {};
+    /** @brief Acceptance color associated with this Fin-check. */
+    spot::acc_cond::mark_t color {}; 
+
+    static std::string mark_to_string(const spot::acc_cond::mark_t& m) {
+      std::ostringstream os;
+      os << m;
+      return os.str();
+    }
 
     /**
      * @brief Convert this leaf payload into a human-readable string.
@@ -40,7 +53,7 @@ namespace sd_inductive {
      * @return String representation of this Fin leaf.
      */
     std::string to_string() const {
-      return "safe=" + std::to_string(this->safe);
+      return "safe=" + std::to_string(this->safe) + ", color=" + mark_to_string(this->color);
     }
 
     /**
@@ -49,7 +62,19 @@ namespace sd_inductive {
      * @param other The other leaf payload to compare with.
      * @return Ordering relation result.
      */
-    auto operator<=>(const fin_leaf&) const = default;
+    bool operator==(const fin_leaf&) const = default;
+
+    std::strong_ordering operator<=>(const fin_leaf& other) const {
+      if (this->safe < other.safe)
+        return std::strong_ordering::less;
+      if (other.safe < this->safe)
+        return std::strong_ordering::greater;
+      if (this->color < other.color)
+        return std::strong_ordering::less;
+      if (other.color < this->color)
+        return std::strong_ordering::greater;
+      return std::strong_ordering::equal;
+    }
 
   };
 
@@ -61,6 +86,8 @@ namespace sd_inductive {
     std::set<unsigned> track {};
     /** @brief Breakpoint set used in the Inf-check. */
     std::set<unsigned> breakpoint {};
+    /** @brief Acceptance color associated with this Inf-check. */
+    spot::acc_cond::mark_t color {}; 
 
     /**
      * @brief Convert this leaf payload into a human-readable string.
@@ -68,7 +95,8 @@ namespace sd_inductive {
      * @return String representation of this Inf leaf.
      */
     std::string to_string() const {
-      return "track=" + std::to_string(this->track) + ", breakpoint=" + std::to_string(this->breakpoint);
+      return "track=" + std::to_string(this->track) + ", breakpoint=" + std::to_string(this->breakpoint)
+        + ", color=" + fin_leaf::mark_to_string(this->color);
     }
 
     /**
@@ -77,7 +105,23 @@ namespace sd_inductive {
      * @param other The other leaf payload to compare with.
      * @return Ordering relation result.
      */
-    auto operator<=>(const inf_leaf&) const = default;
+    bool operator==(const inf_leaf&) const = default;
+
+    std::strong_ordering operator<=>(const inf_leaf& other) const {
+      if (this->track < other.track)
+        return std::strong_ordering::less;
+      if (other.track < this->track)
+        return std::strong_ordering::greater;
+      if (this->breakpoint < other.breakpoint)
+        return std::strong_ordering::less;
+      if (other.breakpoint < this->breakpoint)
+        return std::strong_ordering::greater;
+      if (this->color < other.color)
+        return std::strong_ordering::less;
+      if (other.color < this->color)
+        return std::strong_ordering::greater;
+      return std::strong_ordering::equal;
+    }
   };
 
   /**
@@ -212,7 +256,71 @@ namespace sd_inductive {
       return os;
     }
 
+    /**
+     * @brief Build a `check_macrostate` tree from a Spot acceptance formula.
+     *
+     * Supported grammar (no negation expected):
+     * - conjunction: `&`  -> `TreeType::And`
+     * - disjunction: `|`  -> `TreeType::Or`
+    * - leaves: `Fin(m)`  -> `TreeType::Fin` and stores the mark @p m in `fin_leaf::color`
+    * - leaves: `Inf(m)`  -> `TreeType::Inf` and stores the mark @p m in `inf_leaf::color`
+     *
+     * Any other operator will throw `std::invalid_argument`.
+     */
+    static check_macrostate from_acc_code(const spot::acc_cond::acc_code& code) {
+      return from_acc_code_impl(code);
+    }
+
   private:
+
+    static check_macrostate fold(TreeType op, const std::vector<spot::acc_cond::acc_code>& parts) {
+      if (parts.empty()) {
+        throw std::invalid_argument("check_macrostate: empty And/Or in acceptance formula");
+      }
+      check_macrostate acc = from_acc_code_impl(parts.front());
+      for (size_t i = 1; i < parts.size(); ++i) {
+        acc = check_macrostate::make(op, std::move(acc), from_acc_code_impl(parts[i]));
+      }
+      return acc;
+    }
+
+    static check_macrostate from_acc_code_impl(const spot::acc_cond::acc_code& code) {
+      if (code.empty()) {
+        throw std::invalid_argument("check_macrostate: empty acceptance formula");
+      }
+
+      // Leaf: [mark][op]
+      if (code.size() == 2) {
+        const auto op = code[1].sub.op;
+        if (op == spot::acc_cond::acc_op::Fin) {
+          return check_macrostate(base_tree::leaf(TreeType::Fin, fin_leaf{{}, code[0].mark}));
+        }
+        if (op == spot::acc_cond::acc_op::Inf) {
+          return check_macrostate(base_tree::leaf(TreeType::Inf, inf_leaf{{}, {}, code[0].mark}));
+        }
+      }
+
+      // Prefer top-level flattening (Spot returns a singleton vector when the operator is not present at top-level).
+      const auto conjuncts = code.top_conjuncts();
+      if (conjuncts.size() > 1) {
+        return fold(TreeType::And, conjuncts);
+      }
+      const auto disjuncts = code.top_disjuncts();
+      if (disjuncts.size() > 1) {
+        return fold(TreeType::Or, disjuncts);
+      }
+
+      // Some forms may not be caught above (e.g., parenthesized singletons); try to unwrap once.
+      if (!conjuncts.empty() && conjuncts.size() == 1 && conjuncts[0] != code) {
+        return from_acc_code_impl(conjuncts[0]);
+      }
+      if (!disjuncts.empty() && disjuncts.size() == 1 && disjuncts[0] != code) {
+        return from_acc_code_impl(disjuncts[0]);
+      }
+
+      throw std::invalid_argument("check_macrostate: unsupported acceptance formula operator");
+    }
+
     /**
      * @brief Convert `TreeType` to a stable string name.
      *
