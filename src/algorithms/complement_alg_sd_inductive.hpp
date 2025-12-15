@@ -94,12 +94,13 @@ namespace sd_inductive {
       return std::strong_ordering::equal;
     }
 
-    std::vector<check_macrostate> getSucc(
+    std::vector<check_macrostate> get_succ(
       const spot::const_twa_graph_ptr&  aut,
       const spot::scc_info&             scc_info,
       const std::set<unsigned>&         check_states,
       const bdd&                        bdd) const;
 
+    bool is_satisfied() const;
   };
 
   /**
@@ -147,11 +148,14 @@ namespace sd_inductive {
       return std::strong_ordering::equal;
     }
 
-    std::vector<check_macrostate> getSucc(
+    std::vector<check_macrostate> get_succ(
       const spot::const_twa_graph_ptr&  aut,
       const spot::scc_info&             scc_info,
       const std::set<unsigned>&         check_states,
       const bdd&                        bdd) const;
+
+    bool is_satisfied() const;
+
   };
 
   /**
@@ -331,7 +335,7 @@ namespace sd_inductive {
      * @param bdd Shared BDD structure passed to leaf computations.
      * @return A vector of successor `check_macrostate` trees.
      */
-    std::vector<check_macrostate> getSucc(
+    std::vector<check_macrostate> get_succ(
       const spot::const_twa_graph_ptr&  aut,
       const spot::scc_info&             scc_info,
       const std::set<unsigned>&         check_states,
@@ -339,7 +343,7 @@ namespace sd_inductive {
       if (this->is_leaf()) {
         return std::visit(
           [&](const auto& leaf) {
-            return leaf.getSucc(aut, scc_info, check_states, bdd);
+            return leaf.get_succ(aut, scc_info, check_states, bdd);
           },
           this->leaf_value());
       }
@@ -349,8 +353,8 @@ namespace sd_inductive {
       const check_macrostate right_ms(base_tree(this->right()));
 
       if (node_type == TreeType::And) {
-        const auto left_succ = left_ms.getSucc(aut, scc_info, check_states, bdd);
-        const auto right_succ = right_ms.getSucc(aut, scc_info, check_states, bdd);
+        const auto left_succ = left_ms.get_succ(aut, scc_info, check_states, bdd);
+        const auto right_succ = right_ms.get_succ(aut, scc_info, check_states, bdd);
         return cartesian_product<check_macrostate, check_macrostate>(
           left_succ,
           right_succ,
@@ -368,8 +372,8 @@ namespace sd_inductive {
           }
           const auto& left_states = part[0];
           const auto& right_states = part[1];
-          const auto left_succ = left_ms.getSucc(aut, scc_info, left_states, bdd);
-          const auto right_succ = right_ms.getSucc(aut, scc_info, right_states, bdd);
+          const auto left_succ = left_ms.get_succ(aut, scc_info, left_states, bdd);
+          const auto right_succ = right_ms.get_succ(aut, scc_info, right_states, bdd);
 
           const auto combined = cartesian_product<check_macrostate, check_macrostate>(
             left_succ,
@@ -383,6 +387,41 @@ namespace sd_inductive {
       }
 
       throw std::logic_error("check_macrostate::getSucc: unexpected internal node type");
+    }
+
+    /**
+     * @brief Check whether this macrostate check tree is satisfied.
+     *
+     * Behavior (follows the implementation):
+     * - If the current node is a leaf, the call is delegated to the
+     *   corresponding leaf's `is_satisfied()` method.
+     * - If the current node is an internal node of type `And` or `Or`,
+     *   the function returns the logical conjunction of the left and
+     *   right subtree `is_satisfied()` results (i.e., both children must
+     *   be satisfied).
+     * - For any other node type a `std::logic_error` is thrown.
+     *
+     * @return `true` if the represented check is satisfied according to
+     *         the rules above, `false` otherwise.
+     */
+    bool is_satisfied() const {
+      if (this->is_leaf()) {
+        return std::visit(
+          [&](const auto& leaf) {
+            return leaf.is_satisfied();
+          },
+          this->leaf_value());
+      }
+
+      const auto node_type = this->type();
+      const check_macrostate left_ms(base_tree(this->left()));
+      const check_macrostate right_ms(base_tree(this->right()));
+
+      if (node_type == TreeType::And || node_type == TreeType::Or) {
+        return left_ms.is_satisfied() && right_ms.is_satisfied();
+      }
+
+      throw std::logic_error("check_macrostate::is_satisfied: unexpected internal node type");
     }
 
   private:
@@ -496,7 +535,7 @@ namespace sd_inductive {
    *         encountered; otherwise a one-element vector containing the
    *         successor Fin macrostate whose `safe` set is `succs`.
    */
-  inline std::vector<check_macrostate> fin_leaf::getSucc(
+  inline std::vector<check_macrostate> fin_leaf::get_succ(
     const spot::const_twa_graph_ptr&  aut,
     const spot::scc_info&             scc_info,
     const std::set<unsigned>&         check_states,
@@ -513,6 +552,15 @@ namespace sd_inductive {
       }
     }
     return { check_macrostate::fin(std::move(succs)) };
+  }
+
+  /**
+  * @brief Fin leaf satisfaction predicate.
+  *
+  * @return Always returns `true`.
+  */
+  bool fin_leaf::is_satisfied() const {
+    return true;
   }
 
    /**
@@ -544,7 +592,7 @@ namespace sd_inductive {
    * @param bdd Shared BDD used to filter transition conditions.
    * @return A one-element vector containing the successor `Inf` macrostate.
    */
-  inline std::vector<check_macrostate> inf_leaf::getSucc(
+  inline std::vector<check_macrostate> inf_leaf::get_succ(
     const spot::const_twa_graph_ptr&  aut,
     const spot::scc_info&             scc_info,
     const std::set<unsigned>&         check_states,
@@ -575,7 +623,18 @@ namespace sd_inductive {
     return { check_macrostate::inf(std::move(succs), std::move(succs_copy)) };
   }
 
-
+  /**
+  * @brief Inf leaf satisfaction predicate.
+  *
+  * An `Inf` leaf is considered satisfied precisely when its
+  * `breakpoint` set is empty.  If there are remaining breakpoint
+  * states to be fulfilled, the Inf-check is not yet satisfied.
+  *
+  * @return `true` when `breakpoint` is empty, `false` otherwise.
+  */
+  bool inf_leaf::is_satisfied() const {
+    return this->breakpoint.empty();
+  }
 
 } // namespace sd_inductive
 
