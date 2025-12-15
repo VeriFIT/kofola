@@ -1,0 +1,362 @@
+// implementation of NCSB-based complementation algorithm for deterministic SCCs
+
+#include "complement_alg_sd_inductive.hpp"
+
+#include <stdexcept>
+
+namespace kofola {
+namespace sd_inductive {
+
+/**
+ * Parse a Spot acceptance condition and build an equivalent
+ * `check_macrostate` tree.
+ *
+ * The function supports the following acceptance grammar (no negation
+ * expected):
+ * - conjunction: `&`  -> `TreeType::And`
+ * - disjunction: `|`  -> `TreeType::Or`
+ * - leaves: `Fin(m)`  -> `TreeType::Fin` (mark `m` stored in
+ *   `fin_leaf::color`)
+ * - leaves: `Inf(m)`  -> `TreeType::Inf` (mark `m` stored in
+ *   `inf_leaf::color`)
+ *
+ * This method is a thin public wrapper that delegates the actual
+ * parsing work to `from_acc_code_impl`.
+ *
+ * @param code The Spot acceptance formula to convert.
+ * @return A `check_macrostate` representing the parsed acceptance
+ *         formula.
+ * @throws std::invalid_argument if `code` is empty or contains an
+ *         unsupported/top-level operator that cannot be represented.
+ */
+check_macrostate check_macrostate::from_acc_code(const spot::acc_cond::acc_code& code) {
+  return from_acc_code_impl(code);
+}
+
+/**
+ * Compute successor macrostate(s) for this `check_macrostate` node.
+ *
+ * Behavior:
+ * - Leaf: delegate to the leaf's `get_succ()` implementation.
+ * - And: compute successors of both children using the same
+ *   `check_states` and combine results via the Cartesian product.
+ * - Or: nondeterministically partition `check_states` into two parts,
+ *   compute successors for each child using the corresponding partition,
+ *   then combine and deduplicate the results.
+ *
+ * @param aut Pointer to the Spot automaton graph.
+ * @param scc_info SCC information for the automaton (used to restrict
+ *                 transitions to the current SCC).
+ * @param check_states Set of automaton states currently being checked/tracked.
+ * @param bdd BDD representing the current input/condition used to test
+ *            transition guards.
+ * @return A vector of successor `check_macrostate` instances produced by
+ *         advancing this check node under the given automaton/transitions.
+ * @throws std::logic_error If an unexpected internal node type is
+ *         encountered or if `nondet_split_set` yields a non-binary
+ *         partition.
+ */
+std::vector<check_macrostate> check_macrostate::get_succ(
+  const spot::const_twa_graph_ptr&  aut,
+  const spot::scc_info&             scc_info,
+  const std::set<unsigned>&         check_states,
+  const bdd&                        bdd) const {
+
+  if (this->is_leaf()) {
+    return std::visit(
+      [&](const auto& leaf) {
+        return leaf.get_succ(aut, scc_info, check_states, bdd);
+      },
+      this->leaf_value());
+  }
+
+  const auto node_type = this->type();
+  const check_macrostate left_ms(base_tree(this->left()));
+  const check_macrostate right_ms(base_tree(this->right()));
+
+  if (node_type == TreeType::And) {
+    const auto left_succ = left_ms.get_succ(aut, scc_info, check_states, bdd);
+    const auto right_succ = right_ms.get_succ(aut, scc_info, check_states, bdd);
+    return cartesian_product<check_macrostate, check_macrostate>(
+      left_succ,
+      right_succ,
+      [](const check_macrostate& l, const check_macrostate& r) {
+        return check_macrostate::make(TreeType::And, l, r);
+      });
+  }
+
+  if (node_type == TreeType::Or) {
+    std::set<check_macrostate> out;
+    const auto partitions = nondet_split_set(check_states, 2);
+    for (const auto& part : partitions) {
+      if (part.size() != 2) {
+        throw std::logic_error("check_macrostate::get_succ: nondet_split_set returned non-binary partition");
+      }
+      const auto& left_states = part[0];
+      const auto& right_states = part[1];
+      const auto left_succ = left_ms.get_succ(aut, scc_info, left_states, bdd);
+      const auto right_succ = right_ms.get_succ(aut, scc_info, right_states, bdd);
+
+      const auto combined = cartesian_product<check_macrostate, check_macrostate>(
+        left_succ,
+        right_succ,
+        [](const check_macrostate& l, const check_macrostate& r) {
+          return check_macrostate::make(TreeType::Or, l, r);
+        });
+      out.insert(combined.begin(), combined.end());
+    }
+    return std::vector<check_macrostate>(out.begin(), out.end());
+  }
+
+  throw std::logic_error("check_macrostate::get_succ: unexpected internal node type");
+}
+
+/**
+ * Determine whether this `check_macrostate` tree is satisfied.
+ *
+ * For leaves this delegates to the leaf's `is_satisfied()` method. For
+ * internal nodes both children are required to be satisfied (this mirrors
+ * the structural check used by the complement construction).
+ *
+ * @return `true` if the entire check tree is satisfied, `false` otherwise.
+ * @throws std::logic_error If the node contains an unexpected internal
+ *         type.
+ */
+bool check_macrostate::is_satisfied() const {
+  if (this->is_leaf()) {
+    return std::visit(
+      [&](const auto& leaf) {
+        return leaf.is_satisfied();
+      },
+      this->leaf_value());
+  }
+
+  const auto node_type = this->type();
+  const check_macrostate left_ms(base_tree(this->left()));
+  const check_macrostate right_ms(base_tree(this->right()));
+
+  if (node_type == TreeType::And || node_type == TreeType::Or) {
+    return left_ms.is_satisfied() && right_ms.is_satisfied();
+  }
+
+  throw std::logic_error("check_macrostate::is_satisfied: unexpected internal node type");
+}
+
+/**
+ * Fold a sequence of acceptance code parts into a single
+ * `check_macrostate` tree using the specified binary operator.
+ *
+ * The function constructs a left-associated tree by converting the
+ * first element with `from_acc_code_impl` and successively combining
+ * remaining parts with `check_macrostate::make(op, left, right)`.
+ *
+ * @param op The binary tree operator (`TreeType::And` or `TreeType::Or`)
+ *           used to combine the parts.
+ * @param parts Vector of Spot acceptance `acc_code` parts to fold.
+ * @return A `check_macrostate` representing the folded acceptance
+ *         formula.
+ * @throws std::invalid_argument if `parts` is empty.
+ */
+check_macrostate check_macrostate::fold(TreeType op, const std::vector<spot::acc_cond::acc_code>& parts) {
+  if (parts.empty()) {
+    throw std::invalid_argument("check_macrostate: empty And/Or in acceptance formula");
+  }
+  check_macrostate acc = from_acc_code_impl(parts.front());
+  for (size_t i = 1; i < parts.size(); ++i) {
+    acc = check_macrostate::make(op, std::move(acc), from_acc_code_impl(parts[i]));
+  }
+  return acc;
+}
+
+/**
+ * Internal parser that builds a `check_macrostate` from a Spot
+ * `acc_code` acceptance formula. Handles leaf forms (`Fin`/`Inf`),
+ * and flattens top-level conjunctions/disjunctions via
+ * `top_conjuncts()` / `top_disjuncts()`.
+ *
+ * The function attempts a single-level unwrap of parenthesised
+ * singletons and delegates to `fold()` for multi-operand operators.
+ *
+ * @param code The Spot acceptance code to parse.
+ * @return A `check_macrostate` representing the parsed acceptance.
+ * @throws std::invalid_argument if `code` is empty or contains an
+ *         unsupported acceptance operator.
+ */
+check_macrostate check_macrostate::from_acc_code_impl(const spot::acc_cond::acc_code& code) {
+  if (code.empty()) {
+    throw std::invalid_argument("check_macrostate: empty acceptance formula");
+  }
+
+  // Leaf: [mark][op]
+  if (code.size() == 2) {
+    const auto op = code[1].sub.op;
+    if (op == spot::acc_cond::acc_op::Fin) {
+      return check_macrostate(base_tree::leaf(TreeType::Fin, fin_leaf{{}, code[0].mark}));
+    }
+    if (op == spot::acc_cond::acc_op::Inf) {
+      return check_macrostate(base_tree::leaf(TreeType::Inf, inf_leaf{{}, {}, code[0].mark}));
+    }
+  }
+
+  // Prefer top-level flattening (Spot returns a singleton vector when the operator is not present at top-level).
+  const auto conjuncts = code.top_conjuncts();
+  if (conjuncts.size() > 1) {
+    return fold(TreeType::And, conjuncts);
+  }
+  const auto disjuncts = code.top_disjuncts();
+  if (disjuncts.size() > 1) {
+    return fold(TreeType::Or, disjuncts);
+  }
+
+  // Some forms may not be caught above (e.g., parenthesized singletons); try to unwrap once.
+  if (!conjuncts.empty() && conjuncts.size() == 1 && conjuncts[0] != code) {
+    return from_acc_code_impl(conjuncts[0]);
+  }
+  if (!disjuncts.empty() && disjuncts.size() == 1 && disjuncts[0] != code) {
+    return from_acc_code_impl(disjuncts[0]);
+  }
+
+  throw std::invalid_argument("check_macrostate: unsupported acceptance formula operator");
+}
+
+std::string check_macrostate::tree_type_to_string(TreeType t) {
+  switch (t) {
+    case TreeType::Fin:
+      return "Fin";
+    case TreeType::Inf:
+      return "Inf";
+    case TreeType::And:
+      return "And";
+    case TreeType::Or:
+      return "Or";
+  }
+  return "?";
+}
+
+std::string check_macrostate::to_string_impl(const base_tree& tree) {
+  const std::string head = tree_type_to_string(tree.type());
+  if (tree.is_leaf()) {
+    const std::string payload = std::visit(
+      [](const auto& leaf) { return leaf.to_string(); },
+      tree.leaf_value());
+    return head + "(" + payload + ")";
+  }
+
+  return head + "(" + to_string_impl(tree.left()) + ", " + to_string_impl(tree.right()) + ")";
+}
+
+/**
+ * Compute successor macrostate(s) for a `Fin` leaf.
+ *
+ * The method builds the union of the leaf's `safe` set and the
+ * incoming `check_states`, then explores outgoing transitions from
+ * each state in that set. Only transitions that remain within the
+ * same SCC and whose guard is implied by `bdd` are considered.
+ * If any considered transition carries an accepting mark that
+ * intersects this leaf's `color`, the function returns an empty
+ * vector (no valid successors). Otherwise the set of destination
+ * states is collected and returned as a single `check_macrostate::fin`.
+ *
+ * @param aut Pointer to the Spot automaton graph.
+ * @param scc_info SCC information for the automaton (used to restrict
+ *                 transitions to the current SCC).
+ * @param check_states Set of automaton states currently being checked/tracked.
+ * @param bdd BDD representing the current input/condition used to test
+ *            transition guards.
+ * @return Vector containing a single `check_macrostate::fin` with the
+ *         successor states, or an empty vector if an accepting transition
+ *         matching `color` is encountered (no successors).
+ */
+std::vector<check_macrostate> fin_leaf::get_succ(
+  const spot::const_twa_graph_ptr&  aut,
+  const spot::scc_info&             scc_info,
+  const std::set<unsigned>&         check_states,
+  const bdd&                        bdd) const {
+
+  std::set<unsigned> st = get_set_union(this->safe, check_states);
+  std::set<unsigned> succs {};
+  for (unsigned s : st) {
+    for (const auto& t : aut->out(s)) {
+      if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
+        if (t.acc & this->color) {
+          return {};
+        }
+        succs.insert(t.dst);
+      }
+    }
+  }
+  return {check_macrostate::fin(std::move(succs))};
+}
+
+bool fin_leaf::is_satisfied() const {
+  return true;
+}
+
+std::vector<check_macrostate> inf_leaf::get_succ(
+  const spot::const_twa_graph_ptr&  aut,
+  const spot::scc_info&             scc_info,
+  const std::set<unsigned>&         check_states,
+  const bdd&                        bdd) const {
+
+/**
+ * Compute successor macrostate(s) for an `Inf` leaf.
+ *
+ * The method forms the union of this leaf's `track` set and the
+ * incoming `check_states`, and collects all reachable destinations
+ * (restricted to the same SCC and where the transition guard is
+ * implied by `bdd`). If `check_states` is empty the function also
+ * evaluates transitions from the leaf's `breakpoint` set and
+ * collects `succ_break` while ignoring transitions that carry an
+ * accepting mark intersecting `color`.
+ *
+ * - If `check_states` is empty: returns a single
+ *   `check_macrostate::inf(succs, succ_break)` where `succ_break` is
+ *   filtered by acceptance marks.
+ * - Otherwise: returns `check_macrostate::inf(succs, succs)` (second
+ *   component is a copy of `succs`).
+ *
+ * @param aut Pointer to the Spot automaton graph.
+ * @param scc_info SCC information for the automaton (used to restrict
+ *                 transitions to the current SCC).
+ * @param check_states Set of automaton states currently being checked/tracked.
+ * @param bdd BDD representing the current input/condition used to test
+ *            transition guards.
+ * @return Vector containing a single `check_macrostate::inf` with the
+ *         successor sets `(succs, succ_break)` as described above.
+ */
+
+  std::set<unsigned> st = get_set_union(this->track, check_states);
+  std::set<unsigned> succs {};
+  std::set<unsigned> succ_break {};
+  for (unsigned s : st) {
+    for (const auto& t : aut->out(s)) {
+      if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
+        succs.insert(t.dst);
+      }
+    }
+  }
+
+  if (check_states.empty()) {
+    for (unsigned s : this->breakpoint) {
+      for (const auto& t : aut->out(s)) {
+        if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
+          if (t.acc & this->color) {
+            continue;
+          }
+          succ_break.insert(t.dst);
+        }
+      }
+    }
+    return {check_macrostate::inf(std::move(succs), std::move(succ_break))};
+  }
+
+  auto succs_copy = succs;
+  return {check_macrostate::inf(std::move(succs), std::move(succs_copy))};
+}
+
+bool inf_leaf::is_satisfied() const {
+  return this->breakpoint.empty();
+}
+
+} // namespace sd_inductive
+} // namespace kofola

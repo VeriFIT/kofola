@@ -62,6 +62,8 @@ set(TEST_SOURCES
     modular/test_complement_modular.cpp
     modular/test_scc_types.cpp
     inclusion/test_inclusion.cpp
+    ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_sd_inductive.cpp
+    ${CMAKE_SOURCE_DIR}/src/util/sets.cpp
 )
 
 # Create test sources that need to be compiled from main project
