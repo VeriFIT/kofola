@@ -474,30 +474,105 @@ namespace sd_inductive {
     }
   };
 
+  /**
+   * @brief Compute successors for a `Fin` leaf.
+   *
+   * Behavior:
+   * - Form the active set `st` = union(this->safe, check_states).
+   * - For every state `s` in `st` and every outgoing transition `t` from `s`:
+   *   - require `t.dst` to be in the same SCC as `s` (via `scc_info`) and
+   *     require `t.cond` to be implied by `bdd`.
+   *   - if any such transition carries an acceptance mark overlapping this
+   *     leaf's `color` (`t.acc & this->color`) the Fin-check fails and the
+   *     function returns an empty vector (no successors).
+   *   - otherwise collect `t.dst` into the successor set `succs`.
+   * - Return a single `check_macrostate::fin(succs)` wrapped in a vector.
+   *
+   * @param aut Spot automaton pointer used for successor computation.
+   * @param scc_info SCC info ensuring transitions remain inside SCC.
+   * @param check_states Subset of automaton states assigned to this check.
+   * @param bdd Shared BDD used to filter transition conditions.
+   * @return Empty vector if an accepting transition for this Fin color is
+   *         encountered; otherwise a one-element vector containing the
+   *         successor Fin macrostate whose `safe` set is `succs`.
+   */
   inline std::vector<check_macrostate> fin_leaf::getSucc(
     const spot::const_twa_graph_ptr&  aut,
     const spot::scc_info&             scc_info,
     const std::set<unsigned>&         check_states,
     const bdd&                        bdd) const {
-    (void)aut;
-    (void)scc_info;
-    (void)check_states;
-    (void)bdd;
-    // TODO: fill with actual implementation
-    return {};
+
+    std::set<unsigned> st = get_set_union(this->safe, check_states);
+    std::set<unsigned> succs {};
+    for (unsigned s : st) {
+      for (const auto &t : aut->out(s)) {
+        if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
+          if (t.acc & this->color) { return {}; }
+          succs.insert(t.dst);
+        }
+      }
+    }
+    return { check_macrostate::fin(std::move(succs)) };
   }
 
+   /**
+   * @brief Compute successors for an `Inf` leaf.
+   *
+   * Behavior:
+   * - Form the active set `st` = union(this->track, check_states).
+   * - Collect all destinations `t.dst` of outgoing transitions `t` from
+   *   states `s` in `st` that stay in the same SCC and whose condition
+   *   is implied by `bdd` into `succs`.
+   * - If `check_states` is empty (i.e. we are in the breakpoint phase):
+   *   - Compute `succ_break` by exploring transitions from the leaf's
+   *     `breakpoint` states that stay in the same SCC and satisfy the BDD.
+   *   - While building `succ_break` skip transitions that carry an
+   *     acceptance mark overlapping this leaf's `color` (those are
+   *     filtered out with `if (t.acc & this->color) continue`).
+   *   - Return a single `check_macrostate::inf(succs, succ_break)`.
+   * - Otherwise (when `check_states` is non-empty): return a single
+   *   `check_macrostate::inf(succs, succs_copy)` where the second component
+   *   is a copy of `succs` (no special breakpoint successors computed).
+   *
+   * Note: acceptance checks are applied only when computing the
+   * `succ_break` (breakpoint) set; transitions collected from the tracked
+   * part are not filtered.
+   *
+   * @param aut Spot automaton pointer used for successor computation.
+   * @param scc_info SCC decomposition to ensure transitions stay inside SCC.
+   * @param check_states Subset of automaton states assigned to this check.
+   * @param bdd Shared BDD used to filter transition conditions.
+   * @return A one-element vector containing the successor `Inf` macrostate.
+   */
   inline std::vector<check_macrostate> inf_leaf::getSucc(
     const spot::const_twa_graph_ptr&  aut,
     const spot::scc_info&             scc_info,
     const std::set<unsigned>&         check_states,
     const bdd&                        bdd) const {
-    (void)aut;
-    (void)scc_info;
-    (void)check_states;
-    (void)bdd;
-    // TODO: fill with actual implementation
-    return {};
+
+    std::set<unsigned> st = get_set_union(this->track, check_states);
+    std::set<unsigned> succs {};
+    std::set<unsigned> succ_break {};
+    for (unsigned s : st) {
+      for (const auto &t : aut->out(s)) {
+        if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
+          succs.insert(t.dst);
+        }
+      }
+    }
+    if(check_states.empty()) {
+      for (unsigned s : this->breakpoint) {
+        for (const auto &t : aut->out(s)) {
+          if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
+            if (t.acc & this->color) continue;
+            succ_break.insert(t.dst);
+          }
+        }
+      }
+      return { check_macrostate::inf(std::move(succs), std::move(succ_break)) };
+    }
+    auto succs_copy = succs;
+    return { check_macrostate::inf(std::move(succs), std::move(succs_copy)) };
   }
 
 
