@@ -111,5 +111,7 @@ list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 if(Catch2_FOUND)
     include(CTest)
     include(Catch)
-    catch_discover_tests(kofola_tests)
+    catch_discover_tests(kofola_tests
+		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests
+	)
 endif()
