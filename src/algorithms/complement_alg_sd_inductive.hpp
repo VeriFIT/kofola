@@ -10,6 +10,7 @@
 #include <stdexcept>
 
 #include "../types/binary_tree.hpp"
+#include "../util/sets.hpp"
 
 // SPOT
 #include <spot/twa/acc.hh>
@@ -30,6 +31,23 @@ namespace sd_inductive {
     And,
     Or
   };
+
+  class check_macrostate;
+
+  inline std::string set_to_string(const std::set<unsigned>& s) {
+    std::ostringstream os;
+    os << "{";
+    bool first = true;
+    for (const auto& x : s) {
+      if (!first) {
+        os << ",";
+      }
+      first = false;
+      os << x;
+    }
+    os << "}";
+    return os.str();
+  }
 
   /**
    * @brief Payload of a `Fin` leaf in `check_macrostate`.
@@ -53,7 +71,7 @@ namespace sd_inductive {
      * @return String representation of this Fin leaf.
      */
     std::string to_string() const {
-      return "safe=" + std::to_string(this->safe) + ", color=" + mark_to_string(this->color);
+      return "safe=" + set_to_string(this->safe) + ", color=" + mark_to_string(this->color);
     }
 
     /**
@@ -76,6 +94,12 @@ namespace sd_inductive {
       return std::strong_ordering::equal;
     }
 
+    std::vector<check_macrostate> getSucc(
+      const spot::const_twa_graph_ptr&  aut,
+      const spot::scc_info&             scc_info,
+      const std::set<unsigned>&         check_states,
+      const bdd&                        bdd) const;
+
   };
 
   /**
@@ -95,7 +119,7 @@ namespace sd_inductive {
      * @return String representation of this Inf leaf.
      */
     std::string to_string() const {
-      return "track=" + std::to_string(this->track) + ", breakpoint=" + std::to_string(this->breakpoint)
+      return "track=" + set_to_string(this->track) + ", breakpoint=" + set_to_string(this->breakpoint)
         + ", color=" + fin_leaf::mark_to_string(this->color);
     }
 
@@ -122,6 +146,12 @@ namespace sd_inductive {
         return std::strong_ordering::greater;
       return std::strong_ordering::equal;
     }
+
+    std::vector<check_macrostate> getSucc(
+      const spot::const_twa_graph_ptr&  aut,
+      const spot::scc_info&             scc_info,
+      const std::set<unsigned>&         check_states,
+      const bdd&                        bdd) const;
   };
 
   /**
@@ -271,6 +301,90 @@ namespace sd_inductive {
       return from_acc_code_impl(code);
     }
 
+    /**
+     * @brief Compute successor macrostate(s) for this check tree node.
+     *
+     * Behavior (follows the implementation below):
+     * - If this `check_macrostate` is a leaf, the call is delegated to the
+     *   leaf payload's `getSucc` implementation, which computes successor
+     *   checks for that specific leaf type.
+     * - If this node is an `And` node, the successors of the left and right
+     *   children are computed and the Cartesian product of those successor
+     *   sets is returned; each resulting pair is combined into a new `And`
+     *   node.
+     * - If this node is an `Or` node, the provided `check_states` set is
+     *   nondeterministically split into two parts (binary partition) and
+     *   successors are computed for the left child using the first part and
+     *   for the right child using the second part; the combinations are
+     *   assembled into `Or` nodes and deduplicated before returning.
+     *
+     * The function propagates `aut`, `scc_info`, and `bdd` down to leaves
+     * which perform the actual transition computation. It will throw a
+     * `std::logic_error` if an unexpected internal node type is encountered
+     * or if the nondeterministic split routine returns a non-binary
+     * partition.
+     *
+     * @param aut Spot automaton pointer used for successor computation.
+     * @param scc_info SCC decomposition information for `aut`.
+     * @param check_states Subset of automaton states assigned to this
+     *                     subtree (used when splitting states for `Or`).
+     * @param bdd Shared BDD structure passed to leaf computations.
+     * @return A vector of successor `check_macrostate` trees.
+     */
+    std::vector<check_macrostate> getSucc(
+      const spot::const_twa_graph_ptr&  aut,
+      const spot::scc_info&             scc_info,
+      const std::set<unsigned>&         check_states,
+      const bdd&                        bdd) const {
+      if (this->is_leaf()) {
+        return std::visit(
+          [&](const auto& leaf) {
+            return leaf.getSucc(aut, scc_info, check_states, bdd);
+          },
+          this->leaf_value());
+      }
+
+      const auto node_type = this->type();
+      const check_macrostate left_ms(base_tree(this->left()));
+      const check_macrostate right_ms(base_tree(this->right()));
+
+      if (node_type == TreeType::And) {
+        const auto left_succ = left_ms.getSucc(aut, scc_info, check_states, bdd);
+        const auto right_succ = right_ms.getSucc(aut, scc_info, check_states, bdd);
+        return cartesian_product<check_macrostate, check_macrostate>(
+          left_succ,
+          right_succ,
+          [](const check_macrostate& l, const check_macrostate& r) {
+            return check_macrostate::make(TreeType::And, l, r);
+          });
+      }
+
+      if (node_type == TreeType::Or) {
+        std::set<check_macrostate> out;
+        const auto partitions = nondet_split_set(check_states, 2);
+        for (const auto& part : partitions) {
+          if (part.size() != 2) {
+            throw std::logic_error("check_macrostate::getSucc: nondet_split_set returned non-binary partition");
+          }
+          const auto& left_states = part[0];
+          const auto& right_states = part[1];
+          const auto left_succ = left_ms.getSucc(aut, scc_info, left_states, bdd);
+          const auto right_succ = right_ms.getSucc(aut, scc_info, right_states, bdd);
+
+          const auto combined = cartesian_product<check_macrostate, check_macrostate>(
+            left_succ,
+            right_succ,
+            [](const check_macrostate& l, const check_macrostate& r) {
+              return check_macrostate::make(TreeType::Or, l, r);
+            });
+          out.insert(combined.begin(), combined.end());
+        }
+        return std::vector<check_macrostate>(out.begin(), out.end());
+      }
+
+      throw std::logic_error("check_macrostate::getSucc: unexpected internal node type");
+    }
+
   private:
 
     static check_macrostate fold(TreeType op, const std::vector<spot::acc_cond::acc_code>& parts) {
@@ -359,6 +473,32 @@ namespace sd_inductive {
       return head + "(" + to_string_impl(tree.left()) + ", " + to_string_impl(tree.right()) + ")";
     }
   };
+
+  inline std::vector<check_macrostate> fin_leaf::getSucc(
+    const spot::const_twa_graph_ptr&  aut,
+    const spot::scc_info&             scc_info,
+    const std::set<unsigned>&         check_states,
+    const bdd&                        bdd) const {
+    (void)aut;
+    (void)scc_info;
+    (void)check_states;
+    (void)bdd;
+    // TODO: fill with actual implementation
+    return {};
+  }
+
+  inline std::vector<check_macrostate> inf_leaf::getSucc(
+    const spot::const_twa_graph_ptr&  aut,
+    const spot::scc_info&             scc_info,
+    const std::set<unsigned>&         check_states,
+    const bdd&                        bdd) const {
+    (void)aut;
+    (void)scc_info;
+    (void)check_states;
+    (void)bdd;
+    // TODO: fill with actual implementation
+    return {};
+  }
 
 
 
