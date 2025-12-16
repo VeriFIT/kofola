@@ -5,6 +5,10 @@
 #include <cassert>
 #include <stdexcept>
 
+using namespace kofola;
+using mstate_set = abstract_complement_alg::mstate_set;
+using mstate_col_set = abstract_complement_alg::mstate_col_set;
+
 namespace kofola {
 namespace sd_inductive {
 
@@ -408,4 +412,43 @@ bool mstate_sd_inductive::lt(const mstate& rhs) const {
 }
 
 } // namespace sd_inductive
+
+
+complement_sd_inductive::complement_sd_inductive(const cmpl_info& info, unsigned part_index)
+  : abstract_complement_alg(info, part_index) { 
+  
+  spot::acc_cond::acc_code acc = this->info_.part_to_acc_map_.at(part_index_).get_acceptance();
+  this->acc_cond_ = acc;
+}
+
+mstate_set complement_sd_inductive::get_init() { // {{
+  DEBUG_PRINT_LN("init SD-INDUCTIVE for partition " + std::to_string(this->part_index_));
+  std::set<unsigned> init_state;
+
+  unsigned orig_init = this->info_.aut_->get_init_state_number();
+  if (this->info_.st_to_part_map_.at(orig_init) == static_cast<int>(this->part_index_)) {
+    init_state.insert(orig_init);
+  }
+
+  std::shared_ptr<mstate> ms(new sd_inductive::mstate_sd_inductive(init_state, sd_inductive::check_macrostate::from_acc_code(this->acc_cond_), sd_inductive::mstate_type::GUESS));
+  mstate_set result = {ms};
+  return result;
+} // get_init() }}}
+
+
+mstate_col_set complement_sd_inductive::get_succ_active(
+    const std::set<unsigned>& glob_reached,
+    const mstate* src,
+    const bdd& symbol,
+    bool resample) {
+  
+  DEBUG_PRINT_LN("computing successor for glob_reached = " + std::to_string(glob_reached) +
+    ", " + std::to_string(*src) + " over " + std::to_string(symbol));
+  const sd_inductive::mstate_sd_inductive* src_mst = dynamic_cast<const sd_inductive::mstate_sd_inductive*>(src);
+  assert(src_mst);
+
+  // TODO: actual implementation
+  return {};
+}
+
 } // namespace kofola
