@@ -36,21 +36,6 @@ namespace sd_inductive {
 
   class check_macrostate;
 
-  inline std::string set_to_string(const std::set<unsigned>& s) {
-    std::ostringstream os;
-    os << "{";
-    bool first = true;
-    for (const auto& x : s) {
-      if (!first) {
-        os << ",";
-      }
-      first = false;
-      os << x;
-    }
-    os << "}";
-    return os.str();
-  }
-
   /**
    * @brief Payload of a `Fin` leaf in `check_macrostate`.
    */
@@ -73,7 +58,7 @@ namespace sd_inductive {
      * @return String representation of this Fin leaf.
      */
     std::string to_string() const {
-      return "safe=" + set_to_string(this->safe) + ", color=" + mark_to_string(this->color);
+      return "safe=" + std::to_string(this->safe) + ", color=" + mark_to_string(this->color);
     }
 
     /**
@@ -122,7 +107,7 @@ namespace sd_inductive {
      * @return String representation of this Inf leaf.
      */
     std::string to_string() const {
-      return "track=" + set_to_string(this->track) + ", breakpoint=" + set_to_string(this->breakpoint)
+      return "track=" + std::to_string(this->track) + ", breakpoint=" + std::to_string(this->breakpoint)
              + ", color=" + fin_leaf::mark_to_string(this->color);
     }
 
@@ -327,6 +312,47 @@ namespace sd_inductive {
      */
     static std::string to_string_impl(const base_tree& tree);
   };
+
+enum class mstate_type {
+  GUESS,
+  CHECK,
+};
+
+/// partial macrostate for the given component
+class mstate_sd_inductive : public abstract_complement_alg::mstate
+{ // {{{
+public: // DATA MEMBERS
+
+  std::set<unsigned> check_ {};       // states for runs that need to be checked
+  check_macrostate check_tree_; // check macrostate tree
+  mstate_type type_ {};          // type of the macrostate (GUESS / CHECK)
+  
+
+public: // METHODS
+
+  /// constructor
+  mstate_sd_inductive(
+    const std::set<unsigned>&  check,
+    const check_macrostate&  check_tree,
+    const mstate_type&  type
+  ) : check_(check),
+    check_tree_(check_tree),
+    type_(type)
+  { }
+
+  virtual std::string to_string() const override;
+  virtual bool is_active() const override { return true; }
+  virtual bool eq(const mstate& rhs) const override;
+  virtual bool lt(const mstate& rhs) const override;
+  virtual ~mstate_sd_inductive() override { }
+
+  virtual bool subsum_less_early(const mstate& rhs) override {
+    (void)rhs; // suppress unused parameter warning
+    // TODO: implement subsumption for mstate_sd_inductive
+    return false;
+  };
+}; // mstate_sd_inductive }}}
+
 
 
 } // namespace sd_inductive

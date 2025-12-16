@@ -2,6 +2,7 @@
 
 #include "complement_alg_sd_inductive.hpp"
 
+#include <cassert>
 #include <stdexcept>
 
 namespace kofola {
@@ -356,6 +357,54 @@ std::vector<check_macrostate> inf_leaf::get_succ(
 
 bool inf_leaf::is_satisfied() const {
   return this->breakpoint.empty();
+}
+
+namespace {
+
+const char* mstate_type_to_string(mstate_type t) {
+  switch (t) {
+    case mstate_type::GUESS:
+      return "GUESS";
+    case mstate_type::CHECK:
+      return "CHECK";
+  }
+  return "?";
+}
+
+} // namespace
+
+std::string mstate_sd_inductive::to_string() const {
+  std::string res = "[SD-INDUCTIVE: ";
+  res += std::string("Type=") + mstate_type_to_string(this->type_);
+  res += ", C=" + std::to_string(this->check_);
+  res += ", Tree=" + this->check_tree_.to_string();
+  res += "]";
+  return res;
+}
+
+bool mstate_sd_inductive::eq(const mstate& rhs) const {
+  const auto* rhs_sd = dynamic_cast<const mstate_sd_inductive*>(&rhs);
+  assert(rhs_sd);
+  return (this->type_ == rhs_sd->type_) &&
+         (this->check_ == rhs_sd->check_) &&
+         (this->check_tree_ == rhs_sd->check_tree_);
+}
+
+bool mstate_sd_inductive::lt(const mstate& rhs) const {
+  const auto* rhs_sd = dynamic_cast<const mstate_sd_inductive*>(&rhs);
+  assert(rhs_sd);
+
+  if (this->type_ != rhs_sd->type_) {
+    return this->type_ < rhs_sd->type_;
+  }
+  if (this->check_ != rhs_sd->check_) {
+    return this->check_ < rhs_sd->check_;
+  }
+  if (this->check_tree_ != rhs_sd->check_tree_) {
+    return this->check_tree_ < rhs_sd->check_tree_;
+  }
+
+  return false;
 }
 
 } // namespace sd_inductive
