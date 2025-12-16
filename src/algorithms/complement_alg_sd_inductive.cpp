@@ -421,6 +421,17 @@ complement_sd_inductive::complement_sd_inductive(const cmpl_info& info, unsigned
   this->acc_cond_ = acc;
 }
 
+/**
+ * Build the initial set of macrostates for this partition.
+ *
+ * The implementation creates a single `mstate_sd_inductive` in the
+ * `GUESS` mode whose `check_` set contains the automaton's original
+ * initial state only if that state belongs to this partition
+ * (`part_index_`). The check-tree is constructed from the stored
+ * acceptance condition `acc_cond_`.
+ *
+ * @return A `mstate_set` containing the initial macrostate.
+ */
 mstate_set complement_sd_inductive::get_init() { // {{
   DEBUG_PRINT_LN("init SD-INDUCTIVE for partition " + std::to_string(this->part_index_));
   std::set<unsigned> init_state;
@@ -436,19 +447,86 @@ mstate_set complement_sd_inductive::get_init() { // {{
 } // get_init() }}}
 
 
+/**
+ * Compute successor macrostates for an active source mstate.
+ *
+ * Behavior summary:
+ * - `resample` is ignored (currently unused).
+ * - Computes `succ_check` as all successors (within the same SCC)
+ *   of the source's `check_` set under `symbol`.
+ * - Computes successor check-trees from the source's `check_tree_`.
+ * - If the source is a `GUESS` state: returns successors with
+ *   `GUESS` for the trees computed from an empty incoming check set,
+ *   and `CHECK` for trees computed with the source's `check_` set.
+ * - If the source is a `CHECK` state and its check-tree is satisfied:
+ *   converts the provided `glob_reached` (restricted to the partition)
+ *   into a `GUESS` successor and attaches color set `{0}`.
+ * - Otherwise returns `CHECK` successors built from `succ_check` and
+ *   the successor trees.
+ *
+ * @param glob_reached set of globally reached states (used when
+ *        promoting satisfied CHECK trees to GUESS with full SCC reach).
+ * @param src pointer to the source `mstate` (expected to be
+ *        `mstate_sd_inductive`).
+ * @param symbol BDD describing the input/transition condition.
+ * @param resample boolean flag (ignored in this implementation).
+ * @return a collection of pairs `(mstate, colors)` describing successor
+ *         macrostates and their associated color sets.
+ */
 mstate_col_set complement_sd_inductive::get_succ_active(
-    const std::set<unsigned>& glob_reached,
-    const mstate* src,
-    const bdd& symbol,
-    bool resample) {
+  const std::set<unsigned>& glob_reached,
+  const mstate* src,
+  const bdd& symbol,
+  bool resample) {
   
+  (void)resample; // it should be true as shared breakpoint is not used
   DEBUG_PRINT_LN("computing successor for glob_reached = " + std::to_string(glob_reached) +
     ", " + std::to_string(*src) + " over " + std::to_string(symbol));
   const sd_inductive::mstate_sd_inductive* src_mst = dynamic_cast<const sd_inductive::mstate_sd_inductive*>(src);
   assert(src_mst);
 
-  // TODO: actual implementation
-  return {};
+  mstate_col_set result {};
+  std::set<unsigned> empty{};
+
+  std::set<unsigned> succ_check = kofola::get_all_successors_in_scc(
+      this->info_.aut_, this->info_.scc_info_, src_mst->check_, symbol);
+  std::vector<sd_inductive::check_macrostate> succ_trees = src_mst->check_tree_.get_succ(this->info_.aut_, 
+      this->info_.scc_info_, empty, symbol);
+  if(src_mst->type_ == sd_inductive::mstate_type::GUESS) {
+    std::vector<sd_inductive::check_macrostate> succ_check_trees = src_mst->check_tree_.get_succ(this->info_.aut_, 
+      this->info_.scc_info_, src_mst->check_, symbol);
+    for(const auto& tree : succ_trees) {
+      std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
+          succ_check, tree, sd_inductive::mstate_type::GUESS));
+      result.push_back({new_ms, {}});
+    }
+    for(const auto& tree : succ_check_trees) {
+      std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
+          succ_check, tree, sd_inductive::mstate_type::CHECK));
+      result.push_back({new_ms, {}});
+    }
+  } else if(src_mst->check_tree_.is_satisfied()) {
+    std::set<unsigned> colors = {0};
+    std::set<unsigned> full_scc_reach = {};
+    for (unsigned s : glob_reached) {
+      if (this->info_.st_to_part_map_.at(s) == static_cast<int>(this->part_index_)) {
+        full_scc_reach.insert(s);
+      }
+    }
+    for(const auto& tree : succ_trees) {
+      std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
+          full_scc_reach, tree, sd_inductive::mstate_type::GUESS));
+      result.push_back({new_ms, colors});
+    }
+  } else {
+    for(const auto& tree : succ_trees) {
+      std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
+          succ_check, tree, sd_inductive::mstate_type::CHECK));
+      result.push_back({new_ms, {}});
+    }
+  }
+
+  return result;
 }
 
 } // namespace kofola
