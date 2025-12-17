@@ -32,6 +32,7 @@
 #include "complement_alg_init_det.hpp"
 #include "complement_alg_subs_tuple.hpp"
 #include "complement_alg_sd_tela.hpp"
+#include "complement_alg_sd_inductive.hpp"
 
 #include <deque>
 #include <map>
@@ -992,6 +993,9 @@ namespace helpers {
                 return std::make_unique<kofola::complement_ncsb>(*(this->info_.get()), partition_index);
             }
         } else {
+            if (kofola::has_value("tela_det_alg", "inductive", kofola::OPTIONS.params)) {
+                return std::make_unique<kofola::complement_sd_inductive>(*(this->info_.get()), partition_index);
+            }
             return std::make_unique<kofola::complement_sd_tela>(*(this->info_.get()), partition_index);
         }
     } // create_deterministic_algorithm() }}}

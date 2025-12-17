@@ -418,7 +418,7 @@ complement_sd_inductive::complement_sd_inductive(const cmpl_info& info, unsigned
   : abstract_complement_alg(info, part_index) { 
   
   spot::acc_cond::acc_code acc = this->info_.part_to_acc_map_.at(part_index_).get_acceptance();
-  this->acc_cond_ = acc;
+  this->acc_cond_ = acc.complement();
 }
 
 /**

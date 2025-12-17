@@ -84,6 +84,7 @@ set(KOFOLA_SOURCES
     # ${CMAKE_SOURCE_DIR}/src/ranking.cpp
     ${CMAKE_SOURCE_DIR}/src/complement_alg_safra.cpp
     ${CMAKE_SOURCE_DIR}/src/complement_alg_sd_tela.cpp
+    ${CMAKE_SOURCE_DIR}/src/complement_alg_sd_inductive.cpp
     ${CMAKE_SOURCE_DIR}/src/complement_alg_subs_tuple.cpp
     ${CMAKE_SOURCE_DIR}/src/emptiness_check.cpp
     ${CMAKE_SOURCE_DIR}/src/inclusion_check.cpp
