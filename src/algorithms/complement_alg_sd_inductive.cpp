@@ -4,6 +4,9 @@
 
 #include <cassert>
 #include <stdexcept>
+#include <type_traits>
+
+#include "../util/helpers.hpp"
 
 using namespace kofola;
 using mstate_set = abstract_complement_alg::mstate_set;
@@ -106,7 +109,7 @@ std::vector<check_macrostate> check_macrostate::get_succ(
         left_succ,
         right_succ,
         [](const check_macrostate& l, const check_macrostate& r) {
-          return check_macrostate::make(TreeType::Or, l, r);
+          return check_macrostate::make(TreeType::Or, l, r).reduce();
         });
       out.insert(combined.begin(), combined.end());
     }
@@ -145,6 +148,146 @@ bool check_macrostate::is_satisfied() const {
   }
 
   throw std::logic_error("check_macrostate::is_satisfied: unexpected internal node type");
+}
+
+/**
+ * Gather all automaton states referenced by this `check_macrostate`.
+ *
+ * For a leaf node:
+ * - `Fin` leaf: returns the `safe` set.
+ * - `Inf` leaf: returns the `track` set.
+ *
+ * For an internal `And` or `Or` node: returns the union of the
+ * states gathered from both children.
+ *
+ * @return A `std::set<unsigned>` containing the state indices referenced
+ *         in this check tree.
+ * @throws std::logic_error if the node contains an unexpected internal
+ *         type (neither `And` nor `Or`).
+ */
+std::set<unsigned> check_macrostate::gather_states() const {
+  if (this->is_leaf()) {
+    return std::visit(
+      [](const auto& leaf) -> std::set<unsigned> {
+        using leaf_t = std::decay_t<decltype(leaf)>;
+        if constexpr (std::is_same_v<leaf_t, fin_leaf>) {
+          return leaf.safe;
+        } else {
+          static_assert(std::is_same_v<leaf_t, inf_leaf>, "Unexpected leaf type");
+          return leaf.track;
+        }
+      },
+      this->leaf_value());
+  }
+
+  const auto node_type = this->type();
+  if (node_type != TreeType::And && node_type != TreeType::Or) {
+    throw std::logic_error("check_macrostate::gather_states: unexpected internal node type");
+  }
+
+  const check_macrostate left_ms(base_tree(this->left()));
+  const check_macrostate right_ms(base_tree(this->right()));
+  return get_set_union(left_ms.gather_states(), right_ms.gather_states());
+}
+
+namespace {
+
+/**
+ * Return a copy of `tree` with all states from `forbidden` removed
+ * from any leaf state-sets.
+ *
+ * - For a `fin_leaf`, the `safe` set is replaced with
+ *   `get_set_difference(leaf.safe, forbidden)`.
+ * - For an `inf_leaf`, the `track` and `breakpoint` sets are
+ *   replaced with `get_set_difference(..., forbidden)`.
+ *
+ * Internal nodes (`And` / `Or`) are processed recursively and rebuilt
+ * with the restricted children.
+ *
+ * @param tree The input `check_macrostate` to restrict.
+ * @param forbidden Set of automaton state indices to remove from
+ *                  leaf sets.
+ * @return A new `check_macrostate` instance equivalent to `tree` but
+ *         with `forbidden` removed from all leaf state-sets.
+ */
+sd_inductive::check_macrostate restrict_states_in_tree(
+  const sd_inductive::check_macrostate& tree,
+  const std::set<unsigned>& forbidden) {
+
+  using check_macrostate = sd_inductive::check_macrostate;
+  using base_tree = kofola::types::binary_tree<sd_inductive::TreeType, sd_inductive::fin_leaf, sd_inductive::inf_leaf>;
+
+  if (tree.is_leaf()) {
+    return std::visit(
+      [&](const auto& leaf) -> check_macrostate {
+        using leaf_t = std::decay_t<decltype(leaf)>;
+        if constexpr (std::is_same_v<leaf_t, sd_inductive::fin_leaf>) {
+          return check_macrostate::fin(get_set_difference(leaf.safe, forbidden), leaf.color);
+        } else {
+          static_assert(std::is_same_v<leaf_t, sd_inductive::inf_leaf>, "Unexpected leaf type");
+          return check_macrostate::inf(
+            get_set_difference(leaf.track, forbidden),
+            get_set_difference(leaf.breakpoint, forbidden),
+            leaf.color);
+        }
+      },
+      tree.leaf_value());
+  }
+
+  const auto node_type = tree.type();
+  check_macrostate left(base_tree(tree.left()));
+  check_macrostate right(base_tree(tree.right()));
+  return check_macrostate::make(
+    node_type,
+    restrict_states_in_tree(left, forbidden),
+    restrict_states_in_tree(right, forbidden));
+}
+
+} // namespace
+
+/**
+ * Reduce/simplify this `check_macrostate` tree.
+ *
+ * Reduction rules applied:
+ * - Leaf nodes are returned unchanged.
+ * - `And` nodes: both children are reduced and the `And` node is
+ *   reconstructed from the reduced children.
+ * - `Or` nodes: the left child is reduced, then the set of states
+ *   referenced by the reduced left child is gathered and removed from
+ *   the right child (via `restrict_states_in_tree`). The right child
+ *   (after restriction) is reduced and the `Or` node is rebuilt from
+ *   the reduced left and reduced/right-restricted right child.
+ *
+ * This transformation ensures that states mentioned on the left of an
+ * `Or` do not persist in the right subtree, avoiding redundant
+ * checking and improving determinism of the check tree.
+ *
+ * @return A reduced `check_macrostate` equivalent to this tree but with
+ *         redundant state references removed where applicable.
+ * @throws std::logic_error if the node contains an unexpected internal
+ *         type.
+ */
+check_macrostate check_macrostate::reduce() const {
+  if (this->is_leaf()) {
+    return *this;
+  }
+
+  const auto node_type = this->type();
+  const check_macrostate left_ms(base_tree(this->left()));
+  const check_macrostate right_ms(base_tree(this->right()));
+
+  if (node_type == TreeType::And) {
+    return check_macrostate::make(TreeType::And, left_ms.reduce(), right_ms.reduce());
+  }
+
+  if (node_type == TreeType::Or) {
+    const check_macrostate left_red = left_ms.reduce();
+    const auto left_states = left_red.gather_states();
+    const check_macrostate right_restricted = restrict_states_in_tree(right_ms, left_states);
+    return check_macrostate::make(TreeType::Or, left_red, right_restricted.reduce());
+  }
+
+  throw std::logic_error("check_macrostate::reduce: unexpected internal node type");
 }
 
 /**

@@ -290,6 +290,20 @@ namespace sd_inductive {
     /// Check whether this macrostate check tree is satisfied.
     bool is_satisfied() const;
 
+    /// Gather relevant automaton states from this check tree.
+    /// - `Fin` leaf: returns `safe`
+    /// - `Inf` leaf: returns `track`
+    /// - `And`/`Or` node: returns union of recursively gathered states
+    std::set<unsigned> gather_states() const;
+
+    /// Reduce this check tree by enforcing disjointness in `Or` nodes.
+    ///
+    /// For every `Or(left, right)` node, states gathered from `left` are
+    /// removed from all leaf sets in `right`:
+    /// - `Fin` leaf: removes from `safe`
+    /// - `Inf` leaf: removes from `track` and `breakpoint`
+    check_macrostate reduce() const;
+
   private:
 
     static check_macrostate fold(TreeType op, const std::vector<spot::acc_cond::acc_code>& parts);
