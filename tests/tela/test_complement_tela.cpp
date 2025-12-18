@@ -43,7 +43,7 @@ TEST_CASE("complement_tela with tela_det_alg=inductive produces language-equival
             spot::twa_graph_ptr aut = test_utils::load_automaton_from_file(filename);
             REQUIRE(aut != nullptr);
 
-            bool equivalent = test_utils::test_complement_equivalence(aut, true);
+            bool equivalent = test_utils::test_complement_equivalence(aut, false);
             CHECK(equivalent);
         }
     }
