@@ -105,6 +105,7 @@ std::vector<check_macrostate> check_macrostate::get_succ(
       const auto left_succ = left_ms.get_succ(aut, scc_info, left_states, bdd);
       const auto right_succ = right_ms.get_succ(aut, scc_info, right_states, bdd);
 
+      // TODO: it is not efficient to call reduce here
       const auto combined = cartesian_product<check_macrostate, check_macrostate>(
         left_succ,
         right_succ,
