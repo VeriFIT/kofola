@@ -1,7 +1,7 @@
 # Utils subdirectory CMakeLists.txt
 
 # Ensure the same compiler settings as parent
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -27,6 +27,7 @@ set(KOFOLA_SOURCES
     ${CMAKE_SOURCE_DIR}/src/algorithms/abstract_complement_alg.cpp
     ${CMAKE_SOURCE_DIR}/src/util/helpers.cpp
     ${CMAKE_SOURCE_DIR}/src/util/util.cpp
+    ${CMAKE_SOURCE_DIR}/src/util/sets.cpp
     ${CMAKE_SOURCE_DIR}/src/complement/complement_tela.cpp
     ${CMAKE_SOURCE_DIR}/src/complement/complement_sync.cpp
     ${CMAKE_SOURCE_DIR}/src/complement/decomposer.cpp
@@ -40,6 +41,7 @@ set(KOFOLA_SOURCES
     # ${CMAKE_SOURCE_DIR}/src/types/ranking.cpp
     ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_safra.cpp
     ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_sd_tela.cpp
+    ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_sd_inductive.cpp
     ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_subs_tuple.cpp
     ${CMAKE_SOURCE_DIR}/src/inclusion/emptiness_check.cpp
     ${CMAKE_SOURCE_DIR}/src/inclusion/inclusion_check.cpp

@@ -4,6 +4,7 @@ set(TYPES_SOURCES
 )
 
 set(TYPES_HEADERS
+    binary_tree.hpp
     ranking.hpp
     safra_tree.hpp
     types.hpp

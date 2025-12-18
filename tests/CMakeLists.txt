@@ -15,7 +15,7 @@ if (APPLE) # we need to set correct path for Spot on Mac OS/homebrew
 endif()
 
 # Test configuration
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -52,6 +52,8 @@ include_directories(${CMAKE_SOURCE_DIR}/src)
 # Test source files
 set(TEST_SOURCES
     test_main.cpp
+    types/test_binary_tree.cpp
+    inductive/test_check_macrostate_from_acc_code.cpp
     tela/test_acc_code_dnf.cpp
     tela/test_complement_tela.cpp
     tela/test_guess_safe_models.cpp
@@ -60,6 +62,8 @@ set(TEST_SOURCES
     modular/test_complement_modular.cpp
     modular/test_scc_types.cpp
     inclusion/test_inclusion.cpp
+    ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_sd_inductive.cpp
+    ${CMAKE_SOURCE_DIR}/src/util/sets.cpp
 )
 
 # Create test sources that need to be compiled from main project
@@ -80,6 +84,7 @@ set(KOFOLA_SOURCES
     # ${CMAKE_SOURCE_DIR}/src/ranking.cpp
     ${CMAKE_SOURCE_DIR}/src/complement_alg_safra.cpp
     ${CMAKE_SOURCE_DIR}/src/complement_alg_sd_tela.cpp
+    ${CMAKE_SOURCE_DIR}/src/complement_alg_sd_inductive.cpp
     ${CMAKE_SOURCE_DIR}/src/complement_alg_subs_tuple.cpp
     ${CMAKE_SOURCE_DIR}/src/emptiness_check.cpp
     ${CMAKE_SOURCE_DIR}/src/inclusion_check.cpp
@@ -109,5 +114,7 @@ list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 if(Catch2_FOUND)
     include(CTest)
     include(Catch)
-    catch_discover_tests(kofola_tests)
+    catch_discover_tests(kofola_tests
+		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests
+	)
 endif()

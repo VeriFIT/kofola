@@ -2,12 +2,14 @@
 set(UTIL_SOURCES
     util.cpp
     helpers.cpp
+	sets.cpp
 )
 
 set(UTIL_HEADERS
     dataflow.hpp
     util.hpp
     helpers.hpp
+	sets.hpp
 )
 
 # Make the sources available to parent scope
