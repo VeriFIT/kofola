@@ -227,8 +227,8 @@ namespace sd_inductive {
      * @param safe Set of safe states.
      * @return A `check_macrostate` leaf of type `TreeType::Fin`.
      */
-    static check_macrostate fin(std::set<unsigned> safe) {
-      return check_macrostate(base_tree::leaf(TreeType::Fin, fin_leaf{std::move(safe)}));
+    static check_macrostate fin(std::set<unsigned> safe, spot::acc_cond::mark_t color) {
+      return check_macrostate(base_tree::leaf(TreeType::Fin, fin_leaf{std::move(safe), color}));
     }
 
     /**
@@ -238,8 +238,8 @@ namespace sd_inductive {
      * @param breakpoint Breakpoint set.
      * @return A `check_macrostate` leaf of type `TreeType::Inf`.
      */
-    static check_macrostate inf(std::set<unsigned> track, std::set<unsigned> breakpoint) {
-      return check_macrostate(base_tree::leaf(TreeType::Inf, inf_leaf{std::move(track), std::move(breakpoint)}));
+    static check_macrostate inf(std::set<unsigned> track, std::set<unsigned> breakpoint, spot::acc_cond::mark_t color) {
+      return check_macrostate(base_tree::leaf(TreeType::Inf, inf_leaf{std::move(track), std::move(breakpoint), color}));
     }
 
     /**
@@ -381,9 +381,16 @@ public: // METHODS
     return {};
   }
 
-  virtual mstate_set lift_track_to_active(const mstate*) override { 
-    throw std::runtime_error("complement_sd_inductive: lift_track_to_active() should not be called");
-    return {};
+  virtual mstate_set lift_track_to_active(const mstate* ms) override { 
+    const sd_inductive::mstate_sd_inductive* src_ms = dynamic_cast<const sd_inductive::mstate_sd_inductive*>(ms);
+    assert(src_ms);
+
+    std::shared_ptr<mstate> cp(new sd_inductive::mstate_sd_inductive(
+      src_ms->check_,
+      src_ms->check_tree_,
+      src_ms->type_
+    ));
+    return {cp};
   };
 
   virtual mstate_col_set get_succ_active(

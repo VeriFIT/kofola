@@ -16,6 +16,8 @@
 TEST_CASE("complement_tela produces language-equivalent results to Spot", "[complement_tela]") {
     // Set up TELA options
     test_utils::setup_tela_options();
+    // Ensure we're testing the default determinization algorithm
+    kofola::OPTIONS.params.erase("tela_det_alg");
     
     // Use the common test files from test utilities
     for (const std::string& filename : test_utils::COMMON_TEST_FILES) {
@@ -29,6 +31,25 @@ TEST_CASE("complement_tela produces language-equivalent results to Spot", "[comp
             CHECK(equivalent);
         }
     }
+}
+
+TEST_CASE("complement_tela with tela_det_alg=inductive produces language-equivalent results to Spot", "[complement_tela][tela_det_alg][inductive]") {
+    // Set up TELA options and enable inductive SD-TELA determinization
+    test_utils::setup_tela_options();
+    kofola::OPTIONS.params["tela_det_alg"] = "inductive";
+
+    for (const std::string& filename : test_utils::COMMON_TEST_FILES) {
+        SECTION("Testing file (inductive det): " + filename) {
+            spot::twa_graph_ptr aut = test_utils::load_automaton_from_file(filename);
+            REQUIRE(aut != nullptr);
+
+            bool equivalent = test_utils::test_complement_equivalence(aut, true);
+            CHECK(equivalent);
+        }
+    }
+
+    // Clean up to avoid side-effects on other tests
+    kofola::OPTIONS.params.erase("tela_det_alg");
 }
 
 // Manual test function that can be called from main

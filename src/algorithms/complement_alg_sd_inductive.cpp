@@ -193,13 +193,14 @@ check_macrostate check_macrostate::from_acc_code_impl(const spot::acc_cond::acc_
   }
 
   // Leaf: [mark][op]
-  if (code.size() == 2) {
+  if (code.size() == 2 && false) {
     const auto op = code[1].sub.op;
+    const auto mark = code[0].mark;
     if (op == spot::acc_cond::acc_op::Fin) {
-      return check_macrostate(base_tree::leaf(TreeType::Fin, fin_leaf{{}, code[0].mark}));
+      return check_macrostate(base_tree::leaf(TreeType::Fin, fin_leaf{{}, mark}));
     }
     if (op == spot::acc_cond::acc_op::Inf) {
-      return check_macrostate(base_tree::leaf(TreeType::Inf, inf_leaf{{}, {}, code[0].mark}));
+      return check_macrostate(base_tree::leaf(TreeType::Inf, inf_leaf{{}, {}, mark}));
     }
   }
 
@@ -213,12 +214,15 @@ check_macrostate check_macrostate::from_acc_code_impl(const spot::acc_cond::acc_
     return fold(TreeType::Or, disjuncts);
   }
 
-  // Some forms may not be caught above (e.g., parenthesized singletons); try to unwrap once.
-  if (!conjuncts.empty() && conjuncts.size() == 1 && conjuncts[0] != code) {
-    return from_acc_code_impl(conjuncts[0]);
-  }
-  if (!disjuncts.empty() && disjuncts.size() == 1 && disjuncts[0] != code) {
-    return from_acc_code_impl(disjuncts[0]);
+  if (code.size() == 2) {
+    const auto op = code[1].sub.op;
+    const auto mark = code[0].mark;
+    if (op == spot::acc_cond::acc_op::Fin) {
+      return check_macrostate(base_tree::leaf(TreeType::Fin, fin_leaf{{}, mark}));
+    }
+    if (op == spot::acc_cond::acc_op::Inf) {
+      return check_macrostate(base_tree::leaf(TreeType::Inf, inf_leaf{{}, {}, mark}));
+    }
   }
 
   throw std::invalid_argument("check_macrostate: unsupported acceptance formula operator");
@@ -290,18 +294,12 @@ std::vector<check_macrostate> fin_leaf::get_succ(
       }
     }
   }
-  return {check_macrostate::fin(std::move(succs))};
+  return {check_macrostate::fin(std::move(succs), this->color)};
 }
 
 bool fin_leaf::is_satisfied() const {
   return true;
 }
-
-std::vector<check_macrostate> inf_leaf::get_succ(
-  const spot::const_twa_graph_ptr&  aut,
-  const spot::scc_info&             scc_info,
-  const std::set<unsigned>&         check_states,
-  const bdd&                        bdd) const {
 
 /**
  * Compute successor macrostate(s) for an `Inf` leaf.
@@ -329,6 +327,11 @@ std::vector<check_macrostate> inf_leaf::get_succ(
  * @return Vector containing a single `check_macrostate::inf` with the
  *         successor sets `(succs, succ_break)` as described above.
  */
+std::vector<check_macrostate> inf_leaf::get_succ(
+  const spot::const_twa_graph_ptr&  aut,
+  const spot::scc_info&             scc_info,
+  const std::set<unsigned>&         check_states,
+  const bdd&                        bdd) const {
 
   std::set<unsigned> st = get_set_union(this->track, check_states);
   std::set<unsigned> succs {};
@@ -352,11 +355,11 @@ std::vector<check_macrostate> inf_leaf::get_succ(
         }
       }
     }
-    return {check_macrostate::inf(std::move(succs), std::move(succ_break))};
+    return {check_macrostate::inf(std::move(succs), std::move(succ_break), this->color)};
   }
 
   auto succs_copy = succs;
-  return {check_macrostate::inf(std::move(succs), std::move(succs_copy))};
+  return {check_macrostate::inf(std::move(succs), std::move(succs_copy), this->color)};
 }
 
 bool inf_leaf::is_satisfied() const {
