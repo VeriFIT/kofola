@@ -75,7 +75,7 @@ struct cmpl_info
   const ReachableVector& reachable_vector_;
 
   /// map of partition to the SCCs it contains
-  const PartitionToSCCMap& part_to_scc_map_;
+  PartitionToSCCMap part_to_scc_map_;
 
   /// maps SCCs to sets of their predecessors
   const SCCToSCCSetMap& scc_to_pred_sccs_map_;

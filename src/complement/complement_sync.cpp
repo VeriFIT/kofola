@@ -476,7 +476,7 @@ namespace helpers {
         kofola::PartitionToSCCMap part_to_scc_map;
         for (const auto &scc_part_pair: scc_to_part_map) {
             if (scc_part_pair.second != -1) {
-                auto it_bool_pair = part_to_scc_map.insert({scc_part_pair.first, {scc_part_pair.first}});
+                auto it_bool_pair = part_to_scc_map.insert({scc_part_pair.second, {scc_part_pair.first}});
                 if (!it_bool_pair.second) { // no insertion
                     it_bool_pair.first->second.insert(scc_part_pair.first);
                 }
