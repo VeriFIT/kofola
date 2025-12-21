@@ -1041,9 +1041,9 @@ namespace helpers {
     helpers::tnba_complement::create_nondeterministic_algorithm(size_t partition_index) { // {{{
         bool is_buchi = this->info_->part_to_acc_map_.at(partition_index).is_buchi();
 
-        // if(!is_buchi) {
-        //     throw std::runtime_error("Algorithm for general components is not implemented");
-        // }
+        if(!is_buchi) {
+            throw std::runtime_error("Algorithm for general components is not implemented");
+        }
 
         if (kofola::has_value("nac-alg", "subs_tup", kofola::OPTIONS.params)) {
             // use subs_tup for NACs
@@ -1621,7 +1621,7 @@ void create_deter_part(helpers::tnba_complement &tnba_compl, const spot::twa_gra
 
 void make_colors_unique(spot::acc_cond::acc_code code) 
 {
-    
+    (void) code;
 }
 
 /// make automaton elevator
@@ -1629,7 +1629,6 @@ void elevatorize(helpers::tnba_complement &tnba_compl, const spot::twa_graph_ptr
 {
     auto acc = compl_info->part_to_acc_map_.at(part_index).get_acceptance();
     auto dnf = kofola::cmpl_info::preserve_acc_code_dnf(acc); // TODO check for multiple occurences of one color within one DNF clause 
-    spot::acc_cond::mark_t all_infs = get_all_infs_in_dnf(dnf);
 
     auto old_aut_num_states = aut->num_states();
     auto old_colors_cnt = aut->acc().num_sets();
@@ -1674,7 +1673,6 @@ spot::twa_graph_ptr kofola::complement_sync(const spot::twa_graph_ptr& aut)
     // automaton acceptance stuff
     auto aut_acc = potentially_new_aut->get_acceptance();
     auto dnf_aut_acc = kofola::cmpl_info::preserve_acc_code_dnf(aut_acc);
-    auto all_fins_aut = get_all_fins_in_dnf(dnf_aut_acc);
     
     // ELEVATORIZE nondet. accepting components
     bool elevatorize_needed = false;
