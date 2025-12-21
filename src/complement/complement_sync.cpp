@@ -72,6 +72,7 @@ namespace helpers {
 
     tnba_complement::tnba_complement(const spot::twa_graph_ptr &aut, spot::scc_info &si)
             : aut_(aut),
+              non_const_aut_(aut),
               si_(si),
               nb_states_(aut->num_states()),
               support_(nb_states_),
@@ -110,7 +111,7 @@ namespace helpers {
         if(aut->num_states() >= 8000) {
             kofola::OPTIONS.params["sim-ms-prune"] = "no";
         }
-
+        
         if(kofola::has_value("sim-ms-prune", "yes", kofola::OPTIONS.params)) {
             // Perform reduction and compute simulation on the current automaton.
             // This may change the automaton (state count, edges, etc.).
@@ -195,7 +196,8 @@ namespace helpers {
     void tnba_complement::reduce_and_compute_simulation() {
         // compute simulation on current automaton (may change aut_)
         std::vector<bdd> implications;
-        this->aut_ = spot::simulation(this->aut_, &implications, -1);
+        this->non_const_aut_ = spot::simulation(this->aut_, &implications, -1);
+        this->aut_ = this->non_const_aut_;
 
         // Recompute SCC info on the reduced automaton to evaluate reachability correctly
         spot::scc_info tmp_si(this->aut_);
@@ -482,7 +484,6 @@ namespace helpers {
                 }
             }
         }
-
         return part_to_scc_map;
     } // create_part_to_scc_map() }}}
 
@@ -1040,9 +1041,9 @@ namespace helpers {
     helpers::tnba_complement::create_nondeterministic_algorithm(size_t partition_index) { // {{{
         bool is_buchi = this->info_->part_to_acc_map_.at(partition_index).is_buchi();
 
-        if(!is_buchi) {
-            throw std::runtime_error("Algorithm for general components is not implemented");
-        }
+        // if(!is_buchi) {
+        //     throw std::runtime_error("Algorithm for general components is not implemented");
+        // }
 
         if (kofola::has_value("nac-alg", "subs_tup", kofola::OPTIONS.params)) {
             // use subs_tup for NACs
@@ -1409,19 +1410,33 @@ spot::acc_cond::mark_t invert(const spot::acc_cond::mark_t& m) {
     return m ^ all;                          // XOR flips all bits
 }
 
-void remove_inf_marks_in_scc(const spot::twa_graph_ptr& aut, const kofola::cmpl_info& compl_info, size_t part_index, spot::acc_cond::mark_t infs) {
-    spot::acc_cond::mark_t inverted_infs= invert(infs);
+void remove_all_cols_within_scc(const spot::twa_graph_ptr& aut, const kofola::cmpl_info& compl_info, size_t scc_idx, unsigned old_aut_num_states) 
+{
+    spot::acc_cond::mark_t empty_mark({});
 
-    auto scc_states = compl_info.scc_info_.states_of(part_index);
+    auto scc_states = compl_info.scc_info_.states_of(scc_idx);
     for(auto s : scc_states) {
         for (auto &t : aut->out(s)) {
-            if (compl_info.scc_info_.scc_of(s) == compl_info.scc_info_.scc_of(t.dst)) {
-                t.acc = t.acc & inverted_infs; // remove inf marks within the SCC
+            if (s < old_aut_num_states && t.dst < old_aut_num_states && compl_info.scc_info_.scc_of(s) == compl_info.scc_info_.scc_of(t.dst)) {
+                t.acc = empty_mark; // remove all colors
             }
         }
     }
 }
 
+void add_cols_within_scc(const spot::twa_graph_ptr& aut, const kofola::cmpl_info& compl_info, size_t part_index, spot::acc_cond::mark_t fins, unsigned old_aut_num_states) 
+{
+    auto scc_states = compl_info.scc_info_.states_of(part_index);
+    for(auto s : scc_states) {
+        for (auto &t : aut->out(s)) {
+            if (s < old_aut_num_states && t.dst < old_aut_num_states && compl_info.scc_info_.scc_of(s) == compl_info.scc_info_.scc_of(t.dst)) {
+                t.acc = t.acc | fins; // add fins
+            }
+        }
+    }
+}
+
+// limit determinism macrostates
 struct RBL
 {
     std::set<unsigned> R;
@@ -1462,7 +1477,8 @@ std::set<unsigned> get_succ_excluding_colors(
     const bdd& bdd,
     const spot::acc_cond::mark_t& col,
     unsigned old_aut_num_states
-) {
+) 
+{
   std::set<unsigned> succ_states;
 
     for (unsigned s : states) {
@@ -1484,7 +1500,8 @@ std::set<unsigned> get_succ_including_colors(
     const std::set<unsigned>& states,
     const bdd& bdd,
     const spot::acc_cond::mark_t& col,
-    unsigned old_aut_num_states) {
+    unsigned old_aut_num_states) 
+{
   std::set<unsigned> succ_states;
 
     for (unsigned s : states) {
@@ -1500,16 +1517,19 @@ std::set<unsigned> get_succ_including_colors(
     return succ_states;
 }
 
-void create_deter_part(helpers::tnba_complement &tnba_compl, const spot::twa_graph_ptr& aut, size_t part_index, const kofola::cmpl_info& compl_info, kofola::AccClause disjunct, unsigned old_aut_num_states, unsigned new_color) {
-    auto scc_states = compl_info.scc_info_.states_of(part_index);
+void create_deter_part(helpers::tnba_complement &tnba_compl, const spot::twa_graph_ptr& aut, size_t scc_idx, const kofola::cmpl_info& compl_info, kofola::AccClause disjunct, unsigned old_aut_num_states, unsigned new_color) 
+{
+    auto scc_states = compl_info.scc_info_.states_of(scc_idx);
     std::queue<RBL> to_process;
     std::map<RBL, unsigned> det_state_to_spot_state;
     spot::acc_cond::mark_t fins = get_all_fins_in_dnf({disjunct});
     std::vector<spot::acc_cond::mark_t> infs = disjunct.infs;
     unsigned l_mod = infs.size();
     unsigned l_init = 0;
-        
-    // TODO might optimize to jump after visiting fin mark for example
+
+    if(l_mod == 0)
+        l_mod = 1;
+
     for(auto s : scc_states) {
         for (auto &t : aut->out(s)) {
             if (compl_info.scc_info_.scc_of(s) != compl_info.scc_info_.scc_of(t.dst) || t.dst >= old_aut_num_states)
@@ -1548,7 +1568,6 @@ void create_deter_part(helpers::tnba_complement &tnba_compl, const spot::twa_gra
         }
 
         bdd all = n_s_compat;
-        // TODO sink state handling??? is it neccessary here?
         
         // iterate over all symbols
         while (all != bddfalse) {
@@ -1556,12 +1575,17 @@ void create_deter_part(helpers::tnba_complement &tnba_compl, const spot::twa_gra
             all -= letter;
 
             DEBUG_PRINT_LN("symbol: " + std::to_string(letter));
-
+            
             auto all_succs_R = get_succ_excluding_colors(aut, compl_info.scc_info_, current.R, letter, fins, old_aut_num_states);
-            auto all_succs_R_visited_mark = get_succ_including_colors(aut, compl_info.scc_info_, current.R, letter, infs[current.l], old_aut_num_states);
+            auto all_succs_R_visited_mark = all_succs_R;
+
+            if(infs.size() > 0)
+                all_succs_R_visited_mark = get_succ_including_colors(aut, compl_info.scc_info_, current.R, letter, infs[current.l], old_aut_num_states);
+            
             if(all_succs_R.empty()) {
                 continue; // no successors on this letter
             }
+
             auto all_succs_B = get_succ_excluding_colors(aut, compl_info.scc_info_, current.B, letter, fins, old_aut_num_states);
 
             RBL next;
@@ -1595,35 +1619,42 @@ void create_deter_part(helpers::tnba_complement &tnba_compl, const spot::twa_gra
     }
 }
 
+void make_colors_unique(spot::acc_cond::acc_code code) 
+{
+    
+}
+
 /// make automaton elevator
-void elevatorize(helpers::tnba_complement &tnba_compl, const spot::twa_graph_ptr& aut, std::unique_ptr<kofola::cmpl_info> compl_info, size_t part_index) {
+void elevatorize(helpers::tnba_complement &tnba_compl, const spot::twa_graph_ptr& aut, std::unique_ptr<kofola::cmpl_info> compl_info, size_t part_index, size_t scc_idx) 
+{
     auto acc = compl_info->part_to_acc_map_.at(part_index).get_acceptance();
-    auto dnf = kofola::cmpl_info::preserve_acc_code_dnf(acc);
+    auto dnf = kofola::cmpl_info::preserve_acc_code_dnf(acc); // TODO check for multiple occurences of one color within one DNF clause 
     spot::acc_cond::mark_t all_infs = get_all_infs_in_dnf(dnf);
 
-    // make unique colors usage TODO
-
-    spot::print_hoa(std::cerr, aut);
-    
     auto old_aut_num_states = aut->num_states();
     auto old_colors_cnt = aut->acc().num_sets();
-
-    unsigned disj_cnt = 0;
-    for(auto disj : dnf) {
-        disj_cnt++;
-        create_deter_part(tnba_compl, aut, part_index, *compl_info, disj, old_aut_num_states, old_colors_cnt + disj_cnt);
-        auto old_acc = aut->get_acceptance();
-        old_acc |= spot::acc_cond::acc_code::inf({old_colors_cnt + disj_cnt});
-        aut->set_acceptance(old_acc);
-        
-        DEBUG_PRINT_LN("Created deterministic part for disjunct " + std::to_string(disj_cnt));
-    }
     
-    remove_inf_marks_in_scc(aut, *compl_info, part_index, all_infs); // FIXME: it won't neccessairily hold that the nondet. component is nonaccepting
+    for(auto disj : dnf) {
+        create_deter_part(tnba_compl, aut, scc_idx, *compl_info, disj, old_aut_num_states, old_colors_cnt);
+    }
+
+    // new acc mark for deter. components (TODO: might use the only one for each originally nonodet. component)
+    auto old_acc = aut->get_acceptance();
+    old_acc |= spot::acc_cond::acc_code::inf({old_colors_cnt});
+    aut->set_acceptance(old_acc);
+
+    // make sure the nondet. component is non-accepting
+    auto new_fin = aut->acc().num_sets();
+    old_acc = aut->get_acceptance();
+    
+    remove_all_cols_within_scc(aut, *compl_info, scc_idx, old_aut_num_states);
+    add_cols_within_scc(aut, *compl_info, scc_idx, spot::acc_cond::mark_t{new_fin}, old_aut_num_states);
+    
+    old_acc &= spot::acc_cond::acc_code::fin({new_fin});
+    aut->set_acceptance(old_acc);
+    // should be non-acc. now
 
     aut->merge_edges();
-
-    spot::print_hoa(std::cerr, aut);
 }
 
 spot::twa_graph_ptr kofola::complement_sync(const spot::twa_graph_ptr& aut)
@@ -1636,20 +1667,41 @@ spot::twa_graph_ptr kofola::complement_sync(const spot::twa_graph_ptr& aut)
         si.determine_unknown_acceptance();
     }
     
-
     auto comp = helpers::tnba_complement(aut, si);
     auto compl_info = comp.get_cmpl_info();
+    auto potentially_new_aut = comp.get_nonconst_aut();
 
-    for(size_t i = 0; i < compl_info->num_partitions_; i++) {
-        if (compl_info->part_to_type_map_.at(i) == PartitionType::NONDETERMINISTIC) {
-            elevatorize(comp, aut, comp.get_cmpl_info(), i);
-        }
+    // automaton acceptance stuff
+    auto aut_acc = potentially_new_aut->get_acceptance();
+    auto dnf_aut_acc = kofola::cmpl_info::preserve_acc_code_dnf(aut_acc);
+    auto all_fins_aut = get_all_fins_in_dnf(dnf_aut_acc);
+    
+    // ELEVATORIZE nondet. accepting components
+    bool elevatorize_needed = false;
+    for(unsigned i = 0; i < compl_info->num_partitions_; i++) {
+        if (compl_info->part_to_type_map_.at(i) != PartitionType::NONDETERMINISTIC)
+            continue;
+
+        auto scc_idx = *(compl_info->part_to_scc_map_.at(i).begin()); // nondet. partitions are singletons
+
+        elevatorize(comp, potentially_new_aut, comp.get_cmpl_info(), i, scc_idx);
+        elevatorize_needed = true;
     }
 
-    spot::scc_info si2(aut, spot::scc_info_options::ALL);
-    auto comp2 = helpers::tnba_complement(aut, si2);
+    std::cerr << "Elevatorization needed: " << (elevatorize_needed ? "yes" : "no") << "\n";
+    // ELEVATORIZED!! (if possible)
 
-    auto res = comp2.run_new();
+    // complement it
+    if(elevatorize_needed) {
+        // rerun info gathering etc.
+        spot::scc_info si_elevatorized(potentially_new_aut, spot::scc_info_options::ALL);
+        auto comp_elevatorized = helpers::tnba_complement(potentially_new_aut, si_elevatorized);
+        auto res = comp_elevatorized.run_new();
+        
+        return res;
+    } else {
+        auto res = comp.run_new();
 
-    return res;
+        return res;
+    }
 }
