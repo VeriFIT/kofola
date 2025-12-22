@@ -54,6 +54,7 @@ set(TEST_SOURCES
     test_main.cpp
     types/test_binary_tree.cpp
     inductive/test_check_macrostate_from_acc_code.cpp
+    elevatorization/test_elevatorization.cpp
     tela/test_acc_code_dnf.cpp
     tela/test_complement_tela.cpp
     tela/test_guess_safe_models.cpp
