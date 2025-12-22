@@ -3,12 +3,14 @@ set(COMPLEMENT_SOURCES
     complement_sync.cpp
     complement_tela.cpp
     decomposer.cpp
+    elevatorization.cpp
 )
 
 set(COMPLEMENT_HEADERS
     complement_sync.hpp
     complement_tela.hpp
     decomposer.hpp
+    elevatorization.hpp
 )
 
 # Make the sources available to parent scope

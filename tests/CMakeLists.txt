@@ -73,6 +73,7 @@ set(KOFOLA_SOURCES
     ${CMAKE_SOURCE_DIR}/src/util.cpp
     ${CMAKE_SOURCE_DIR}/src/complement_tela.cpp
     ${CMAKE_SOURCE_DIR}/src/complement_sync.cpp
+    ${CMAKE_SOURCE_DIR}/src/elevatorization.cpp
     ${CMAKE_SOURCE_DIR}/src/decomposer.cpp
     ${CMAKE_SOURCE_DIR}/src/complement_alg_init_det.cpp
     ${CMAKE_SOURCE_DIR}/src/complement_alg_mh.cpp
