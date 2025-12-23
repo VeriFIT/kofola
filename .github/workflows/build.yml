@@ -34,16 +34,18 @@ jobs:
             libgmp-dev libreadline-dev libunistring-dev texinfo
       - name: Install Spot ${SPOT_VERSION}
         run: |
-          url="https://www.lrde.epita.fr/dload/spot/spot-${SPOT_VERSION}.tar.gz"
+          # LRDE publishes e.g. spot-2.14.tar.gz, not spot-2.14.0.tar.gz
+          spot_tar_ver="${SPOT_VERSION%.0}"
+          url="https://www.lrde.epita.fr/dload/spot/spot-${spot_tar_ver}.tar.gz"
           curl -fL --retry 5 --retry-all-errors --retry-delay 2 -o spot.tar.gz "$url"
           tar -xzf spot.tar.gz
-          cd "spot-${SPOT_VERSION}" 
+          cd "spot-${spot_tar_ver}" 
           ./configure
           make -j"$(nproc)"
           sudo make install
 
           # Sanity-check the installed version
-          autfilt --version | head -n 1 | grep -F "${SPOT_VERSION}"
+          autfilt --version | head -n 1 | grep -E "${SPOT_VERSION}|${spot_tar_ver}"
       - name: Compile release
         run: make release
       - name: Test release
@@ -67,16 +69,18 @@ jobs:
           brew install autoconf automake libtool pkg-config bison flex gmp readline libunistring texinfo
       - name: Install Spot ${SPOT_VERSION}
         run: |
-          url="https://www.lrde.epita.fr/dload/spot/spot-${SPOT_VERSION}.tar.gz"
+          # LRDE publishes e.g. spot-2.14.tar.gz, not spot-2.14.0.tar.gz
+          spot_tar_ver="${SPOT_VERSION%.0}"
+          url="https://www.lrde.epita.fr/dload/spot/spot-${spot_tar_ver}.tar.gz"
           curl -fL --retry 5 --retry-all-errors --retry-delay 2 -o spot.tar.gz "$url"
           tar -xzf spot.tar.gz
-          cd "spot-${SPOT_VERSION}"
+          cd "spot-${spot_tar_ver}"
           ./configure
           make -j"$(sysctl -n hw.ncpu)"
           sudo make install
 
           # Sanity-check the installed version
-          autfilt --version | head -n 1 | grep -F "${SPOT_VERSION}"
+          autfilt --version | head -n 1 | grep -E "${SPOT_VERSION}|${spot_tar_ver}"
       - name: Compile
         run: make release
       - name: Test the library
