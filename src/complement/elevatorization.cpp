@@ -262,7 +262,7 @@ void kofola::Elevatorization::limit_deter(size_t part_index, size_t scc_idx)
     aut_->merge_edges();
 }
 
-const spot::twa_graph_ptr& kofola::Elevatorization::elevatorize() 
+const spot::twa_graph_ptr& kofola::Elevatorization::elevatorize(bool only_non_buchi) 
 {
     auto aut_acc = aut_->get_acceptance();
     auto dnf_aut_acc = kofola::cmpl_info::preserve_acc_code_dnf(aut_acc);
@@ -276,6 +276,10 @@ const spot::twa_graph_ptr& kofola::Elevatorization::elevatorize()
     
     for(unsigned i = 0; i < info_->num_partitions_; i++) {
         if (info_->part_to_type_map_.at(i) != PartitionType::NONDETERMINISTIC)
+            continue;
+        
+        bool is_buchi = info_->part_to_acc_map_.at(i).is_buchi();
+        if(is_buchi && only_non_buchi)
             continue;
         
         auto scc_idx = *(info_->part_to_scc_map_.at(i).begin()); // nondet. partitions are singletons
