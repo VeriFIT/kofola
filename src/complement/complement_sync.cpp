@@ -1018,6 +1018,9 @@ namespace helpers {
         if (is_buchi) {
             return std::make_unique<kofola::complement_ncsb>(*(this->info_.get()), partition_index);
         } else {
+            if (kofola::has_value("tela_det_alg", "inductive", kofola::OPTIONS.params)) {
+                return std::make_unique<kofola::complement_sd_inductive>(*(this->info_.get()), partition_index);
+            }
             return std::make_unique<kofola::complement_sd_tela>(*(this->info_.get()), partition_index);
         }
     } // create_strongly_deterministic_algorithm() }}}
