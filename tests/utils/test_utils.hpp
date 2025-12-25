@@ -90,7 +90,9 @@ const std::vector<std::string> COMMON_TEST_FILES = {
     "tests/test_data/tela_det/automaton860.hoa",
     "tests/test_data/tela_det/automaton90.hoa",
     "tests/test_data/tela_det/automaton900.hoa",
-    "tests/test_data/tela_det/automaton940.hoa"
+    "tests/test_data/tela_det/automaton940.hoa",
+    "tests/test_data/tela_det/out_1332.hoa",
+    //"tests/test_data/tela_det/out_3357.hoa",
 };
 
 /**

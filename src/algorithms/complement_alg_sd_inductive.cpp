@@ -68,12 +68,13 @@ std::vector<check_macrostate> check_macrostate::get_succ(
   const spot::const_twa_graph_ptr&  aut,
   const spot::scc_info&             scc_info,
   const std::set<unsigned>&         check_states,
-  const bdd&                        bdd) const {
+  const bdd&                        bdd,
+  bool                              resample) const {
 
   if (this->is_leaf()) {
     return std::visit(
       [&](const auto& leaf) {
-        return leaf.get_succ(aut, scc_info, check_states, bdd);
+        return leaf.get_succ(aut, scc_info, check_states, bdd, resample);
       },
       this->leaf_value());
   }
@@ -83,8 +84,8 @@ std::vector<check_macrostate> check_macrostate::get_succ(
   const check_macrostate right_ms(base_tree(this->right()));
 
   if (node_type == TreeType::And) {
-    const auto left_succ = left_ms.get_succ(aut, scc_info, check_states, bdd);
-    const auto right_succ = right_ms.get_succ(aut, scc_info, check_states, bdd);
+    const auto left_succ = left_ms.get_succ(aut, scc_info, check_states, bdd, resample);
+    const auto right_succ = right_ms.get_succ(aut, scc_info, check_states, bdd, resample);
     return cartesian_product<check_macrostate, check_macrostate>(
       left_succ,
       right_succ,
@@ -102,8 +103,8 @@ std::vector<check_macrostate> check_macrostate::get_succ(
       }
       const auto& left_states = part[0];
       const auto& right_states = part[1];
-      const auto left_succ = left_ms.get_succ(aut, scc_info, left_states, bdd);
-      const auto right_succ = right_ms.get_succ(aut, scc_info, right_states, bdd);
+      const auto left_succ = left_ms.get_succ(aut, scc_info, left_states, bdd, resample);
+      const auto right_succ = right_ms.get_succ(aut, scc_info, right_states, bdd, resample);
 
       // TODO: it is not efficient to call reduce here
       const auto combined = cartesian_product<check_macrostate, check_macrostate>(
@@ -424,8 +425,10 @@ std::vector<check_macrostate> fin_leaf::get_succ(
   const spot::const_twa_graph_ptr&  aut,
   const spot::scc_info&             scc_info,
   const std::set<unsigned>&         check_states,
-  const bdd&                        bdd) const {
+  const bdd&                        bdd,
+  bool                              resample) const {
 
+  (void)resample; // unused
   std::set<unsigned> st = get_set_union(this->safe, check_states);
   std::set<unsigned> succs {};
   for (unsigned s : st) {
@@ -475,7 +478,8 @@ std::vector<check_macrostate> inf_leaf::get_succ(
   const spot::const_twa_graph_ptr&  aut,
   const spot::scc_info&             scc_info,
   const std::set<unsigned>&         check_states,
-  const bdd&                        bdd) const {
+  const bdd&                        bdd,
+  bool                              resample) const {
 
   std::set<unsigned> st = get_set_union(this->track, check_states);
   std::set<unsigned> succs {};
@@ -488,7 +492,7 @@ std::vector<check_macrostate> inf_leaf::get_succ(
     }
   }
 
-  if (check_states.empty()) {
+  if (!resample) {
     for (unsigned s : this->breakpoint) {
       for (const auto& t : aut->out(s)) {
         if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
@@ -638,10 +642,10 @@ mstate_col_set complement_sd_inductive::get_succ_active(
   std::set<unsigned> succ_check = kofola::get_all_successors_in_scc(
       this->info_.aut_, this->info_.scc_info_, src_mst->check_, symbol);
   std::vector<sd_inductive::check_macrostate> succ_trees = src_mst->check_tree_.get_succ(this->info_.aut_, 
-      this->info_.scc_info_, empty, symbol);
+      this->info_.scc_info_, empty, symbol, false);
   if(src_mst->type_ == sd_inductive::mstate_type::GUESS) {
     std::vector<sd_inductive::check_macrostate> succ_check_trees = src_mst->check_tree_.get_succ(this->info_.aut_, 
-      this->info_.scc_info_, src_mst->check_, symbol);
+      this->info_.scc_info_, src_mst->check_, symbol, true);
     for(const auto& tree : succ_trees) {
       std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
           succ_check, tree, sd_inductive::mstate_type::GUESS));

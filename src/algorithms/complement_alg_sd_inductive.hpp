@@ -85,7 +85,8 @@ namespace sd_inductive {
       const spot::const_twa_graph_ptr&  aut,
       const spot::scc_info&             scc_info,
       const std::set<unsigned>&         check_states,
-      const bdd&                        bdd) const;
+      const bdd&                        bdd,
+      bool                              resample) const;
 
     bool is_satisfied() const;
   };
@@ -139,7 +140,8 @@ namespace sd_inductive {
       const spot::const_twa_graph_ptr&  aut,
       const spot::scc_info&             scc_info,
       const std::set<unsigned>&         check_states,
-      const bdd&                        bdd) const;
+      const bdd&                        bdd,
+      bool                              resample) const;
 
     bool is_satisfied() const;
 
@@ -285,7 +287,8 @@ namespace sd_inductive {
       const spot::const_twa_graph_ptr&  aut,
       const spot::scc_info&             scc_info,
       const std::set<unsigned>&         check_states,
-      const bdd&                        bdd) const;
+      const bdd&                        bdd,
+      bool                              resample) const;
 
     /// Check whether this macrostate check tree is satisfied.
     bool is_satisfied() const;
