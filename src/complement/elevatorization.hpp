@@ -84,7 +84,8 @@ namespace kofola
         std::set<unsigned> get_succ_including_colors(
             const std::set<unsigned>& states,
             const bdd& bdd,
-            const spot::acc_cond::mark_t& col
+            const spot::acc_cond::mark_t& col,
+            const spot::acc_cond::mark_t& without_cols
         );
 
     private:

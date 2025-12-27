@@ -108,10 +108,14 @@ std::set<unsigned> kofola::Elevatorization::get_succ_excluding_colors(
 {
   std::set<unsigned> succ_states;
 
-    for (unsigned s : states) {
-        for (const auto &t : aut_->out(s)) {
-            if (info_->scc_info_.scc_of(s) == info_->scc_info_.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
-                if (!(t.acc & col) && t.dst < old_aut_num_states_) { // exclude colors
+  DEBUG_PRINT_LN("states: " + std::to_string(states) + ", letter: " + std::to_string(bdd) + ", col: " + std::to_string(col));
+  for (unsigned s : states) {
+      for (const auto &t : aut_->out(s)) {
+          if (info_->scc_info_.scc_of(s) == info_->scc_info_.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
+              if (t.acc & col)
+                continue;
+              if (t.dst < old_aut_num_states_) { // exclude colors
+                    DEBUG_PRINT_LN(std::to_string(s) + " --> " + std::to_string(t.dst) + ", acc: " + std::to_string(t.acc));
                     succ_states.insert(t.dst);
                 }
             }
@@ -124,15 +128,21 @@ std::set<unsigned> kofola::Elevatorization::get_succ_excluding_colors(
 std::set<unsigned> kofola::Elevatorization::get_succ_including_colors(
     const std::set<unsigned>& states,
     const bdd& bdd,
-    const spot::acc_cond::mark_t& col
+    const spot::acc_cond::mark_t& col,
+    const spot::acc_cond::mark_t& without_cols
 ) 
 {
   std::set<unsigned> succ_states;
-
+  
+  DEBUG_PRINT_LN("states: " + std::to_string(states) + ", letter: " + std::to_string(bdd) + ", col: " + std::to_string(col));
     for (unsigned s : states) {
         for (const auto &t : aut_->out(s)) {
             if (info_->scc_info_.scc_of(s) == info_->scc_info_.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
-                if ((t.acc & col) && t.dst < old_aut_num_states_) { // include colors
+                if (t.acc & without_cols)
+                    continue;
+
+                if ((t.acc & col) == col && t.dst < old_aut_num_states_) { // include colors
+                    DEBUG_PRINT_LN(std::to_string(s) + " --> " + std::to_string(t.dst) + ", acc: " + std::to_string(t.acc));
                     succ_states.insert(t.dst);
                 }
             }
@@ -145,6 +155,9 @@ std::set<unsigned> kofola::Elevatorization::get_succ_including_colors(
 
 void kofola::Elevatorization::create_deter_part(size_t scc_idx, kofola::AccClause disjunct) 
 {
+    disjunct.simplify();
+
+    
     auto scc_states = info_->scc_info_.states_of(scc_idx);
     std::queue<RBL> to_process;
     std::map<RBL, unsigned> det_state_to_spot_state;
@@ -152,7 +165,7 @@ void kofola::Elevatorization::create_deter_part(size_t scc_idx, kofola::AccClaus
     std::vector<spot::acc_cond::mark_t> infs = disjunct.infs;
     unsigned l_mod = infs.size();
     unsigned l_init = 0;
-
+    
     if(l_mod == 0)
         l_mod = 1;
 
@@ -185,6 +198,7 @@ void kofola::Elevatorization::create_deter_part(size_t scc_idx, kofola::AccClaus
         bdd n_s_compat = bddfalse;
         const std::set<unsigned> &reach_set = current.R;
 
+        // TODO move to disjuncts
         for (unsigned s: reach_set) {
             if(old_aut_num_states_ <= s) {
                 continue; // skip newly created states
@@ -203,11 +217,12 @@ void kofola::Elevatorization::create_deter_part(size_t scc_idx, kofola::AccClaus
             DEBUG_PRINT_LN("symbol: " + std::to_string(letter));
             
             auto all_succs_R = get_succ_excluding_colors(current.R, letter, fins);
-            auto all_succs_R_visited_mark = all_succs_R;
+            auto all_succs_R_visited_inf = all_succs_R;
 
-            if(infs.size() > 0)
-                all_succs_R_visited_mark = get_succ_including_colors(current.R, letter, infs[current.l]);
-            
+            if(infs.size() > 0) {
+                all_succs_R_visited_inf = get_succ_including_colors(current.R, letter, infs[current.l], fins);
+            }
+
             if(all_succs_R.empty()) {
                 continue; // no successors on this letter
             }
@@ -216,7 +231,7 @@ void kofola::Elevatorization::create_deter_part(size_t scc_idx, kofola::AccClaus
 
             RBL next;
             next.R = all_succs_R;
-            next.B = kofola::get_set_union(all_succs_B, all_succs_R_visited_mark);
+            next.B = kofola::get_set_union(all_succs_B, all_succs_R_visited_inf);
             next.l = current.l;
 
             bool emit_acc = false;
@@ -236,11 +251,11 @@ void kofola::Elevatorization::create_deter_part(size_t scc_idx, kofola::AccClaus
             
             
             if(emit_acc) {
-                aut_->new_edge(det_state_to_spot_state[current], det_state_to_spot_state[next], letter, {new_inf_col_});
+                aut_->new_edge(det_state_to_spot_state[current], det_state_to_spot_state[next], letter, {new_inf_col_, new_fin_col_});
             } else {
-                aut_->new_edge(det_state_to_spot_state[current], det_state_to_spot_state[next], letter, {});
+                aut_->new_edge(det_state_to_spot_state[current], det_state_to_spot_state[next], letter, {new_fin_col_});
             }
-            DEBUG_PRINT_LN("Created transition from " + std::to_string(current) + " to " + std::to_string(next) + " on " + std::to_string(letter) + " as a state " + std::to_string(det_state_to_spot_state[next]) + (emit_acc ? (" with acc " + std::to_string(new_inf_col_)) : "") );
+            DEBUG_PRINT_LN("Created transition from " + std::to_string(current) + " to " + std::to_string(next) + " on " + std::to_string(letter) + " as a state " + std::to_string(det_state_to_spot_state[next]) + (emit_acc ? (" with acc " + std::to_string(new_inf_col_)) : "") + " infs: " + std::to_string(infs) + ", fins: " + std::to_string(fins));
         }
     }
 }
@@ -293,11 +308,13 @@ const spot::twa_graph_ptr& kofola::Elevatorization::elevatorize(bool only_non_bu
     if(elevatorize_needed) {
         // new acc marks for deter. components (TODO: might use the only one for each originally nonodet. component)
         auto old_acc = aut_->get_acceptance();
+        old_acc &= spot::acc_cond::acc_code::fin({new_fin_col_});
+        aut_->set_acceptance(old_acc);
+        
         old_acc |= spot::acc_cond::acc_code::inf({new_inf_col_});
         aut_->set_acceptance(old_acc);
 
-        old_acc &= spot::acc_cond::acc_code::fin({new_fin_col_});
-        aut_->set_acceptance(old_acc);
+        aut_->prop_reset(); // elevatorization might violate for instance completeness
     }
 
     return aut_;
