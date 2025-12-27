@@ -198,7 +198,7 @@ void kofola::Elevatorization::create_deter_part(size_t scc_idx, kofola::AccClaus
         bdd n_s_compat = bddfalse;
         const std::set<unsigned> &reach_set = current.R;
 
-        // TODO move to disjuncts
+        // TODO might cache it
         for (unsigned s: reach_set) {
             if(old_aut_num_states_ <= s) {
                 continue; // skip newly created states
