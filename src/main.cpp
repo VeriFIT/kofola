@@ -22,6 +22,7 @@
 #include "util/util.hpp"
 #include "inclusion/inclusion_check.hpp"
 #include "version.hpp"
+#include "complement/elevatorization.hpp"
 
 // standard library headers
 #include <unistd.h>
@@ -185,6 +186,7 @@ int process_args(int argc, char *argv[], kofola::options* params)
 	args::ActionFlag version_long_flag(operation_group, "version-long", "print program version (long)", {"version-long"}, print_version_long);
 	args::HelpFlag help_flag(operation_group, "help", "display this help menu", {'h', "help"});
     args::Flag inclusion_flag(operation_group, "inclusion", "checks inclusion between the given 2 automata (HOA format) on input in order as given on cmd line", {"inclusion"});
+    args::Flag to_elev_flag(operation_group, "elevatorization", "transform to elevator automaton", {"to-elevator"});
 
 	// miscellaneous flags
 	args::Group misc_group(parser, "Miscellaneous options:");
@@ -237,6 +239,8 @@ int process_args(int argc, char *argv[], kofola::options* params)
 		params->operation = "help";
     } else if (inclusion_flag) {
         params->operation = "inclusion";
+	} else if (to_elev_flag) {
+		params->operation = "elevatorization";
     } else { // default
 		params->operation = "complement";
 	}
@@ -348,6 +352,12 @@ int main(int argc, char *argv[])
 					spot::scc_info si(aut, spot::scc_info_options::ALL);
 					std::string scc_types = helpers::get_scc_types(si);
 					helpers::print_scc_types(scc_types, si);
+				} else if (options.operation == "elevatorization") {
+					kofola::Elevatorization elev(aut);
+					spot::twa_graph_ptr result = elev.elevatorize();
+
+					spot::print_hoa(std::cout, result);
+					std::cout << "\n";
 				} else {
 					throw std::runtime_error("invalid operation: " + options.operation);
 				}

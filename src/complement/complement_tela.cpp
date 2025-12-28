@@ -154,7 +154,6 @@ spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 			assert(false);
 		}
 	}
-
 	// if tela=yes, we use Generic preprocessor, 
 	// otherwise we use Buchi preprocessor (the input is a TBA)
 	spot::postprocessor p;
@@ -168,7 +167,6 @@ spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 	} else {
 		p.set_level(spot::postprocessor::Low);
 	}
-		
 	spot::twa_graph_ptr aut_to_compl;
 	aut_to_compl = p.run(aut_reduced);
 

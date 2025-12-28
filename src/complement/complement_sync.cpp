@@ -21,6 +21,8 @@
 #include "complement_tela.hpp"
 #include "decomposer.hpp"
 #include "../util/util.hpp"
+#include "complement_sync.hpp"
+#include "elevatorization.hpp"
 
 #include "../algorithms/abstract_complement_alg.hpp"
 #include "complement_alg_mh.hpp"
@@ -60,7 +62,6 @@
 #include <spot/misc/version.hh>
 #include <spot/twa/acc.hh>
 
-#include "complement_sync.hpp"
 
 // Complementation of Buchi automara based on SCC decomposition
 // We classify three types of SCCs in the input NBA:
@@ -72,6 +73,7 @@ namespace helpers {
 
     tnba_complement::tnba_complement(const spot::twa_graph_ptr &aut, spot::scc_info &si)
             : aut_(aut),
+              non_const_aut_(aut),
               si_(si),
               nb_states_(aut->num_states()),
               support_(nb_states_),
@@ -110,7 +112,7 @@ namespace helpers {
         if(aut->num_states() >= 8000) {
             kofola::OPTIONS.params["sim-ms-prune"] = "no";
         }
-
+        
         if(kofola::has_value("sim-ms-prune", "yes", kofola::OPTIONS.params)) {
             // Perform reduction and compute simulation on the current automaton.
             // This may change the automaton (state count, edges, etc.).
@@ -195,7 +197,8 @@ namespace helpers {
     void tnba_complement::reduce_and_compute_simulation() {
         // compute simulation on current automaton (may change aut_)
         std::vector<bdd> implications;
-        this->aut_ = spot::simulation(this->aut_, &implications, -1);
+        this->non_const_aut_ = spot::simulation(this->aut_, &implications, -1);
+        this->aut_ = this->non_const_aut_;
 
         // Recompute SCC info on the reduced automaton to evaluate reachability correctly
         spot::scc_info tmp_si(this->aut_);
@@ -476,13 +479,13 @@ namespace helpers {
         kofola::PartitionToSCCMap part_to_scc_map;
         for (const auto &scc_part_pair: scc_to_part_map) {
             if (scc_part_pair.second != -1) {
-                auto it_bool_pair = part_to_scc_map.insert({scc_part_pair.first, {scc_part_pair.first}});
+                unsigned part = scc_part_pair.second;
+                auto it_bool_pair = part_to_scc_map.insert({part, {scc_part_pair.first}});
                 if (!it_bool_pair.second) { // no insertion
                     it_bool_pair.first->second.insert(scc_part_pair.first);
                 }
             }
         }
-
         return part_to_scc_map;
     } // create_part_to_scc_map() }}}
 
@@ -1382,16 +1385,23 @@ namespace helpers {
 
 spot::twa_graph_ptr kofola::complement_sync(const spot::twa_graph_ptr& aut)
 {
-    spot::scc_info si(aut, spot::scc_info_options::ALL);
+    spot::twa_graph_ptr aut_to_complement = aut;
+    bool work_with_tela = kofola::has_value("tela", "yes", kofola::OPTIONS.params);
+
+    if(work_with_tela) {
+        kofola::Elevatorization elev(aut);
+        aut_to_complement = elev.elevatorize(true);
+    }
+
+    spot::scc_info si(aut_to_complement, spot::scc_info_options::ALL);
 
     // if we work with TELA, we need to properly determine SCC acceptance
     // Spot's is_acceptance might say unknown for Fin conditions
-    if (kofola::has_value("tela", "yes", kofola::OPTIONS.params)) {
+    if (work_with_tela) {
         si.determine_unknown_acceptance();
     }
     
-
-    auto comp = helpers::tnba_complement(aut, si);
+    auto comp = helpers::tnba_complement(aut_to_complement, si);
     auto res = comp.run_new();
 
     return res;

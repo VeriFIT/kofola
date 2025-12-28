@@ -17,6 +17,7 @@
 
 // kofola
 #include "../util/helpers.hpp"
+#include "../algorithms/abstract_complement_alg.hpp"
 
 // spot
 #include <spot/twa/twa.hh>

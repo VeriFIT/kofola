@@ -55,6 +55,59 @@ spot::twa_graph_ptr load_automaton_exact_path(const std::string& filename) {
     }
 }
 
+bool test_elevator_equivalence(const spot::twa_graph_ptr& aut, bool verbose) {
+    if (!aut) {
+        std::cerr << "Input automaton is null" << std::endl;
+        return false;
+    }
+    
+    try {
+        if (verbose) {
+            std::cout << "Transforming to elevator using kofola::Elevatorization..." << std::endl;
+        }
+        
+        kofola::Elevatorization elev(aut);
+        spot::twa_graph_ptr elevatorized = elev.elevatorize();
+        if (!elevatorized) {
+            std::cerr << "kofola::Elevatorization::elevarize() returned null" << std::endl;
+            return false;
+        }
+        
+        if (verbose) {
+            std::cout << "Kofola complement has " << elevatorized->num_states() << " states" << std::endl;
+        }
+        
+        // Check if they are language equivalent
+        bool equivalent = spot::are_equivalent(elevatorized, aut);
+        
+        if (equivalent) {
+            if (verbose) {
+                std::cout << "✓ SUCCESS: Transformation to elevator preserved the language" << std::endl;
+            }
+        } else {
+            std::cout << "✗ FAILURE: Transformation to elevator did NOT preserve the language" << std::endl;
+            
+            if (verbose) {
+                // Try to find a distinguishing word
+                std::cout << "Searching for distinguishing word..." << std::endl;
+                spot::twa_word_ptr distinguishing_word = elevatorized->exclusive_word(aut);
+                if (distinguishing_word) {
+                    std::cout << "Distinguishing word found (cannot be printed directly)" << std::endl;
+                    std::cout << "This word is accepted by exactly one of the automata" << std::endl;
+                } else {
+                    std::cout << "No distinguishing word found (this shouldn't happen if not equivalent)" << std::endl;
+                }
+            }
+        }
+        
+        return equivalent;
+        
+    } catch (const std::exception& ex) {
+        std::cerr << "Exception during elevatorization language preservation check: " << ex.what() << std::endl;
+        return false;
+    }
+}
+
 bool test_complement_equivalence(const spot::twa_graph_ptr& aut, bool verbose) {
     if (!aut) {
         std::cerr << "Input automaton is null" << std::endl;

@@ -75,7 +75,7 @@ struct cmpl_info
   const ReachableVector& reachable_vector_;
 
   /// map of partition to the SCCs it contains
-  const PartitionToSCCMap& part_to_scc_map_;
+  PartitionToSCCMap part_to_scc_map_;
 
   /// maps SCCs to sets of their predecessors
   const SCCToSCCSetMap& scc_to_pred_sccs_map_;
@@ -135,6 +135,30 @@ struct cmpl_info
    */
   static CondDNF acc_code_dnf(const spot::acc_cond::acc_code& code) {
       spot::acc_cond::acc_code dnf_code = code.complement().to_dnf();
+      std::vector<spot::acc_cond::acc_code> dnf_clauses = dnf_code.top_disjuncts();
+
+      CondDNF ret {};
+      for(const auto& clause : dnf_clauses) {
+        if (clause.empty()) {
+          continue; // Skip empty clauses
+        }
+        AccClause acc_clause(clause);
+        ret.push_back(acc_clause);
+      }
+      return ret;
+  }
+
+  /**
+   * @brief Convert an acceptance condition to its DNF form.
+   *
+   * This function takes a Spot acceptance condition code,
+   * converts it to Disjunctive Normal Form (DNF), and returns it as a vector of AccClause.
+   *
+   * @param code The Spot acceptance condition code to convert.
+   * @return CondDNF The acceptance condition in DNF.
+   */
+  static CondDNF preserve_acc_code_dnf(const spot::acc_cond::acc_code& code) {
+      spot::acc_cond::acc_code dnf_code = code.to_dnf();
       std::vector<spot::acc_cond::acc_code> dnf_clauses = dnf_code.top_disjuncts();
 
       CondDNF ret {};

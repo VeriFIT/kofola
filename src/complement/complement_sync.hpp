@@ -85,6 +85,7 @@ namespace helpers
     private:
         // The source automaton.
         spot::const_twa_graph_ptr aut_;
+        spot::twa_graph_ptr non_const_aut_;
 
         // Direct simulation on source automaton.
         kofola::Simulation dir_sim_;
@@ -155,6 +156,15 @@ namespace helpers
         tnba_complement(const spot::twa_graph_ptr &aut, spot::scc_info& si);
 
         unsigned get_num_states();
+
+        std::unique_ptr<kofola::cmpl_info> get_cmpl_info() { 
+            if (!info_) return nullptr;               // handle empty pointer
+            return std::make_unique<kofola::cmpl_info>(*info_); 
+        }
+
+        void set_cmpl_info(std::unique_ptr<kofola::cmpl_info> info) {
+            info_ = std::move(info);
+        }
 
         spot::scc_info & get_scc_info();
 
@@ -439,5 +449,7 @@ namespace helpers
         std::set<unsigned>  set_acc_cond();
 
         const spot::const_twa_graph_ptr & get_aut() const { return aut_; }
+
+        const spot::twa_graph_ptr & get_nonconst_aut() const { return non_const_aut_; }
     };
 }
