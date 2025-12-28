@@ -303,8 +303,6 @@ const spot::twa_graph_ptr& kofola::Elevatorization::elevatorize(bool only_non_bu
         elevatorize_needed = true;
     }
 
-    std::cerr << "Elevatorization needed: " << (elevatorize_needed ? "yes" : "no") << "\n";
-
     if(elevatorize_needed) {
         // new acc marks for deter. components (TODO: might use the only one for each originally nonodet. component)
         auto old_acc = aut_->get_acceptance();
