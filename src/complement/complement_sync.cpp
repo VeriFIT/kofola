@@ -1385,23 +1385,15 @@ namespace helpers {
 
 spot::twa_graph_ptr kofola::complement_sync(const spot::twa_graph_ptr& aut)
 {
-    spot::twa_graph_ptr aut_to_complement = aut;
-    bool work_with_tela = kofola::has_value("tela", "yes", kofola::OPTIONS.params);
-
-    if(work_with_tela) {
-        kofola::Elevatorization elev(aut);
-        aut_to_complement = elev.elevatorize(true);
-    }
-
-    spot::scc_info si(aut_to_complement, spot::scc_info_options::ALL);
+    spot::scc_info si(aut, spot::scc_info_options::ALL);
 
     // if we work with TELA, we need to properly determine SCC acceptance
     // Spot's is_acceptance might say unknown for Fin conditions
-    if (work_with_tela) {
+    if (kofola::has_value("tela", "yes", kofola::OPTIONS.params)) {
         si.determine_unknown_acceptance();
     }
     
-    auto comp = helpers::tnba_complement(aut_to_complement, si);
+    auto comp = helpers::tnba_complement(aut, si);
     auto res = comp.run_new();
 
     return res;

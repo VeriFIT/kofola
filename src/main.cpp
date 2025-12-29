@@ -339,6 +339,10 @@ int main(int argc, char *argv[])
 				if (!aut) { break; }
 
 				if (options.operation == "complement") {
+					if(kofola::has_value("tela", "yes", kofola::OPTIONS.params)) {
+						kofola::Elevatorization elev(aut);
+						aut = elev.elevatorize(true);
+					}
 					//clock_t c_start = clock();
 					spot::twa_graph_ptr result = kofola::complement_tela(aut);
 					//clock_t c_end = clock();
