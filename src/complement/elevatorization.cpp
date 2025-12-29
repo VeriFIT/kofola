@@ -277,7 +277,7 @@ void kofola::Elevatorization::limit_deter(size_t part_index, size_t scc_idx)
     aut_->merge_edges();
 }
 
-const spot::twa_graph_ptr& kofola::Elevatorization::elevatorize(bool only_non_buchi) 
+spot::twa_graph_ptr kofola::Elevatorization::elevatorize(bool only_non_buchi) 
 {
     auto aut_acc = aut_->get_acceptance();
     auto dnf_aut_acc = kofola::cmpl_info::preserve_acc_code_dnf(aut_acc);
@@ -313,6 +313,10 @@ const spot::twa_graph_ptr& kofola::Elevatorization::elevatorize(bool only_non_bu
         aut_->set_acceptance(old_acc);
 
         aut_->prop_reset(); // elevatorization might violate for instance completeness
+
+        spot::postprocessor p;
+        p.set_type(spot::postprocessor::Generic);
+	    return p.run(aut_);
     }
 
     return aut_;

@@ -65,7 +65,7 @@ namespace kofola
     public:
         Elevatorization(const spot::twa_graph_ptr& aut);
 
-        const spot::twa_graph_ptr& elevatorize(bool only_non_buchi=false);
+        spot::twa_graph_ptr elevatorize(bool only_non_buchi=false);
 
         void limit_deter(size_t part_index, size_t scc_idx);
 
