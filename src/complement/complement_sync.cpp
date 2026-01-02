@@ -998,6 +998,8 @@ namespace helpers {
         } else {
             if (kofola::has_value("tela_det_alg", "inductive", kofola::OPTIONS.params)) {
                 return std::make_unique<kofola::complement_sd_inductive>(*(this->info_.get()), partition_index);
+            } else if(kofola::has_value("tela_det_alg", "dnf-tela", kofola::OPTIONS.params)) {
+                return std::make_unique<kofola::complement_sd_tela>(*(this->info_.get()), partition_index);
             }
             return std::make_unique<kofola::complement_sd_tela>(*(this->info_.get()), partition_index);
         }
@@ -1023,6 +1025,8 @@ namespace helpers {
         } else {
             if (kofola::has_value("tela_det_alg", "inductive", kofola::OPTIONS.params)) {
                 return std::make_unique<kofola::complement_sd_inductive>(*(this->info_.get()), partition_index);
+            } else if(kofola::has_value("tela_det_alg", "dnf-tela", kofola::OPTIONS.params)) {
+                return std::make_unique<kofola::complement_sd_tela>(*(this->info_.get()), partition_index);
             }
             return std::make_unique<kofola::complement_sd_tela>(*(this->info_.get()), partition_index);
         }

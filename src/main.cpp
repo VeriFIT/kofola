@@ -277,6 +277,10 @@ int main(int argc, char *argv[])
 
 	if(kofola::OPTIONS.params.count("merge_iwa") == 0) kofola::OPTIONS.params["merge_iwa"] = "yes";
 	if(kofola::OPTIONS.params.count("merge_det") == 0) kofola::OPTIONS.params["merge_det"] = "yes";
+	if(kofola::OPTIONS.params.count("tela") != 0 && kofola::OPTIONS.params["tela"] == "yes") {
+		// Default: dnf-tela for TELA complementation
+		if(kofola::OPTIONS.params.count("tela_det_alg") == 0) kofola::OPTIONS.params["tela_det_alg"] = "dnf-tela";
+	}
 	// Default: enable simulation-based macrostate pruning unless user specified otherwise.
 	// (May be internally turned off for very large automata in the construction code.)
 	if(options.operation != "inclusion" && kofola::OPTIONS.params.count("sim-ms-prune") == 0) kofola::OPTIONS.params["sim-ms-prune"] = "yes";
