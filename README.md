@@ -83,7 +83,7 @@ The complementation and the inclusion checking might be adjusted by the followin
 | `gfee` | `yes`,`no`  | Use a good for emptiness relation for early termination (`--inclusion` only) |
 | `tela` | `yes`,`no`  | If `yes`, use TELA-specific algorithms for complementation (if `no`, the input is converted to TBA) |
 | `sh-break` | `yes`,`no`  | Enable shared breakpoint across partial algorithms; when `yes` partial algorithms that support shared breakpoints propagate a common breakpoint across partitions |
-| `tela_det_alg` | `inductive` | Algorithm selection for complementing deterministic TELA components | 
+| `tela_det_alg` | `inductive`, `dnf-tela` | Algorithm selection for complementing deterministic TELA components (default `dnf-tela`) | 
 
 ## Testing
 
