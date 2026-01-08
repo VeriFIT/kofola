@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <memory>
 #include <optional>
+#include <type_traits>
 #include <utility>
 #include <variant>
 
@@ -28,10 +29,11 @@ concept totally_ordered = std::totally_ordered<T>;
  * - For leaves, payload is ordered by `std::variant` (index then value)
  * - For internal nodes, children are ordered lexicographically (left, right)
  */
-template <class NodeType, class... LeafTypes>
+template <class NodeType, class InternalValue = std::monostate, class... LeafTypes>
 class binary_tree {
   static_assert(sizeof...(LeafTypes) > 0, "binary_tree requires at least one leaf type");
   static_assert(totally_ordered<NodeType>, "NodeType must be totally ordered");
+  static_assert(totally_ordered<InternalValue>, "InternalValue must be totally ordered");
   static_assert((totally_ordered<LeafTypes> && ...), "All leaf types must be totally ordered");
 
 public:
@@ -45,6 +47,7 @@ private:
   kind kind_;
   NodeType type_;
   std::optional<leaf_variant> leaf_value_;
+  std::optional<InternalValue> node_value_;
   std::unique_ptr<binary_tree> left_;
   std::unique_ptr<binary_tree> right_;
 
@@ -84,7 +87,19 @@ public:
    * @param right Right subtree.
    */
   static binary_tree make_node(NodeType type, binary_tree left, binary_tree right) {
-    return binary_tree(std::move(type), std::move(left), std::move(right));
+    return binary_tree(std::move(type), InternalValue{}, std::move(left), std::move(right));
+  }
+
+  /**
+   * Construct an internal node with payload and two children.
+   *
+   * @param type  Logical type associated with this internal node.
+   * @param v     Internal-node payload.
+   * @param left  Left subtree.
+   * @param right Right subtree.
+   */
+  static binary_tree make_node(NodeType type, InternalValue v, binary_tree left, binary_tree right) {
+    return binary_tree(std::move(type), std::move(v), std::move(left), std::move(right));
   }
 
   /** Deep-copy constructor (recursively copies the subtree). */
@@ -92,6 +107,7 @@ public:
       : kind_(other.kind_),
         type_(other.type_),
         leaf_value_(other.leaf_value_),
+        node_value_(other.node_value_),
         left_(other.left_ ? std::make_unique<binary_tree>(*other.left_) : nullptr),
         right_(other.right_ ? std::make_unique<binary_tree>(*other.right_) : nullptr) {}
 
@@ -125,6 +141,9 @@ public:
   /** Returns the leaf payload (only valid when `is_leaf() == true`). */
   const leaf_variant& leaf_value() const { return *leaf_value_; }
 
+  /** Returns the internal-node payload (only valid when `is_node() == true`). */
+  const InternalValue& node_value() const { return *node_value_; }
+
   /** Returns the left subtree (only valid when `is_node() == true`). */
   const binary_tree& left() const { return *left_; }
 
@@ -138,6 +157,9 @@ public:
     }
     if (a.is_leaf()) {
       return a.leaf_value_ == b.leaf_value_;
+    }
+    if (!(a.node_value_ == b.node_value_)) {
+      return false;
     }
     return *a.left_ == *b.left_ && *a.right_ == *b.right_;
   }
@@ -170,6 +192,12 @@ public:
     }
 
     // Both are nodes (and same type).
+    if (*a.node_value_ < *b.node_value_) {
+      return true;
+    }
+    if (*b.node_value_ < *a.node_value_) {
+      return false;
+    }
     if (*a.left_ < *b.left_) {
       return true;
     }
@@ -194,14 +222,16 @@ private:
       : kind_(kind::leaf),
         type_(std::move(type)),
         leaf_value_(std::move(v)),
+        node_value_(std::nullopt),
         left_(nullptr),
         right_(nullptr) {}
 
   /** Private constructor for building internal nodes. */
-  binary_tree(NodeType type, binary_tree left, binary_tree right)
+    binary_tree(NodeType type, InternalValue v, binary_tree left, binary_tree right)
       : kind_(kind::node),
         type_(std::move(type)),
         leaf_value_(std::nullopt),
+        node_value_(std::move(v)),
         left_(std::make_unique<binary_tree>(std::move(left))),
         right_(std::make_unique<binary_tree>(std::move(right))) {}
 };

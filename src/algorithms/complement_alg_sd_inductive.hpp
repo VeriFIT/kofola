@@ -178,9 +178,9 @@ namespace sd_inductive {
    * - node type: `TreeType`
    * - leaf payload: `fin_leaf` or `inf_leaf`
    */
-  class check_macrostate : public kofola::types::binary_tree<TreeType, fin_leaf, inf_leaf> {
+  class check_macrostate : public kofola::types::binary_tree<TreeType, std::monostate, fin_leaf, inf_leaf> {
     /** @brief Base tree type used for representation. */
-    using base_tree = kofola::types::binary_tree<TreeType, fin_leaf, inf_leaf>;
+    using base_tree = kofola::types::binary_tree<TreeType, std::monostate, fin_leaf, inf_leaf>;
 
   public:
     /** @brief Deleted default constructor (a check must be a leaf or a node). */

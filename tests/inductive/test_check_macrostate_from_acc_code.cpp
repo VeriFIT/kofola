@@ -10,7 +10,7 @@ using kofola::sd_inductive::TreeType;
 using kofola::sd_inductive::check_macrostate;
 using kofola::sd_inductive::fin_leaf;
 using kofola::sd_inductive::inf_leaf;
-using base_tree = kofola::types::binary_tree<TreeType, fin_leaf, inf_leaf>;
+using base_tree = kofola::types::binary_tree<TreeType, std::monostate, fin_leaf, inf_leaf>;
 
 static const auto& as_base(const check_macrostate& t) {
   return static_cast<const base_tree&>(t);
