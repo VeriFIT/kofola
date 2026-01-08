@@ -5,6 +5,7 @@
 #include "abstract_complement_alg.hpp"
 
 #include <compare>
+#include <memory>
 #include <ostream>
 #include <sstream>
 #include <set>
@@ -35,6 +36,24 @@ namespace sd_inductive {
   };
 
   class check_macrostate;
+
+  /**
+   * @brief Payload of an internal `And`/`Or` node in `check_macrostate`.
+   *
+   * Stores a subtree (rooted at the corresponding internal node) as a
+   * `check_macrostate`. This is stored indirectly to avoid recursive
+   * by-value type definitions.
+   */
+  struct AndOrNode {
+    TreeType type {TreeType::And};
+    std::shared_ptr<check_macrostate> subtree {};
+
+    AndOrNode() = default;
+    AndOrNode(TreeType t, check_macrostate subtree_);
+
+    bool operator==(const AndOrNode& other) const;
+    std::strong_ordering operator<=>(const AndOrNode& other) const;
+  };
 
   /**
    * @brief Payload of a `Fin` leaf in `check_macrostate`.
@@ -176,11 +195,12 @@ namespace sd_inductive {
    *
    * This is a thin wrapper over `kofola::types::binary_tree` with:
    * - node type: `TreeType`
+   * - internal-node payload: `AndOrNode`
    * - leaf payload: `fin_leaf` or `inf_leaf`
    */
-  class check_macrostate : public kofola::types::binary_tree<TreeType, std::monostate, fin_leaf, inf_leaf> {
+  class check_macrostate : public kofola::types::binary_tree<TreeType, AndOrNode, fin_leaf, inf_leaf> {
     /** @brief Base tree type used for representation. */
-    using base_tree = kofola::types::binary_tree<TreeType, std::monostate, fin_leaf, inf_leaf>;
+    using base_tree = kofola::types::binary_tree<TreeType, AndOrNode, fin_leaf, inf_leaf>;
 
   public:
     /** @brief Deleted default constructor (a check must be a leaf or a node). */
@@ -253,9 +273,13 @@ namespace sd_inductive {
      * @return A `check_macrostate` internal node.
      */
     static check_macrostate make(TreeType type, check_macrostate left, check_macrostate right) {
+      // Build a concrete subtree rooted at this internal node.
+      // We intentionally construct this subtree using a default internal
+      // payload, and store it in the node payload for now.
+      check_macrostate subtree_root(base_tree::make_node(type, base_tree(left), base_tree(right)));
       base_tree l(std::move(left));
       base_tree r(std::move(right));
-      return check_macrostate(base_tree::make_node(type, std::move(l), std::move(r)));
+      return check_macrostate(base_tree::make_node(type, AndOrNode(type, std::move(subtree_root)), std::move(l), std::move(r)));
     }
 
     /**
@@ -329,6 +353,50 @@ namespace sd_inductive {
      */
     static std::string to_string_impl(const base_tree& tree);
   };
+
+  inline AndOrNode::AndOrNode(TreeType t, check_macrostate subtree_)
+    : type(t),
+      subtree(std::make_shared<check_macrostate>(std::move(subtree_))) {}
+
+  inline bool AndOrNode::operator==(const AndOrNode& other) const {
+    if (this->type != other.type) {
+      return false;
+    }
+    if (!this->subtree && !other.subtree) {
+      return true;
+    }
+    if (!this->subtree || !other.subtree) {
+      return false;
+    }
+    return *this->subtree == *other.subtree;
+  }
+
+  inline std::strong_ordering AndOrNode::operator<=>(const AndOrNode& other) const {
+    if (this->type < other.type) {
+      return std::strong_ordering::less;
+    }
+    if (other.type < this->type) {
+      return std::strong_ordering::greater;
+    }
+
+    // Same type: order by subtree presence then subtree structure.
+    if (!this->subtree && !other.subtree) {
+      return std::strong_ordering::equal;
+    }
+    if (!this->subtree) {
+      return std::strong_ordering::less;
+    }
+    if (!other.subtree) {
+      return std::strong_ordering::greater;
+    }
+    if (*this->subtree < *other.subtree) {
+      return std::strong_ordering::less;
+    }
+    if (*other.subtree < *this->subtree) {
+      return std::strong_ordering::greater;
+    }
+    return std::strong_ordering::equal;
+  }
 
 enum class mstate_type {
   GUESS,

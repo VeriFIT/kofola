@@ -217,7 +217,7 @@ sd_inductive::check_macrostate restrict_states_in_tree(
   const std::set<unsigned>& forbidden) {
 
   using check_macrostate = sd_inductive::check_macrostate;
-  using base_tree = kofola::types::binary_tree<sd_inductive::TreeType, std::monostate, sd_inductive::fin_leaf, sd_inductive::inf_leaf>;
+  using base_tree = kofola::types::binary_tree<sd_inductive::TreeType, sd_inductive::AndOrNode, sd_inductive::fin_leaf, sd_inductive::inf_leaf>;
 
   if (tree.is_leaf()) {
     return std::visit(
