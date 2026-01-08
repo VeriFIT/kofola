@@ -17,14 +17,14 @@ static const auto& as_base(const check_macrostate& t) {
   return static_cast<const base_tree&>(t);
 }
 
-static check_macrostate fin_color(std::initializer_list<unsigned> idx) {
+static check_macrostate fin_color(std::initializer_list<unsigned> idx, unsigned id = 0) {
   const spot::acc_cond::mark_t m(idx.begin(), idx.end());
-  return check_macrostate(base_tree::leaf(TreeType::Fin, fin_leaf{{}, m}));
+  return check_macrostate::fin({}, m, id);
 }
 
-static check_macrostate inf_color(std::initializer_list<unsigned> idx) {
+static check_macrostate inf_color(std::initializer_list<unsigned> idx, unsigned id = 0) {
   const spot::acc_cond::mark_t m(idx.begin(), idx.end());
-  return check_macrostate(base_tree::leaf(TreeType::Inf, inf_leaf{{}, {}, m}));
+  return check_macrostate::inf({}, {}, m, id);
 }
 
 struct leaf_sig {
@@ -69,14 +69,14 @@ TEST_CASE("check_macrostate builds leaves from Spot acc_code", "[check_macrostat
   SECTION("Inf leaf") {
     auto code = spot::acc_cond::acc_code("Inf(0)");
     auto got = check_macrostate::from_acc_code(code);
-    auto exp = inf_color({0});
+    auto exp = inf_color({0}, 0);
     REQUIRE(as_base(got) == as_base(exp));
   }
 
   SECTION("Fin leaf") {
     auto code = spot::acc_cond::acc_code("Fin(2)");
     auto got = check_macrostate::from_acc_code(code);
-    auto exp = fin_color({2});
+    auto exp = fin_color({2}, 0);
     REQUIRE(as_base(got) == as_base(exp));
   }
 }
@@ -128,8 +128,8 @@ TEST_CASE("check_macrostate builds And/Or structure from Spot acc_code", "[check
     auto code = spot::acc_cond::acc_code("(Fin(0) & Inf(1)) | (Fin(2) & Inf(3))");
     auto got = check_macrostate::from_acc_code(code);
 
-    auto left = check_macrostate::make(TreeType::And, fin_color({0}), inf_color({1}));
-    auto right = check_macrostate::make(TreeType::And, fin_color({2}), inf_color({3}));
+    auto left = check_macrostate::make(TreeType::And, fin_color({0}, 0), inf_color({1}, 1));
+    auto right = check_macrostate::make(TreeType::And, fin_color({2}, 2), inf_color({3}, 3));
     auto exp = check_macrostate::make(TreeType::Or, std::move(left), std::move(right));
 
     REQUIRE(as_base(got) == as_base(exp));

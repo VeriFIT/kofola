@@ -15,6 +15,34 @@ using mstate_col_set = abstract_complement_alg::mstate_col_set;
 namespace kofola {
 namespace sd_inductive {
 
+namespace {
+
+using base_tree = kofola::types::binary_tree<TreeType, AndOrNode, fin_leaf, inf_leaf>;
+
+check_macrostate assign_leaf_ids(const check_macrostate& tree, unsigned& next_id) {
+  if (tree.is_leaf()) {
+    return std::visit(
+      [&](const auto& leaf) -> check_macrostate {
+        using leaf_t = std::decay_t<decltype(leaf)>;
+        const unsigned id = next_id++;
+        if constexpr (std::is_same_v<leaf_t, fin_leaf>) {
+          return check_macrostate::fin(leaf.safe, leaf.color, id);
+        } else {
+          static_assert(std::is_same_v<leaf_t, inf_leaf>, "Unexpected leaf type");
+          return check_macrostate::inf(leaf.track, leaf.breakpoint, leaf.color, id);
+        }
+      },
+      tree.leaf_value());
+  }
+
+  const check_macrostate left_ms(base_tree(tree.left()));
+  const check_macrostate right_ms(base_tree(tree.right()));
+  const auto node_type = tree.type();
+  return check_macrostate::make(node_type, assign_leaf_ids(left_ms, next_id), assign_leaf_ids(right_ms, next_id));
+}
+
+} // namespace
+
 /**
  * Parse a Spot acceptance condition and build an equivalent
  * `check_macrostate` tree.
@@ -38,7 +66,9 @@ namespace sd_inductive {
  *         unsupported/top-level operator that cannot be represented.
  */
 check_macrostate check_macrostate::from_acc_code(const spot::acc_cond::acc_code& code) {
-  return from_acc_code_impl(code);
+  const auto parsed = from_acc_code_impl(code);
+  unsigned next_id = 0;
+  return assign_leaf_ids(parsed, next_id);
 }
 
 /**
@@ -69,14 +99,22 @@ std::vector<check_macrostate> check_macrostate::get_succ(
   const spot::scc_info&             scc_info,
   const std::set<unsigned>&         check_states,
   const bdd&                        bdd,
-  bool                              resample) const {
+  bool                              resample,
+  const NodeContext&                parent_context) const {
 
   if (this->is_leaf()) {
     return std::visit(
       [&](const auto& leaf) {
-        return leaf.get_succ(aut, scc_info, check_states, bdd, resample);
+        return leaf.get_succ(aut, scc_info, check_states, bdd, resample, parent_context);
       },
       this->leaf_value());
+  }
+
+  // Propagate/merge context from parent into this node.
+  NodeContext context = parent_context;
+  if (this->type() == TreeType::And || this->type() == TreeType::Or) {
+    const NodeContext local = this->node_value().get_context();
+    context = local.merge_contexts(parent_context);
   }
 
   const auto node_type = this->type();
@@ -84,8 +122,8 @@ std::vector<check_macrostate> check_macrostate::get_succ(
   const check_macrostate right_ms(base_tree(this->right()));
 
   if (node_type == TreeType::And) {
-    const auto left_succ = left_ms.get_succ(aut, scc_info, check_states, bdd, resample);
-    const auto right_succ = right_ms.get_succ(aut, scc_info, check_states, bdd, resample);
+    const auto left_succ = left_ms.get_succ(aut, scc_info, check_states, bdd, resample, context);
+    const auto right_succ = right_ms.get_succ(aut, scc_info, check_states, bdd, resample, context);
     return cartesian_product<check_macrostate, check_macrostate>(
       left_succ,
       right_succ,
@@ -103,8 +141,8 @@ std::vector<check_macrostate> check_macrostate::get_succ(
       }
       const auto& left_states = part[0];
       const auto& right_states = part[1];
-      const auto left_succ = left_ms.get_succ(aut, scc_info, left_states, bdd, resample);
-      const auto right_succ = right_ms.get_succ(aut, scc_info, right_states, bdd, resample);
+      const auto left_succ = left_ms.get_succ(aut, scc_info, left_states, bdd, resample, context);
+      const auto right_succ = right_ms.get_succ(aut, scc_info, right_states, bdd, resample, context);
 
       // TODO: it is not efficient to call reduce here
       const auto combined = cartesian_product<check_macrostate, check_macrostate>(
@@ -224,13 +262,14 @@ sd_inductive::check_macrostate restrict_states_in_tree(
       [&](const auto& leaf) -> check_macrostate {
         using leaf_t = std::decay_t<decltype(leaf)>;
         if constexpr (std::is_same_v<leaf_t, sd_inductive::fin_leaf>) {
-          return check_macrostate::fin(get_set_difference(leaf.safe, forbidden), leaf.color);
+          return check_macrostate::fin(get_set_difference(leaf.safe, forbidden), leaf.color, leaf.id);
         } else {
           static_assert(std::is_same_v<leaf_t, sd_inductive::inf_leaf>, "Unexpected leaf type");
           return check_macrostate::inf(
             get_set_difference(leaf.track, forbidden),
             get_set_difference(leaf.breakpoint, forbidden),
-            leaf.color);
+            leaf.color,
+            leaf.id);
         }
       },
       tree.leaf_value());
@@ -342,10 +381,10 @@ check_macrostate check_macrostate::from_acc_code_impl(const spot::acc_cond::acc_
     const auto op = code[1].sub.op;
     const auto mark = code[0].mark;
     if (op == spot::acc_cond::acc_op::Fin) {
-      return check_macrostate(base_tree::leaf(TreeType::Fin, fin_leaf{{}, mark}));
+      return check_macrostate(base_tree::leaf(TreeType::Fin, fin_leaf{{}, mark, 0}));
     }
     if (op == spot::acc_cond::acc_op::Inf) {
-      return check_macrostate(base_tree::leaf(TreeType::Inf, inf_leaf{{}, {}, mark}));
+      return check_macrostate(base_tree::leaf(TreeType::Inf, inf_leaf{{}, {}, mark, 0}));
     }
   }
 
@@ -363,10 +402,10 @@ check_macrostate check_macrostate::from_acc_code_impl(const spot::acc_cond::acc_
     const auto op = code[1].sub.op;
     const auto mark = code[0].mark;
     if (op == spot::acc_cond::acc_op::Fin) {
-      return check_macrostate(base_tree::leaf(TreeType::Fin, fin_leaf{{}, mark}));
+      return check_macrostate(base_tree::leaf(TreeType::Fin, fin_leaf{{}, mark, 0}));
     }
     if (op == spot::acc_cond::acc_op::Inf) {
-      return check_macrostate(base_tree::leaf(TreeType::Inf, inf_leaf{{}, {}, mark}));
+      return check_macrostate(base_tree::leaf(TreeType::Inf, inf_leaf{{}, {}, mark, 0}));
     }
   }
 
@@ -426,9 +465,11 @@ std::vector<check_macrostate> fin_leaf::get_succ(
   const spot::scc_info&             scc_info,
   const std::set<unsigned>&         check_states,
   const bdd&                        bdd,
-  bool                              resample) const {
+  bool                              resample,
+  const NodeContext&                context) const {
 
   (void)resample; // unused
+  (void)context;  // unused
   std::set<unsigned> st = get_set_union(this->safe, check_states);
   std::set<unsigned> succs {};
   for (unsigned s : st) {
@@ -441,7 +482,7 @@ std::vector<check_macrostate> fin_leaf::get_succ(
       }
     }
   }
-  return {check_macrostate::fin(std::move(succs), this->color)};
+  return {check_macrostate::fin(std::move(succs), this->color, this->id)};
 }
 
 bool fin_leaf::is_satisfied() const {
@@ -479,7 +520,8 @@ std::vector<check_macrostate> inf_leaf::get_succ(
   const spot::scc_info&             scc_info,
   const std::set<unsigned>&         check_states,
   const bdd&                        bdd,
-  bool                              resample) const {
+  bool                              resample,
+  const NodeContext&                context) const {
 
   std::set<unsigned> st = get_set_union(this->track, check_states);
   std::set<unsigned> succs {};
@@ -493,7 +535,14 @@ std::vector<check_macrostate> inf_leaf::get_succ(
   }
 
   if (!resample) {
-    for (unsigned s : this->breakpoint) {
+    const std::set<unsigned>* breakpoint_src = &this->breakpoint;
+    if (context.type == NodeContextType::SHARED_BREAKPOINT &&
+        context.breakpoint.has_value() &&
+        context.leaf_id == this->id) {
+      breakpoint_src = &context.breakpoint->get();
+    }
+
+    for (unsigned s : *breakpoint_src) {
       for (const auto& t : aut->out(s)) {
         if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
           if (t.acc & this->color) {
@@ -503,11 +552,18 @@ std::vector<check_macrostate> inf_leaf::get_succ(
         }
       }
     }
-    return {check_macrostate::inf(std::move(succs), std::move(succ_break), this->color)};
+
+    // If using a shared breakpoint context, update it in-place.
+    if (context.type == NodeContextType::SHARED_BREAKPOINT &&
+        context.breakpoint.has_value() &&
+        context.leaf_id == this->id) {
+      context.breakpoint->get() = succ_break;
+    }
+    return {check_macrostate::inf(std::move(succs), std::move(succ_break), this->color, this->id)};
   }
 
   auto succs_copy = succs;
-  return {check_macrostate::inf(std::move(succs), std::move(succs_copy), this->color)};
+  return {check_macrostate::inf(std::move(succs), std::move(succs_copy), this->color, this->id)};
 }
 
 bool inf_leaf::is_satisfied() const {

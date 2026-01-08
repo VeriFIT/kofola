@@ -35,7 +35,29 @@ namespace sd_inductive {
     Or
   };
 
+  enum class NodeContextType {
+    NONE,
+    SHARED_BREAKPOINT
+  };
+
   class check_macrostate;
+
+  struct NodeContext {
+    NodeContextType type { NodeContextType::NONE };
+
+    std::optional<std::reference_wrapper<std::set<unsigned>>> breakpoint;
+    unsigned leaf_id {0};
+
+    NodeContext merge_contexts(const NodeContext& predecessor) const {
+      if(this->type == NodeContextType::NONE) {
+        return *this;
+      }
+      if(this->type == NodeContextType::SHARED_BREAKPOINT && predecessor.type == NodeContextType::SHARED_BREAKPOINT) {
+        return predecessor;
+      } 
+      return *this;
+    }
+  };
 
   /**
    * @brief Payload of an internal `And`/`Or` node in `check_macrostate`.
@@ -48,11 +70,24 @@ namespace sd_inductive {
     TreeType type {TreeType::And};
     std::shared_ptr<check_macrostate> subtree {};
 
+    mutable std::set<unsigned> shared_breakpoint {};
+    std::vector<unsigned> leaf_ids {};
+    mutable unsigned leaf_index {0};
+
     AndOrNode() = default;
     AndOrNode(TreeType t, check_macrostate subtree_);
 
     bool operator==(const AndOrNode& other) const;
     std::strong_ordering operator<=>(const AndOrNode& other) const;
+
+    NodeContext get_context() const {
+      if(this->type == TreeType::And && !this->leaf_ids.empty()) {
+        this->leaf_index = this->leaf_index % this->leaf_ids.size();
+        return NodeContext{ NodeContextType::SHARED_BREAKPOINT, std::optional<std::reference_wrapper<std::set<unsigned>>>(std::ref(this->shared_breakpoint)),  this->leaf_ids[this->leaf_index] };
+      } else {
+        return NodeContext{ NodeContextType::NONE, std::nullopt, 0};
+      }
+    }
   };
 
   /**
@@ -64,6 +99,9 @@ namespace sd_inductive {
     std::set<unsigned> safe {};
     /** @brief Acceptance color associated with this Fin-check. */
     spot::acc_cond::mark_t color {}; 
+
+    /** @brief Unique numeric id of this leaf within a check tree. */
+    unsigned id {0};
 
     static std::string mark_to_string(const spot::acc_cond::mark_t& m) {
       std::ostringstream os;
@@ -89,6 +127,10 @@ namespace sd_inductive {
     bool operator==(const fin_leaf&) const = default;
 
     std::strong_ordering operator<=>(const fin_leaf& other) const {
+      if (this->id < other.id)
+        return std::strong_ordering::less;
+      if (other.id < this->id)
+        return std::strong_ordering::greater;
       if (this->safe < other.safe)
         return std::strong_ordering::less;
       if (other.safe < this->safe)
@@ -105,7 +147,8 @@ namespace sd_inductive {
       const spot::scc_info&             scc_info,
       const std::set<unsigned>&         check_states,
       const bdd&                        bdd,
-      bool                              resample) const;
+      bool                              resample,
+      const NodeContext&                context) const;
 
     bool is_satisfied() const;
   };
@@ -120,6 +163,9 @@ namespace sd_inductive {
     std::set<unsigned> breakpoint {};
     /** @brief Acceptance color associated with this Inf-check. */
     spot::acc_cond::mark_t color {}; 
+
+    /** @brief Unique numeric id of this leaf within a check tree. */
+    unsigned id {0};
 
     /**
      * @brief Convert this leaf payload into a human-readable string.
@@ -140,6 +186,10 @@ namespace sd_inductive {
     bool operator==(const inf_leaf&) const = default;
 
     std::strong_ordering operator<=>(const inf_leaf& other) const {
+      if (this->id < other.id)
+        return std::strong_ordering::less;
+      if (other.id < this->id)
+        return std::strong_ordering::greater;
       if (this->track < other.track)
         return std::strong_ordering::less;
       if (other.track < this->track)
@@ -160,7 +210,8 @@ namespace sd_inductive {
       const spot::scc_info&             scc_info,
       const std::set<unsigned>&         check_states,
       const bdd&                        bdd,
-      bool                              resample) const;
+      bool                              resample,
+      const NodeContext&                context) const;
 
     bool is_satisfied() const;
 
@@ -250,7 +301,11 @@ namespace sd_inductive {
      * @return A `check_macrostate` leaf of type `TreeType::Fin`.
      */
     static check_macrostate fin(std::set<unsigned> safe, spot::acc_cond::mark_t color) {
-      return check_macrostate(base_tree::leaf(TreeType::Fin, fin_leaf{std::move(safe), color}));
+      return check_macrostate(base_tree::leaf(TreeType::Fin, fin_leaf{std::move(safe), color, 0}));
+    }
+
+    static check_macrostate fin(std::set<unsigned> safe, spot::acc_cond::mark_t color, unsigned id) {
+      return check_macrostate(base_tree::leaf(TreeType::Fin, fin_leaf{std::move(safe), color, id}));
     }
 
     /**
@@ -261,7 +316,11 @@ namespace sd_inductive {
      * @return A `check_macrostate` leaf of type `TreeType::Inf`.
      */
     static check_macrostate inf(std::set<unsigned> track, std::set<unsigned> breakpoint, spot::acc_cond::mark_t color) {
-      return check_macrostate(base_tree::leaf(TreeType::Inf, inf_leaf{std::move(track), std::move(breakpoint), color}));
+      return check_macrostate(base_tree::leaf(TreeType::Inf, inf_leaf{std::move(track), std::move(breakpoint), color, 0}));
+    }
+
+    static check_macrostate inf(std::set<unsigned> track, std::set<unsigned> breakpoint, spot::acc_cond::mark_t color, unsigned id) {
+      return check_macrostate(base_tree::leaf(TreeType::Inf, inf_leaf{std::move(track), std::move(breakpoint), color, id}));
     }
 
     /**
@@ -312,7 +371,8 @@ namespace sd_inductive {
       const spot::scc_info&             scc_info,
       const std::set<unsigned>&         check_states,
       const bdd&                        bdd,
-      bool                              resample) const;
+      bool                              resample,
+      const NodeContext&                parent_context = NodeContext{}) const;
 
     /// Check whether this macrostate check tree is satisfied.
     bool is_satisfied() const;
@@ -354,9 +414,31 @@ namespace sd_inductive {
     static std::string to_string_impl(const base_tree& tree);
   };
 
+  inline void collect_inf_leaf_ids(const check_macrostate& t, std::vector<unsigned>& out) {
+    using base_tree = kofola::types::binary_tree<TreeType, AndOrNode, fin_leaf, inf_leaf>;
+    const base_tree& bt = static_cast<const base_tree&>(t);
+    if(bt.type() != TreeType::And) {
+      return;
+    }
+    if (bt.is_leaf()) {
+      if (bt.type() == TreeType::Inf) {
+        out.push_back(std::get<inf_leaf>(bt.leaf_value()).id);
+      }
+      return;
+    }
+    collect_inf_leaf_ids(check_macrostate(base_tree(bt.left())), out);
+    collect_inf_leaf_ids(check_macrostate(base_tree(bt.right())), out);
+  }
+
   inline AndOrNode::AndOrNode(TreeType t, check_macrostate subtree_)
     : type(t),
-      subtree(std::make_shared<check_macrostate>(std::move(subtree_))) {}
+      subtree(std::make_shared<check_macrostate>(std::move(subtree_))) {
+    this->leaf_ids.clear();
+    if (this->subtree) {
+      collect_inf_leaf_ids(*this->subtree, this->leaf_ids);
+    }
+    this->leaf_index = 0;
+  }
 
   inline bool AndOrNode::operator==(const AndOrNode& other) const {
     if (this->type != other.type) {
