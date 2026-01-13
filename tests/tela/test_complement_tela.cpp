@@ -52,6 +52,28 @@ TEST_CASE("complement_tela with tela_det_alg=inductive produces language-equival
     kofola::OPTIONS.params.erase("tela_det_alg");
 }
 
+TEST_CASE("complement_tela with tela_det_alg=inductive and sd_ind_sh_break=yes produces language-equivalent results to Spot",
+          "[complement_tela][tela_det_alg][inductive][sd_ind_sh_break]") {
+    // Set up TELA options and enable inductive SD-TELA determinization with shared breakpoint
+    test_utils::setup_tela_options();
+    kofola::OPTIONS.params["tela_det_alg"] = "inductive";
+    kofola::OPTIONS.params["sd_ind_sh_break"] = "yes";
+
+    for (const std::string& filename : test_utils::COMMON_TEST_FILES) {
+        SECTION("Testing file (inductive det, shared breakpoint): " + filename) {
+            spot::twa_graph_ptr aut = test_utils::load_automaton_from_file(filename);
+            REQUIRE(aut != nullptr);
+
+            bool equivalent = test_utils::test_complement_equivalence(aut, false);
+            CHECK(equivalent);
+        }
+    }
+
+    // Clean up to avoid side-effects on other tests
+    kofola::OPTIONS.params.erase("sd_ind_sh_break");
+    kofola::OPTIONS.params.erase("tela_det_alg");
+}
+
 // Manual test function that can be called from main
 void run_complement_test_on_file(const std::string& filename) {
     std::cout << "Testing complement equivalence for file: " << filename << std::endl;

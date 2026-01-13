@@ -6,9 +6,11 @@
 
 #include <compare>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <sstream>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -21,6 +23,12 @@
 namespace kofola { // {{{
 
 namespace sd_inductive {
+
+  struct options {
+    bool use_shared_breakpoint{false};
+  };
+
+  using options_ptr = std::shared_ptr<const options>;
 
   /**
    * @brief Type of a node in a `check_macrostate` tree.
@@ -146,6 +154,7 @@ namespace sd_inductive {
       const spot::const_twa_graph_ptr&  aut,
       const spot::scc_info&             scc_info,
       const std::set<unsigned>&         check_states,
+      options_ptr                        opts,
       const bdd&                        bdd,
       bool                              resample,
       const NodeContext&                context) const;
@@ -209,6 +218,7 @@ namespace sd_inductive {
       const spot::const_twa_graph_ptr&  aut,
       const spot::scc_info&             scc_info,
       const std::set<unsigned>&         check_states,
+      options_ptr                        opts,
       const bdd&                        bdd,
       bool                              resample,
       const NodeContext&                context) const;
@@ -290,9 +300,24 @@ namespace sd_inductive {
     /**
      * @brief Construct a `check_macrostate` from an already-built base tree.
      *
+     * @param opts Options shared by all nodes in this check tree.
      * @param tree Underlying tree representation.
      */
-    explicit check_macrostate(base_tree tree) : base_tree(std::move(tree)) {}
+    explicit check_macrostate(options_ptr opts, base_tree tree)
+      : base_tree(std::move(tree)),
+        opts_(std::move(opts)) {
+      if (!opts_) {
+        throw std::invalid_argument("check_macrostate: options must not be null");
+      }
+    }
+
+    static options_ptr default_options() {
+      static const options_ptr opts = std::make_shared<options>();
+      return opts;
+    }
+
+    const options& get_options() const { return *opts_; }
+    const options_ptr& get_options_ptr() const { return opts_; }
 
     /**
      * @brief Build a `Fin` leaf.
@@ -300,12 +325,20 @@ namespace sd_inductive {
      * @param safe Set of safe states.
      * @return A `check_macrostate` leaf of type `TreeType::Fin`.
      */
+    static check_macrostate fin(options_ptr opts, std::set<unsigned> safe, spot::acc_cond::mark_t color) {
+      return check_macrostate(std::move(opts), base_tree::leaf(TreeType::Fin, fin_leaf{std::move(safe), color, 0}));
+    }
+
+    static check_macrostate fin(options_ptr opts, std::set<unsigned> safe, spot::acc_cond::mark_t color, unsigned id) {
+      return check_macrostate(std::move(opts), base_tree::leaf(TreeType::Fin, fin_leaf{std::move(safe), color, id}));
+    }
+
     static check_macrostate fin(std::set<unsigned> safe, spot::acc_cond::mark_t color) {
-      return check_macrostate(base_tree::leaf(TreeType::Fin, fin_leaf{std::move(safe), color, 0}));
+      return fin(default_options(), std::move(safe), color);
     }
 
     static check_macrostate fin(std::set<unsigned> safe, spot::acc_cond::mark_t color, unsigned id) {
-      return check_macrostate(base_tree::leaf(TreeType::Fin, fin_leaf{std::move(safe), color, id}));
+      return fin(default_options(), std::move(safe), color, id);
     }
 
     /**
@@ -315,12 +348,20 @@ namespace sd_inductive {
      * @param breakpoint Breakpoint set.
      * @return A `check_macrostate` leaf of type `TreeType::Inf`.
      */
+    static check_macrostate inf(options_ptr opts, std::set<unsigned> track, std::set<unsigned> breakpoint, spot::acc_cond::mark_t color) {
+      return check_macrostate(std::move(opts), base_tree::leaf(TreeType::Inf, inf_leaf{std::move(track), std::move(breakpoint), color, 0}));
+    }
+
+    static check_macrostate inf(options_ptr opts, std::set<unsigned> track, std::set<unsigned> breakpoint, spot::acc_cond::mark_t color, unsigned id) {
+      return check_macrostate(std::move(opts), base_tree::leaf(TreeType::Inf, inf_leaf{std::move(track), std::move(breakpoint), color, id}));
+    }
+
     static check_macrostate inf(std::set<unsigned> track, std::set<unsigned> breakpoint, spot::acc_cond::mark_t color) {
-      return check_macrostate(base_tree::leaf(TreeType::Inf, inf_leaf{std::move(track), std::move(breakpoint), color, 0}));
+      return inf(default_options(), std::move(track), std::move(breakpoint), color);
     }
 
     static check_macrostate inf(std::set<unsigned> track, std::set<unsigned> breakpoint, spot::acc_cond::mark_t color, unsigned id) {
-      return check_macrostate(base_tree::leaf(TreeType::Inf, inf_leaf{std::move(track), std::move(breakpoint), color, id}));
+      return inf(default_options(), std::move(track), std::move(breakpoint), color, id);
     }
 
     /**
@@ -331,14 +372,18 @@ namespace sd_inductive {
      * @param right Right subtree.
      * @return A `check_macrostate` internal node.
      */
-    static check_macrostate make(TreeType type, check_macrostate left, check_macrostate right) {
+    static check_macrostate make(options_ptr opts, TreeType type, check_macrostate left, check_macrostate right) {
       // Build a concrete subtree rooted at this internal node.
       // We intentionally construct this subtree using a default internal
       // payload, and store it in the node payload for now.
-      check_macrostate subtree_root(base_tree::make_node(type, base_tree(left), base_tree(right)));
+      check_macrostate subtree_root(opts, base_tree::make_node(type, base_tree(left), base_tree(right)));
       base_tree l(std::move(left));
       base_tree r(std::move(right));
-      return check_macrostate(base_tree::make_node(type, AndOrNode(type, std::move(subtree_root)), std::move(l), std::move(r)));
+      return check_macrostate(std::move(opts), base_tree::make_node(type, AndOrNode(type, std::move(subtree_root)), std::move(l), std::move(r)));
+    }
+
+    static check_macrostate make(TreeType type, check_macrostate left, check_macrostate right) {
+      return make(left.get_options_ptr(), type, std::move(left), std::move(right));
     }
 
     /**
@@ -363,7 +408,11 @@ namespace sd_inductive {
     }
 
     /// Build a `check_macrostate` tree from a Spot acceptance formula.
-    static check_macrostate from_acc_code(const spot::acc_cond::acc_code& code);
+    static check_macrostate from_acc_code(options_ptr opts, const spot::acc_cond::acc_code& code);
+
+    static check_macrostate from_acc_code(const spot::acc_cond::acc_code& code) {
+      return from_acc_code(default_options(), code);
+    }
 
     /// Compute successor macrostate(s) for this check tree node.
     std::vector<check_macrostate> get_succ(
@@ -393,9 +442,9 @@ namespace sd_inductive {
 
   private:
 
-    static check_macrostate fold(TreeType op, const std::vector<spot::acc_cond::acc_code>& parts);
+    static check_macrostate fold(options_ptr opts, TreeType op, const std::vector<spot::acc_cond::acc_code>& parts);
 
-    static check_macrostate from_acc_code_impl(const spot::acc_cond::acc_code& code);
+    static check_macrostate from_acc_code_impl(options_ptr opts, const spot::acc_cond::acc_code& code);
 
     /**
      * @brief Convert `TreeType` to a stable string name.
@@ -412,6 +461,9 @@ namespace sd_inductive {
      * @return String representation of @p tree.
      */
     static std::string to_string_impl(const base_tree& tree);
+
+  private:
+    options_ptr opts_;
   };
 
   inline void collect_inf_leaf_ids(const check_macrostate& t, std::vector<unsigned>& out) {
@@ -426,8 +478,8 @@ namespace sd_inductive {
       }
       return;
     }
-    collect_inf_leaf_ids(check_macrostate(base_tree(bt.left())), out);
-    collect_inf_leaf_ids(check_macrostate(base_tree(bt.right())), out);
+    collect_inf_leaf_ids(check_macrostate(t.get_options_ptr(), base_tree(bt.left())), out);
+    collect_inf_leaf_ids(check_macrostate(t.get_options_ptr(), base_tree(bt.right())), out);
   }
 
   inline AndOrNode::AndOrNode(TreeType t, check_macrostate subtree_)
@@ -583,6 +635,7 @@ public:
 // DATA MEMBERS
 private:
   spot::acc_cond::acc_code acc_cond_ {};
+  sd_inductive::options_ptr opts_ { nullptr };
 }; // complement_sd_inductive }}}
 
 
