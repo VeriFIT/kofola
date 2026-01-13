@@ -305,11 +305,7 @@ namespace sd_inductive {
      */
     explicit check_macrostate(options_ptr opts, base_tree tree)
       : base_tree(std::move(tree)),
-        opts_(std::move(opts)) {
-      if (!opts_) {
-        throw std::invalid_argument("check_macrostate: options must not be null");
-      }
-    }
+        opts_(opts ? std::move(opts) : default_options()) {}
 
     static options_ptr default_options() {
       static const options_ptr opts = std::make_shared<options>();
