@@ -428,7 +428,7 @@ std::string check_macrostate::tree_type_to_string(TreeType t) {
   return "?";
 }
 
-std::string check_macrostate::to_string_impl(const base_tree& tree) {
+std::string check_macrostate::to_string_impl(const base_tree& tree, bool show_shared_breakpoint) {
   const std::string head = tree_type_to_string(tree.type());
   if (tree.is_leaf()) {
     const std::string payload = std::visit(
@@ -437,7 +437,12 @@ std::string check_macrostate::to_string_impl(const base_tree& tree) {
     return head + "(" + payload + ")";
   }
 
-  return head + "(" + to_string_impl(tree.left()) + ", " + to_string_impl(tree.right()) + ")";
+  std::string extra;
+  if (show_shared_breakpoint && (tree.type() == TreeType::And || tree.type() == TreeType::Or)) {
+    extra = "[sb=" + std::to_string(tree.node_value().shared_breakpoint) + "]";
+  }
+
+  return head + extra + "(" + to_string_impl(tree.left(), show_shared_breakpoint) + ", " + to_string_impl(tree.right(), show_shared_breakpoint) + ")";
 }
 
 /**

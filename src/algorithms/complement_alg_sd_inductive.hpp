@@ -57,8 +57,8 @@ namespace sd_inductive {
     unsigned leaf_id {0};
 
     NodeContext merge_contexts(const NodeContext& predecessor) const {
-      if(this->type == NodeContextType::NONE) {
-        return *this;
+      if (this->type == NodeContextType::NONE) {
+        return predecessor;
       }
       if(this->type == NodeContextType::SHARED_BREAKPOINT && predecessor.type == NodeContextType::SHARED_BREAKPOINT) {
         return predecessor;
@@ -66,6 +66,26 @@ namespace sd_inductive {
       return *this;
     }
   };
+
+  inline std::ostream& operator<<(std::ostream& os, const NodeContext& ctx) {
+    os << "NodeContext{";
+    switch (ctx.type) {
+      case NodeContextType::NONE:
+        os << "type=NONE";
+        break;
+      case NodeContextType::SHARED_BREAKPOINT:
+        os << "type=SHARED_BREAKPOINT";
+        break;
+    }
+    os << ", leaf_id=" << ctx.leaf_id;
+    if (ctx.breakpoint.has_value()) {
+      os << ", breakpoint=" << std::to_string(ctx.breakpoint->get());
+    } else {
+      os << ", breakpoint=<none>";
+    }
+    os << "}";
+    return os;
+  }
 
   /**
    * @brief Payload of an internal `And`/`Or` node in `check_macrostate`.
@@ -388,7 +408,7 @@ namespace sd_inductive {
      * @return String representation of this macrostate check tree.
      */
     std::string to_string() const {
-      return to_string_impl(static_cast<const base_tree&>(*this));
+      return to_string_impl(static_cast<const base_tree&>(*this), opts_ && opts_->use_shared_breakpoint);
     }
 
     /**
@@ -456,7 +476,7 @@ namespace sd_inductive {
      * @param tree Tree to print.
      * @return String representation of @p tree.
      */
-    static std::string to_string_impl(const base_tree& tree);
+    static std::string to_string_impl(const base_tree& tree, bool show_shared_breakpoint);
 
   private:
     options_ptr opts_;
@@ -465,9 +485,6 @@ namespace sd_inductive {
   inline void collect_inf_leaf_ids(const check_macrostate& t, std::vector<unsigned>& out) {
     using base_tree = kofola::types::binary_tree<TreeType, AndOrNode, fin_leaf, inf_leaf>;
     const base_tree& bt = static_cast<const base_tree&>(t);
-    if(bt.type() != TreeType::And) {
-      return;
-    }
     if (bt.is_leaf()) {
       if (bt.type() == TreeType::Inf) {
         out.push_back(std::get<inf_leaf>(bt.leaf_value()).id);
@@ -478,6 +495,23 @@ namespace sd_inductive {
     collect_inf_leaf_ids(check_macrostate(t.get_options_ptr(), base_tree(bt.right())), out);
   }
 
+  // inline bool find_inf_leaf_breakpoint_by_id(const check_macrostate& t, unsigned id, std::set<unsigned>& out) {
+  //   using base_tree = kofola::types::binary_tree<TreeType, AndOrNode, fin_leaf, inf_leaf>;
+  //   const base_tree& bt = static_cast<const base_tree&>(t);
+  //   if (bt.is_leaf()) {
+  //     if (bt.type() == TreeType::Inf) {
+  //       const auto& leaf = std::get<inf_leaf>(bt.leaf_value());
+  //       if (leaf.id == id) {
+  //         out = leaf.breakpoint;
+  //         return true;
+  //       }
+  //     }
+  //     return false;
+  //   }
+  //   return find_inf_leaf_breakpoint_by_id(check_macrostate(t.get_options_ptr(), base_tree(bt.left())), id, out) ||
+  //          find_inf_leaf_breakpoint_by_id(check_macrostate(t.get_options_ptr(), base_tree(bt.right())), id, out);
+  // }
+
   inline AndOrNode::AndOrNode(TreeType t, check_macrostate subtree_)
     : type(t),
       subtree(std::make_shared<check_macrostate>(std::move(subtree_))) {
@@ -486,6 +520,15 @@ namespace sd_inductive {
       collect_inf_leaf_ids(*this->subtree, this->leaf_ids);
     }
     this->leaf_index = 0;
+
+    // this->shared_breakpoint.clear();
+    // if (this->subtree && this->type == TreeType::And) {
+    //   const auto& opts = this->subtree->get_options();
+    //   if (opts.use_shared_breakpoint && !this->leaf_ids.empty()) {
+    //     const unsigned selected_leaf_id = this->leaf_ids[this->leaf_index % this->leaf_ids.size()];
+    //     (void)find_inf_leaf_breakpoint_by_id(*this->subtree, selected_leaf_id, this->shared_breakpoint);
+    //   }
+    // }
   }
 
   inline bool AndOrNode::operator==(const AndOrNode& other) const {
