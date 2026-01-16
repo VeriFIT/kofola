@@ -50,20 +50,35 @@ namespace sd_inductive {
 
   class check_macrostate;
 
+  struct NodeContext;
+  std::ostream& operator<<(std::ostream& os, const NodeContext& ctx);
+
   struct NodeContext {
     NodeContextType type { NodeContextType::NONE };
 
-    std::optional<std::reference_wrapper<std::set<unsigned>>> breakpoint;
+    std::set<unsigned> breakpoint {};
     unsigned leaf_id {0};
+    unsigned leaf_index {0};
+    std::vector<unsigned> leaf_ids {};
 
-    NodeContext merge_contexts(const NodeContext& predecessor) const {
+    NodeContext& merge_contexts(NodeContext& predecessor) {
       if (this->type == NodeContextType::NONE) {
-        return predecessor;
+        return *this;
       }
       if(this->type == NodeContextType::SHARED_BREAKPOINT && predecessor.type == NodeContextType::SHARED_BREAKPOINT) {
         return predecessor;
       } 
       return *this;
+    }
+
+    void restrict_states(const std::set<unsigned>& forbidden) {
+      this->breakpoint = get_set_difference(this->breakpoint, forbidden);
+    }
+
+    std::string to_string() const {
+      std::ostringstream os;
+      os << *this;
+      return os.str();
     }
   };
 
@@ -78,11 +93,7 @@ namespace sd_inductive {
         break;
     }
     os << ", leaf_id=" << ctx.leaf_id;
-    if (ctx.breakpoint.has_value()) {
-      os << ", breakpoint=" << std::to_string(ctx.breakpoint->get());
-    } else {
-      os << ", breakpoint=<none>";
-    }
+    os << ", breakpoint=" << std::to_string(ctx.breakpoint);
     os << "}";
     return os;
   }
@@ -98,23 +109,32 @@ namespace sd_inductive {
     TreeType type {TreeType::And};
     std::shared_ptr<check_macrostate> subtree {};
 
-    mutable std::set<unsigned> shared_breakpoint {};
-    std::vector<unsigned> leaf_ids {};
-    mutable unsigned leaf_index {0};
+    NodeContext context{};
 
     AndOrNode() = default;
-    AndOrNode(TreeType t, check_macrostate subtree_);
+    AndOrNode(TreeType t, check_macrostate subtree_, NodeContext context_);
 
     bool operator==(const AndOrNode& other) const;
     std::strong_ordering operator<=>(const AndOrNode& other) const;
 
-    NodeContext get_context() const {
-      if(this->type == TreeType::And && !this->leaf_ids.empty()) {
-        this->leaf_index = this->leaf_index % this->leaf_ids.size();
-        return NodeContext{ NodeContextType::SHARED_BREAKPOINT, std::optional<std::reference_wrapper<std::set<unsigned>>>(std::ref(this->shared_breakpoint)),  this->leaf_ids[this->leaf_index] };
-      } else {
-        return NodeContext{ NodeContextType::NONE, std::nullopt, 0};
+    void set_context(const NodeContext& ctx) {
+      this->context = ctx;
+      this->context.leaf_index = this->context.leaf_index % this->context.leaf_ids.size();
+      if(this->context.breakpoint.empty() && this->context.leaf_ids.size() > 0) {
+        this->context.leaf_index = (this->context.leaf_index + 1) % this->context.leaf_ids.size();
       }
+      if(!this->context.leaf_ids.empty()) {
+        this->context.leaf_id = this->context.leaf_ids[this->context.leaf_index];
+      }
+      
+    }
+
+    bool is_satisfied() const {
+      return this->context.type != NodeContextType::SHARED_BREAKPOINT || this->context.breakpoint.empty();
+    }
+
+    const NodeContext& get_context() const {
+      return this->context;
     }
   };
 
@@ -177,7 +197,7 @@ namespace sd_inductive {
       options_ptr                        opts,
       const bdd&                        bdd,
       bool                              resample,
-      const NodeContext&                context) const;
+      NodeContext&                      context) const;
 
     bool is_satisfied() const;
   };
@@ -241,7 +261,7 @@ namespace sd_inductive {
       options_ptr                        opts,
       const bdd&                        bdd,
       bool                              resample,
-      const NodeContext&                context) const;
+      NodeContext&                      context) const;
 
     bool is_satisfied() const;
 
@@ -388,18 +408,18 @@ namespace sd_inductive {
      * @param right Right subtree.
      * @return A `check_macrostate` internal node.
      */
-    static check_macrostate make(options_ptr opts, TreeType type, check_macrostate left, check_macrostate right) {
+    static check_macrostate make(options_ptr opts, TreeType type, check_macrostate left, check_macrostate right, NodeContext node_payload = NodeContext{}) {
       // Build a concrete subtree rooted at this internal node.
       // We intentionally construct this subtree using a default internal
       // payload, and store it in the node payload for now.
       check_macrostate subtree_root(opts, base_tree::make_node(type, base_tree(left), base_tree(right)));
       base_tree l(std::move(left));
       base_tree r(std::move(right));
-      return check_macrostate(std::move(opts), base_tree::make_node(type, AndOrNode(type, std::move(subtree_root)), std::move(l), std::move(r)));
+      return check_macrostate(std::move(opts), base_tree::make_node(type, AndOrNode(type, std::move(subtree_root), std::move(node_payload)), std::move(l), std::move(r)));
     }
 
-    static check_macrostate make(TreeType type, check_macrostate left, check_macrostate right) {
-      return make(left.get_options_ptr(), type, std::move(left), std::move(right));
+    static check_macrostate make(TreeType type, check_macrostate left, check_macrostate right, NodeContext node_payload = NodeContext{}) {
+      return make(left.get_options_ptr(), type, std::move(left), std::move(right), std::move(node_payload));
     }
 
     /**
@@ -437,7 +457,7 @@ namespace sd_inductive {
       const std::set<unsigned>&         check_states,
       const bdd&                        bdd,
       bool                              resample,
-      const NodeContext&                parent_context = NodeContext{}) const;
+      NodeContext&                      parent_context) const;
 
     /// Check whether this macrostate check tree is satisfied.
     bool is_satisfied() const;
@@ -491,35 +511,26 @@ namespace sd_inductive {
       }
       return;
     }
+    if(bt.type() != TreeType::And) {
+      return;
+    }
     collect_inf_leaf_ids(check_macrostate(t.get_options_ptr(), base_tree(bt.left())), out);
     collect_inf_leaf_ids(check_macrostate(t.get_options_ptr(), base_tree(bt.right())), out);
   }
 
-  // inline bool find_inf_leaf_breakpoint_by_id(const check_macrostate& t, unsigned id, std::set<unsigned>& out) {
-  //   using base_tree = kofola::types::binary_tree<TreeType, AndOrNode, fin_leaf, inf_leaf>;
-  //   const base_tree& bt = static_cast<const base_tree&>(t);
-  //   if (bt.is_leaf()) {
-  //     if (bt.type() == TreeType::Inf) {
-  //       const auto& leaf = std::get<inf_leaf>(bt.leaf_value());
-  //       if (leaf.id == id) {
-  //         out = leaf.breakpoint;
-  //         return true;
-  //       }
-  //     }
-  //     return false;
-  //   }
-  //   return find_inf_leaf_breakpoint_by_id(check_macrostate(t.get_options_ptr(), base_tree(bt.left())), id, out) ||
-  //          find_inf_leaf_breakpoint_by_id(check_macrostate(t.get_options_ptr(), base_tree(bt.right())), id, out);
-  // }
-
-  inline AndOrNode::AndOrNode(TreeType t, check_macrostate subtree_)
+  inline AndOrNode::AndOrNode(TreeType t, check_macrostate subtree_, NodeContext context_)
     : type(t),
-      subtree(std::make_shared<check_macrostate>(std::move(subtree_))) {
-    this->leaf_ids.clear();
+      subtree(std::make_shared<check_macrostate>(std::move(subtree_))),
+      context(std::move(context_)) {
+    this->context.leaf_ids.clear();
     if (this->subtree) {
-      collect_inf_leaf_ids(*this->subtree, this->leaf_ids);
+      collect_inf_leaf_ids(*this->subtree, this->context.leaf_ids);
     }
-    this->leaf_index = 0;
+    if(t == TreeType::And && this->context.leaf_ids.size() > 0) {
+      this->context.type = NodeContextType::SHARED_BREAKPOINT;
+      this->context.leaf_id = this->context.leaf_ids[this->context.leaf_index % this->context.leaf_ids.size()];
+    }
+    
 
     // this->shared_breakpoint.clear();
     // if (this->subtree && this->type == TreeType::And) {
@@ -535,6 +546,22 @@ namespace sd_inductive {
     if (this->type != other.type) {
       return false;
     }
+    if (this->context.type != other.context.type) {
+      return false;
+    }
+    if (this->context.breakpoint != other.context.breakpoint) {
+      return false;
+    }
+    if (this->context.leaf_id != other.context.leaf_id) {
+      return false;
+    }
+    if (this->context.leaf_index != other.context.leaf_index) {
+      return false;
+    }
+    if (this->context.leaf_ids != other.context.leaf_ids) {
+      return false;
+    }
+
     if (!this->subtree && !other.subtree) {
       return true;
     }
@@ -552,7 +579,39 @@ namespace sd_inductive {
       return std::strong_ordering::greater;
     }
 
-    // Same type: order by subtree presence then subtree structure.
+    // Context ordering (lexicographic by individual fields)
+    if (this->context.type < other.context.type) {
+      return std::strong_ordering::less;
+    }
+    if (other.context.type < this->context.type) {
+      return std::strong_ordering::greater;
+    }
+    if (this->context.breakpoint < other.context.breakpoint) {
+      return std::strong_ordering::less;
+    }
+    if (other.context.breakpoint < this->context.breakpoint) {
+      return std::strong_ordering::greater;
+    }
+    if (this->context.leaf_id < other.context.leaf_id) {
+      return std::strong_ordering::less;
+    }
+    if (other.context.leaf_id < this->context.leaf_id) {
+      return std::strong_ordering::greater;
+    }
+    if (this->context.leaf_index < other.context.leaf_index) {
+      return std::strong_ordering::less;
+    }
+    if (other.context.leaf_index < this->context.leaf_index) {
+      return std::strong_ordering::greater;
+    }
+    if (this->context.leaf_ids < other.context.leaf_ids) {
+      return std::strong_ordering::less;
+    }
+    if (other.context.leaf_ids < this->context.leaf_ids) {
+      return std::strong_ordering::greater;
+    }
+
+    // Same type and context: order by subtree presence then subtree structure.
     if (!this->subtree && !other.subtree) {
       return std::strong_ordering::equal;
     }

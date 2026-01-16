@@ -144,6 +144,9 @@ public:
   /** Returns the internal-node payload (only valid when `is_node() == true`). */
   const InternalValue& node_value() const { return *node_value_; }
 
+  InternalValue& node_value() { return *node_value_; }
+
+
   /** Returns the left subtree (only valid when `is_node() == true`). */
   const binary_tree& left() const { return *left_; }
 
