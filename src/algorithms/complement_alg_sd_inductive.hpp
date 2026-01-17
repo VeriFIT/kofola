@@ -119,14 +119,13 @@ namespace sd_inductive {
 
     void set_context(const NodeContext& ctx) {
       this->context = ctx;
-      this->context.leaf_index = this->context.leaf_index % this->context.leaf_ids.size();
-      if(this->context.breakpoint.empty() && this->context.leaf_ids.size() > 0) {
-        this->context.leaf_index = (this->context.leaf_index + 1) % this->context.leaf_ids.size();
-      }
-      if(!this->context.leaf_ids.empty()) {
+      if(this->context.leaf_ids.size() > 0) {
+        this->context.leaf_index = this->context.leaf_index % this->context.leaf_ids.size();
+        if(this->context.breakpoint.empty()) {
+          this->context.leaf_index = (this->context.leaf_index + 1) % this->context.leaf_ids.size();
+        }
         this->context.leaf_id = this->context.leaf_ids[this->context.leaf_index];
       }
-      
     }
 
     bool is_satisfied() const {
