@@ -2,6 +2,9 @@
 
 // spot
 #include <spot/twa/twa.hh>
+#include <spot/twaalgos/sccinfo.hh>
+
+#include <memory>
 
 namespace kofola {
     /// Determinize a transition-based Emerson-Lei automaton (TELA).
@@ -15,9 +18,11 @@ namespace kofola {
     {
     private:
         spot::twa_graph_ptr aut_;
+        std::shared_ptr<spot::scc_info> scc_;
 
     public:
-        explicit tela_determinize(const spot::twa_graph_ptr& aut);
+        tela_determinize(const spot::twa_graph_ptr& aut,
+                         std::shared_ptr<spot::scc_info> scc);
 
         /// Run determinization; currently a stub returning the input automaton.
         spot::twa_graph_ptr run_new();
