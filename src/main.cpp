@@ -361,8 +361,7 @@ int main(int argc, char *argv[])
 				} else if (options.operation == "type") {
 					assert(false);
 				} else if (options.operation == "determinize") {
-					kofola::tela_determinize det(aut);
-					spot::twa_graph_ptr result = det.run_new();
+					spot::twa_graph_ptr result = kofola::determinize_tela(aut);
 
 					spot::print_hoa(std::cout, result);
 					std::cout << "\n";
