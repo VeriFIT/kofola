@@ -41,6 +41,41 @@ check_macrostate assign_leaf_ids(const check_macrostate& tree, unsigned& next_id
   return check_macrostate::make(tree.get_options_ptr(), node_type, assign_leaf_ids(left_ms, next_id), assign_leaf_ids(right_ms, next_id), tree.node_value().context);
 }
 
+/**
+ * @brief Initialize (or re-initialize) `NodeContext` payloads inside a check tree.
+ *
+ * When shared-breakpoint mode is enabled (`opts->use_shared_breakpoint == true`),
+ * each internal node's `NodeContext` is recomputed from the subtree so that it
+ * references the current set of `Inf` leaf IDs.
+ *
+ * @param tree Check tree to update in-place.
+ * @param opts Options controlling whether shared-breakpoint contexts are used.
+ *             Must be non-null.
+ *
+ * @warning This function traverses children by casting `base_tree::left()/right()`
+ *          to `check_macrostate&`. The underlying tree stores children as
+ *          `base_tree`, not `check_macrostate`, so these casts are undefined
+ *          behavior and can manifest as crashes (e.g., seemingly-null
+ *          `get_options_ptr()`). Prefer a functional rebuild that wraps children
+ *          as `check_macrostate(opts, base_tree(child))` if you need a safe
+ *          traversal.
+ */
+void init_contexts_in_tree(check_macrostate& tree, options_ptr opts) {
+  if (tree.is_leaf()) {
+    return;
+  }
+
+  auto& base = static_cast<base_tree&>(tree);
+  init_contexts_in_tree(static_cast<check_macrostate&>(base.left()), opts);
+  init_contexts_in_tree(static_cast<check_macrostate&>(base.right()), opts);
+
+  if (opts->use_shared_breakpoint) {
+    NodeContext ctx = NodeContext::create_subtree_sh_context(tree.type(), tree);
+    tree.node_value().set_context(ctx);
+  }
+  
+}
+
 } // namespace
 
 /**
@@ -68,7 +103,28 @@ check_macrostate assign_leaf_ids(const check_macrostate& tree, unsigned& next_id
 check_macrostate check_macrostate::from_acc_code(options_ptr opts, const spot::acc_cond::acc_code& code) {
   const auto parsed = from_acc_code_impl(std::move(opts), code);
   unsigned next_id = 0;
-  return assign_leaf_ids(parsed, next_id);
+  // First assign stable leaf IDs, then (re)initialize NodeContext using the
+  // fully ID-annotated subtrees.
+  return assign_leaf_ids(parsed, next_id).init_contexts();
+}
+
+/**
+ * @brief Return a copy of this check tree with refreshed `NodeContext` values.
+ *
+ * Intended usage is after parsing acceptance and assigning stable leaf IDs.
+ * In shared-breakpoint mode, `NodeContext` depends on `inf_leaf::id`, so any
+ * transformation that changes leaf IDs should be followed by `init_contexts()`.
+ *
+ * @note The current implementation delegates to `init_contexts_in_tree()`,
+ *       which performs an in-place traversal using casts that assume children
+ *       are `check_macrostate`. If you observe intermittent crashes here,
+ *       refactor to a traversal that rebuilds the tree while wrapping children
+ *       with `check_macrostate(opts, base_tree(child))`. 
+ */
+check_macrostate check_macrostate::init_contexts() const {
+  check_macrostate out = *this;
+  init_contexts_in_tree(out, this->opts_);
+  return out;
 }
 
 /**
@@ -112,15 +168,11 @@ std::vector<check_macrostate> check_macrostate::get_succ(
 
   // Propagate/merge context from parent into this node.
   // NodeContext& context = parent_context;
-  NodeContext local = this->node_value().get_context();
-  NodeContext& context  = this->opts_->use_shared_breakpoint ? local.merge_contexts(parent_context) : local;
-  // if ((this->type() == TreeType::And || this->type() == TreeType::Or) && this->opts_->use_shared_breakpoint) {
-  //   // std::cout << "merging " << int(local.type) << ": " << (this->type() == TreeType::And) << " with " << int(parent_context.type) << std::endl;
-  //   // std::cout << this->to_string() << std::endl;
 
-  //   std::cout << local << " ::: " << parent_context << " ::: " << context << std::endl;
-  //   // context = local.merge_contexts(parent_context);
-  // }
+  // TODO: add comment how it is working
+  NodeContext actual_ctx = this->node_value().get_context();
+  NodeContext local = !actual_ctx.is_mergable(parent_context) ? this->node_value().get_succ_context(resample) : actual_ctx;
+  NodeContext& context  = this->opts_->use_shared_breakpoint ? local.merge_contexts(parent_context) : local;
 
   const auto node_type = this->type();
   const check_macrostate left_ms(this->opts_, base_tree(this->left()));
@@ -129,13 +181,12 @@ std::vector<check_macrostate> check_macrostate::get_succ(
   if (node_type == TreeType::And) {
     const auto left_succ = left_ms.get_succ(aut, scc_info, check_states, bdd, resample, context);
     const auto right_succ = right_ms.get_succ(aut, scc_info, check_states, bdd, resample, context);
-    
+
     return cartesian_product<check_macrostate, check_macrostate>(
       left_succ,
       right_succ,
       [opts = this->opts_, &local](const check_macrostate& l, const check_macrostate& r) {
-        auto tmp = check_macrostate::make(opts, TreeType::And, l, r);
-        tmp.node_value().set_context(local);
+        auto tmp = check_macrostate::make(opts, TreeType::And, l, r, local);
         return tmp;
       });
   }
@@ -157,8 +208,7 @@ std::vector<check_macrostate> check_macrostate::get_succ(
         left_succ,
         right_succ,
         [opts = this->opts_, &local](const check_macrostate& l, const check_macrostate& r) {
-          auto tmp = check_macrostate::make(opts, TreeType::Or, l, r);
-          tmp.node_value().set_context(local);
+          auto tmp = check_macrostate::make(opts, TreeType::Or, l, r, local);
           return tmp.reduce();
         });
       out.insert(combined.begin(), combined.end());
@@ -555,6 +605,45 @@ std::vector<check_macrostate> inf_leaf::get_succ(
         succs.insert(t.dst);
       }
     }
+  }
+
+  if(opts && opts->use_shared_breakpoint && context.type == NodeContextType::SHARED_BREAKPOINT) {
+
+    if(context.leaf_id != this->id) {
+      return {check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id)};
+    }
+
+    assert(!resample || context.state == NodeContextState::RESAMLE_LEAF);
+    
+
+    if(context.state == NodeContextState::GLOBAL_WAIT) {
+      return {check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id)};
+    } else if(context.state == NodeContextState::RESAMLE_LEAF) {
+      succ_break = succs;
+      if(context.leaf_id == this->id) {
+        //std::cout << "context finished reset for leaf " << this->id << std::endl;
+        context.state = NodeContextState::PROCESS_LEAF;
+      }
+    } else {
+      for (unsigned s : context.breakpoint) {
+        for (const auto& t : aut->out(s)) {
+          if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
+            if (t.acc & this->color) {
+              continue;
+            }
+            succ_break.insert(t.dst);
+          }
+        }
+      }
+    }
+
+    if(context.leaf_id == this->id) {
+      // If using a shared breakpoint context, update it in-place.
+      context.breakpoint = succ_break;
+      succ_break.clear();
+    } 
+    
+    return {check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id)};
   }
 
   if (!resample) {

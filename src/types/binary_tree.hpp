@@ -150,8 +150,12 @@ public:
   /** Returns the left subtree (only valid when `is_node() == true`). */
   const binary_tree& left() const { return *left_; }
 
+  binary_tree& left() { return *left_; }
+
   /** Returns the right subtree (only valid when `is_node() == true`). */
   const binary_tree& right() const { return *right_; }
+
+  binary_tree& right() { return *right_; }
 
   /** Structural equality comparison (compares type, kind, and payload/children). */
   friend bool operator==(const binary_tree& a, const binary_tree& b) {

@@ -48,7 +48,15 @@ namespace sd_inductive {
     SHARED_BREAKPOINT
   };
 
+  enum class NodeContextState {
+    GLOBAL_WAIT,
+    RESAMLE_LEAF,
+    PROCESS_LEAF,
+  };
+
   class check_macrostate;
+
+  inline void collect_inf_leaf_ids(const check_macrostate& t, std::vector<unsigned>& out);
 
   struct NodeContext;
   std::ostream& operator<<(std::ostream& os, const NodeContext& ctx);
@@ -60,7 +68,124 @@ namespace sd_inductive {
     unsigned leaf_id {0};
     unsigned leaf_index {0};
     std::vector<unsigned> leaf_ids {};
+    NodeContextState state {NodeContextState::GLOBAL_WAIT};
 
+    /**
+     * @brief Compute the successor context for one transition step.
+     *
+     * This method implements the small state machine used by the
+     * shared-breakpoint optimization.
+     *
+     * - If `type != SHARED_BREAKPOINT`, the context is returned unchanged.
+     * - In `GLOBAL_WAIT`, a `resample` request moves the context to
+     *   `RESAMLE_LEAF` (otherwise it stays in `GLOBAL_WAIT`).
+     * - In `PROCESS_LEAF`, the selected leaf is advanced when the breakpoint
+     *   becomes empty; when the leaf index wraps to 0, the state returns to
+     *   `GLOBAL_WAIT`.
+     *
+     * @param resample Whether the caller requests a resampling step.
+     * @return A copy of this context updated for the next step.
+     */
+    NodeContext get_succ_context(bool resample) const {
+      NodeContext succ = *this;
+      if(this->type != NodeContextType::SHARED_BREAKPOINT) {
+        return succ;
+      }
+
+      if(this->state == NodeContextState::GLOBAL_WAIT) {
+        if(resample) {
+          succ.state = NodeContextState::RESAMLE_LEAF;
+        }
+        // else do nothing
+      } else if(this->state == NodeContextState::RESAMLE_LEAF) {
+        assert(false);
+        return succ;
+      } else {
+        if(succ.leaf_ids.size() > 0) {
+          succ.leaf_index = succ.leaf_index % succ.leaf_ids.size();
+          if(succ.breakpoint.empty()) {
+            succ.leaf_index = (succ.leaf_index + 1) % succ.leaf_ids.size();
+            if(succ.leaf_index == 0) {
+              succ.state = NodeContextState::GLOBAL_WAIT;
+            } else {
+              succ.state = NodeContextState::RESAMLE_LEAF;
+            }
+          }
+        }
+        succ.leaf_id = succ.leaf_ids[succ.leaf_index];
+      }
+      
+      return succ;
+    }
+
+    /**
+     * @brief Build a shared-breakpoint context for a subtree.
+     *
+     * Collects all `Inf` leaf IDs from @p subtree_ and, if the subtree root
+     * is an `And` node with at least one `Inf` leaf, initializes the returned
+     * context as `SHARED_BREAKPOINT` and selects the first leaf ID.
+     *
+     * @param t Type of the subtree root.
+     * @param subtree_ Subtree to inspect for `Inf` leaf IDs.
+     * @return A freshly initialized context for that subtree.
+     */
+    static NodeContext create_subtree_sh_context(TreeType t, const check_macrostate& subtree_) {
+      NodeContext ctx;
+      collect_inf_leaf_ids(subtree_, ctx.leaf_ids);
+      if(t == TreeType::And && ctx.leaf_ids.size() > 0) {
+        ctx.type = NodeContextType::SHARED_BREAKPOINT;
+        ctx.leaf_id = ctx.leaf_ids[ctx.leaf_index % ctx.leaf_ids.size()];
+      }
+      return ctx;
+    }
+
+    bool operator==(const NodeContext& other) const = default;
+
+    std::strong_ordering operator<=>(const NodeContext& other) const {
+      if (this->type < other.type)
+        return std::strong_ordering::less;
+      if (other.type < this->type)
+        return std::strong_ordering::greater;
+
+      if (this->breakpoint < other.breakpoint)
+        return std::strong_ordering::less;
+      if (other.breakpoint < this->breakpoint)
+        return std::strong_ordering::greater;
+
+      if (this->leaf_id < other.leaf_id)
+        return std::strong_ordering::less;
+      if (other.leaf_id < this->leaf_id)
+        return std::strong_ordering::greater;
+
+      if (this->leaf_index < other.leaf_index)
+        return std::strong_ordering::less;
+      if (other.leaf_index < this->leaf_index)
+        return std::strong_ordering::greater;
+
+      if (this->leaf_ids < other.leaf_ids)
+        return std::strong_ordering::less;
+      if (other.leaf_ids < this->leaf_ids)
+        return std::strong_ordering::greater;
+
+      if (this->state < other.state)
+        return std::strong_ordering::less;
+      if (other.state < this->state)
+        return std::strong_ordering::greater;
+
+      return std::strong_ordering::equal;
+    }
+
+    /**
+     * @brief Merge this context with a predecessor context.
+     *
+     * Intended use: propagate a shared-breakpoint context top-down.
+     * If both this and @p predecessor are `SHARED_BREAKPOINT`, the predecessor
+     * is kept (so the shared-breakpoint state is effectively inherited).
+     * Otherwise this context is kept.
+     *
+     * @param predecessor Context from the parent node.
+     * @return Reference to the context that should be used downstream.
+     */
     NodeContext& merge_contexts(NodeContext& predecessor) {
       if (this->type == NodeContextType::NONE) {
         return *this;
@@ -69,6 +194,18 @@ namespace sd_inductive {
         return predecessor;
       } 
       return *this;
+    }
+
+    /**
+     * @brief Check whether this context can be merged with @p predecessor.
+     *
+     * Currently, contexts are mergeable iff both are `SHARED_BREAKPOINT`.
+     *
+     * @param predecessor Context from the parent node.
+     * @return `true` if the two contexts are considered mergeable.
+     */
+    bool is_mergable(NodeContext& predecessor) {
+      return this->type == NodeContextType::SHARED_BREAKPOINT && predecessor.type == NodeContextType::SHARED_BREAKPOINT;
     }
 
     void restrict_states(const std::set<unsigned>& forbidden) {
@@ -94,6 +231,7 @@ namespace sd_inductive {
     }
     os << ", leaf_id=" << ctx.leaf_id;
     os << ", breakpoint=" << std::to_string(ctx.breakpoint);
+    os << ", state=" << (int)ctx.state;
     os << "}";
     return os;
   }
@@ -117,24 +255,21 @@ namespace sd_inductive {
     bool operator==(const AndOrNode& other) const;
     std::strong_ordering operator<=>(const AndOrNode& other) const;
 
-    void set_context(const NodeContext& ctx) {
-      this->context = ctx;
-      if(this->context.leaf_ids.size() > 0) {
-        this->context.leaf_index = this->context.leaf_index % this->context.leaf_ids.size();
-        if(this->context.breakpoint.empty()) {
-          this->context.leaf_index = (this->context.leaf_index + 1) % this->context.leaf_ids.size();
-        }
-        this->context.leaf_id = this->context.leaf_ids[this->context.leaf_index];
-      }
+    bool is_satisfied() const {
+      return (this->context.type != NodeContextType::SHARED_BREAKPOINT || this->context.breakpoint.empty()) && this->context.state == NodeContextState::GLOBAL_WAIT;
     }
 
-    bool is_satisfied() const {
-      return this->context.type != NodeContextType::SHARED_BREAKPOINT || this->context.breakpoint.empty();
+    NodeContext get_succ_context(bool resample) const {
+      return this->context.get_succ_context(resample);
     }
 
     const NodeContext& get_context() const {
       return this->context;
     }
+
+    void set_context(const NodeContext& ctx) {
+      this->context = ctx;
+    } 
   };
 
   /**
@@ -449,6 +584,13 @@ namespace sd_inductive {
       return from_acc_code(default_options(), code);
     }
 
+    /// Re-initialize NodeContext for all internal nodes in this tree.
+    ///
+    /// This is intended to be called after leaf IDs have been assigned
+    /// (e.g., after parsing acceptance and running an ID-renaming pass),
+    /// because shared-breakpoint contexts depend on `inf_leaf::id`.
+    check_macrostate init_contexts() const;
+
     /// Compute successor macrostate(s) for this check tree node.
     std::vector<check_macrostate> get_succ(
       const spot::const_twa_graph_ptr&  aut,
@@ -521,45 +663,13 @@ namespace sd_inductive {
     : type(t),
       subtree(std::make_shared<check_macrostate>(std::move(subtree_))),
       context(std::move(context_)) {
-    this->context.leaf_ids.clear();
-    if (this->subtree) {
-      collect_inf_leaf_ids(*this->subtree, this->context.leaf_ids);
-    }
-    if(t == TreeType::And && this->context.leaf_ids.size() > 0) {
-      this->context.type = NodeContextType::SHARED_BREAKPOINT;
-      this->context.leaf_id = this->context.leaf_ids[this->context.leaf_index % this->context.leaf_ids.size()];
-    }
-    
-
-    // this->shared_breakpoint.clear();
-    // if (this->subtree && this->type == TreeType::And) {
-    //   const auto& opts = this->subtree->get_options();
-    //   if (opts.use_shared_breakpoint && !this->leaf_ids.empty()) {
-    //     const unsigned selected_leaf_id = this->leaf_ids[this->leaf_index % this->leaf_ids.size()];
-    //     (void)find_inf_leaf_breakpoint_by_id(*this->subtree, selected_leaf_id, this->shared_breakpoint);
-    //   }
-    // }
   }
 
   inline bool AndOrNode::operator==(const AndOrNode& other) const {
-    if (this->type != other.type) {
+    if (this->type != other.type)
       return false;
-    }
-    if (this->context.type != other.context.type) {
+    if (this->context != other.context)
       return false;
-    }
-    if (this->context.breakpoint != other.context.breakpoint) {
-      return false;
-    }
-    if (this->context.leaf_id != other.context.leaf_id) {
-      return false;
-    }
-    if (this->context.leaf_index != other.context.leaf_index) {
-      return false;
-    }
-    if (this->context.leaf_ids != other.context.leaf_ids) {
-      return false;
-    }
 
     if (!this->subtree && !other.subtree) {
       return true;
@@ -578,37 +688,8 @@ namespace sd_inductive {
       return std::strong_ordering::greater;
     }
 
-    // Context ordering (lexicographic by individual fields)
-    if (this->context.type < other.context.type) {
-      return std::strong_ordering::less;
-    }
-    if (other.context.type < this->context.type) {
-      return std::strong_ordering::greater;
-    }
-    if (this->context.breakpoint < other.context.breakpoint) {
-      return std::strong_ordering::less;
-    }
-    if (other.context.breakpoint < this->context.breakpoint) {
-      return std::strong_ordering::greater;
-    }
-    if (this->context.leaf_id < other.context.leaf_id) {
-      return std::strong_ordering::less;
-    }
-    if (other.context.leaf_id < this->context.leaf_id) {
-      return std::strong_ordering::greater;
-    }
-    if (this->context.leaf_index < other.context.leaf_index) {
-      return std::strong_ordering::less;
-    }
-    if (other.context.leaf_index < this->context.leaf_index) {
-      return std::strong_ordering::greater;
-    }
-    if (this->context.leaf_ids < other.context.leaf_ids) {
-      return std::strong_ordering::less;
-    }
-    if (other.context.leaf_ids < this->context.leaf_ids) {
-      return std::strong_ordering::greater;
-    }
+    if (auto cmp = (this->context <=> other.context); cmp != std::strong_ordering::equal)
+      return cmp;
 
     // Same type and context: order by subtree presence then subtree structure.
     if (!this->subtree && !other.subtree) {
