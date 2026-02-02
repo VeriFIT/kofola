@@ -56,6 +56,16 @@ namespace sd_inductive {
 
   class check_macrostate;
 
+  /**
+   * @brief Collect IDs of `Inf` leaves under `And` nodes.
+   *
+   * Traverses the check tree @p t and appends each encountered
+   * `inf_leaf::id` to @p out. For internal nodes, only `TreeType::And`
+   * subtrees are traversed; `Or` subtrees are intentionally ignored.
+   *
+   * @param t   Check tree (subtree root) to traverse.
+   * @param out Output vector to append leaf IDs into.
+   */
   inline void collect_inf_leaf_ids(const check_macrostate& t, std::vector<unsigned>& out);
 
   struct NodeContext;

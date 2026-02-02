@@ -166,12 +166,12 @@ std::vector<check_macrostate> check_macrostate::get_succ(
       this->leaf_value());
   }
 
-  // Propagate/merge context from parent into this node.
-  // NodeContext& context = parent_context;
-
-  // TODO: add comment how it is working
+  // we get current context (for nodes not using meanungful contexts it is unique default context)
   NodeContext actual_ctx = this->node_value().get_context();
+  // if parent context is not mergable with the parent == it is a root of a subtree where shared breakpoint is used
   NodeContext local = !actual_ctx.is_mergable(parent_context) ? this->node_value().get_succ_context(resample) : actual_ctx;
+  // we either take predecessor reference of reference to local; get_succ applied on leaves modifies 
+  // the context reference 
   NodeContext& context  = this->opts_->use_shared_breakpoint ? local.merge_contexts(parent_context) : local;
 
   const auto node_type = this->type();
@@ -597,31 +597,19 @@ std::vector<check_macrostate> inf_leaf::get_succ(
   NodeContext&                      context) const {
 
   std::set<unsigned> st = get_set_union(this->track, check_states);
-  std::set<unsigned> succs {};
+  std::set<unsigned> succs = kofola::get_all_successors_in_scc(aut, scc_info, st, bdd);
   std::set<unsigned> succ_break {};
-  for (unsigned s : st) {
-    for (const auto& t : aut->out(s)) {
-      if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
-        succs.insert(t.dst);
-      }
-    }
-  }
 
   if(opts && opts->use_shared_breakpoint && context.type == NodeContextType::SHARED_BREAKPOINT) {
-
     if(context.leaf_id != this->id) {
       return {check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id)};
     }
-
     assert(!resample || context.state == NodeContextState::RESAMLE_LEAF);
-    
-
     if(context.state == NodeContextState::GLOBAL_WAIT) {
       return {check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id)};
     } else if(context.state == NodeContextState::RESAMLE_LEAF) {
       succ_break = succs;
       if(context.leaf_id == this->id) {
-        //std::cout << "context finished reset for leaf " << this->id << std::endl;
         context.state = NodeContextState::PROCESS_LEAF;
       }
     } else {
@@ -647,14 +635,7 @@ std::vector<check_macrostate> inf_leaf::get_succ(
   }
 
   if (!resample) {
-    const std::set<unsigned>* breakpoint_src = &this->breakpoint;
-    if (opts && opts->use_shared_breakpoint &&
-        context.type == NodeContextType::SHARED_BREAKPOINT &&
-        context.leaf_id == this->id) {
-      breakpoint_src = &context.breakpoint;
-    }
-
-    for (unsigned s : *breakpoint_src) {
+    for (unsigned s : this->breakpoint) {
       for (const auto& t : aut->out(s)) {
         if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
           if (t.acc & this->color) {
@@ -665,26 +646,10 @@ std::vector<check_macrostate> inf_leaf::get_succ(
       }
     }
 
-    // If using a shared breakpoint context, update it in-place.
-    if (opts && opts->use_shared_breakpoint &&
-        context.type == NodeContextType::SHARED_BREAKPOINT &&
-        context.leaf_id == this->id) {
-      context.breakpoint = succ_break;
-      succ_break.clear();
-    }
     return {check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id)};
   }
 
   auto succs_copy = succs;
-
-  if (opts && opts->use_shared_breakpoint &&
-    context.type == NodeContextType::SHARED_BREAKPOINT &&
-    context.leaf_id == this->id) {
-
-    context.breakpoint = succs_copy;
-    succs_copy.clear();
-  }
-
   return {check_macrostate::inf(std::move(opts), std::move(succs), std::move(succs_copy), this->color, this->id)};
 }
 
