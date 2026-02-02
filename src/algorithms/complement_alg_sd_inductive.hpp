@@ -655,8 +655,8 @@ namespace sd_inductive {
     if(bt.type() != TreeType::And) {
       return;
     }
-    collect_inf_leaf_ids(check_macrostate(t.get_options_ptr(), base_tree(bt.left())), out);
-    collect_inf_leaf_ids(check_macrostate(t.get_options_ptr(), base_tree(bt.right())), out);
+    collect_inf_leaf_ids(check_macrostate(nullptr, base_tree(bt.left())), out);
+    collect_inf_leaf_ids(check_macrostate(nullptr, base_tree(bt.right())), out);
   }
 
   inline AndOrNode::AndOrNode(TreeType t, check_macrostate subtree_, NodeContext context_)
