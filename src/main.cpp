@@ -23,6 +23,7 @@
 #include "inclusion/inclusion_check.hpp"
 #include "version.hpp"
 #include "complement/elevatorization.hpp"
+#include "determinization/determinize_tela.hpp"
 
 // standard library headers
 #include <unistd.h>
@@ -180,6 +181,7 @@ int process_args(int argc, char *argv[], kofola::options* params)
 	// command
 	args::Group operation_group(parser, "Operation:", args::Group::Validators::AtMostOne);
 	args::Flag complement_flag(operation_group, "complement", "complement the inputs (default)", {"complement"});
+	args::Flag det_flag(operation_group, "det", "determinize the inputs", {"det"});
 	args::Flag type_flag(operation_group, "type", "print out types of the inputs", {"type"});
 	args::Flag scc_types_flag(operation_group, "scc-types", "print out types of SCCs in the inputs", {"scc-types"});
 	args::ActionFlag version_flag(operation_group, "version", "print program version", {"version"}, print_version);
@@ -233,6 +235,8 @@ int process_args(int argc, char *argv[], kofola::options* params)
 
 	if (type_flag) {
 		params->operation = "type";
+	} else if (det_flag) {
+		params->operation = "determinize";
 	} else if (scc_types_flag) {
 		params->operation = "scc-types";
 	} else if (help_flag) {
@@ -356,6 +360,11 @@ int main(int argc, char *argv[])
 					std::cout << "\n";
 				} else if (options.operation == "type") {
 					assert(false);
+				} else if (options.operation == "determinize") {
+					spot::twa_graph_ptr result = kofola::determinize_tela(aut);
+
+					spot::print_hoa(std::cout, result);
+					std::cout << "\n";
 				} else if (options.operation == "scc-types") {
 					spot::scc_info si(aut, spot::scc_info_options::ALL);
 					std::string scc_types = helpers::get_scc_types(si);

@@ -30,6 +30,7 @@ endif()
 # Include subdirectories
 add_subdirectory(algorithms)
 add_subdirectory(complement)
+add_subdirectory(determinization)
 add_subdirectory(inclusion)
 add_subdirectory(types)
 add_subdirectory(util)
@@ -46,6 +47,10 @@ endforeach()
 
 foreach(src ${COMPLEMENT_SOURCES})
 	list(APPEND ALL_SOURCES "complement/${src}")
+endforeach()
+
+foreach(src ${DETERMINIZATION_SOURCES})
+	list(APPEND ALL_SOURCES "determinization/${src}")
 endforeach()
 
 foreach(src ${INCLUSION_SOURCES})
@@ -70,6 +75,7 @@ target_include_directories(kofola PRIVATE
 	${CMAKE_CURRENT_SOURCE_DIR}
 	${CMAKE_CURRENT_SOURCE_DIR}/algorithms
 	${CMAKE_CURRENT_SOURCE_DIR}/complement
+	${CMAKE_CURRENT_SOURCE_DIR}/determinization
 	${CMAKE_CURRENT_SOURCE_DIR}/inclusion
 	${CMAKE_CURRENT_SOURCE_DIR}/types
 	${CMAKE_CURRENT_SOURCE_DIR}/util
