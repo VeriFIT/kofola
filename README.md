@@ -84,6 +84,7 @@ The complementation and the inclusion checking might be adjusted by the followin
 | `tela` | `yes`,`no`  | If `yes`, use TELA-specific algorithms for complementation (if `no`, the input is converted to TBA) |
 | `sh-break` | `yes`,`no`  | Enable shared breakpoint across partial algorithms; when `yes` partial algorithms that support shared breakpoints propagate a common breakpoint across partitions |
 | `tela_det_alg` | `inductive`, `dnf-tela` | Algorithm selection for complementing deterministic TELA components (default `dnf-tela`) | 
+| `sd_ind_sh_break` | `yes`, `no` | Shared breakpoint for inductive TELA procedure (assumes `tela_det_alg=inductive`) |
 
 ## Testing
 

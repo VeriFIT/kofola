@@ -5,9 +5,12 @@
 #include "abstract_complement_alg.hpp"
 
 #include <compare>
+#include <memory>
+#include <optional>
 #include <ostream>
 #include <sstream>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -20,6 +23,12 @@
 namespace kofola { // {{{
 
 namespace sd_inductive {
+
+  struct options {
+    bool use_shared_breakpoint{false};
+  };
+
+  using options_ptr = std::shared_ptr<const options>;
 
   /**
    * @brief Type of a node in a `check_macrostate` tree.
@@ -34,7 +43,244 @@ namespace sd_inductive {
     Or
   };
 
+  enum class NodeContextType {
+    NONE,
+    SHARED_BREAKPOINT
+  };
+
+  enum class NodeContextState {
+    GLOBAL_WAIT,
+    RESAMLE_LEAF,
+    PROCESS_LEAF,
+  };
+
   class check_macrostate;
+
+  /**
+   * @brief Collect IDs of `Inf` leaves under `And` nodes.
+   *
+   * Traverses the check tree @p t and appends each encountered
+   * `inf_leaf::id` to @p out. For internal nodes, only `TreeType::And`
+   * subtrees are traversed; `Or` subtrees are intentionally ignored.
+   *
+   * @param t   Check tree (subtree root) to traverse.
+   * @param out Output vector to append leaf IDs into.
+   */
+  inline void collect_inf_leaf_ids(const check_macrostate& t, std::vector<unsigned>& out);
+
+  struct NodeContext;
+  std::ostream& operator<<(std::ostream& os, const NodeContext& ctx);
+
+  struct NodeContext {
+    NodeContextType type { NodeContextType::NONE };
+
+    std::set<unsigned> breakpoint {};
+    unsigned leaf_id {0};
+    unsigned leaf_index {0};
+    std::vector<unsigned> leaf_ids {};
+    NodeContextState state {NodeContextState::GLOBAL_WAIT};
+
+    /**
+     * @brief Compute the successor context for one transition step.
+     *
+     * This method implements the small state machine used by the
+     * shared-breakpoint optimization.
+     *
+     * - If `type != SHARED_BREAKPOINT`, the context is returned unchanged.
+     * - In `GLOBAL_WAIT`, a `resample` request moves the context to
+     *   `RESAMLE_LEAF` (otherwise it stays in `GLOBAL_WAIT`).
+     * - In `PROCESS_LEAF`, the selected leaf is advanced when the breakpoint
+     *   becomes empty; when the leaf index wraps to 0, the state returns to
+     *   `GLOBAL_WAIT`.
+     *
+     * @param resample Whether the caller requests a resampling step.
+     * @return A copy of this context updated for the next step.
+     */
+    NodeContext get_succ_context(bool resample) const {
+      NodeContext succ = *this;
+      if(this->type != NodeContextType::SHARED_BREAKPOINT) {
+        return succ;
+      }
+
+      if(this->state == NodeContextState::GLOBAL_WAIT) {
+        if(resample) {
+          succ.state = NodeContextState::RESAMLE_LEAF;
+        }
+        // else do nothing
+      } else if(this->state == NodeContextState::RESAMLE_LEAF) {
+        assert(false);
+        return succ;
+      } else {
+        if(succ.leaf_ids.size() > 0) {
+          succ.leaf_index = succ.leaf_index % succ.leaf_ids.size();
+          if(succ.breakpoint.empty()) {
+            succ.leaf_index = (succ.leaf_index + 1) % succ.leaf_ids.size();
+            if(succ.leaf_index == 0) {
+              succ.state = NodeContextState::GLOBAL_WAIT;
+            } else {
+              succ.state = NodeContextState::RESAMLE_LEAF;
+            }
+          }
+        }
+        succ.leaf_id = succ.leaf_ids[succ.leaf_index];
+      }
+      
+      return succ;
+    }
+
+    /**
+     * @brief Build a shared-breakpoint context for a subtree.
+     *
+     * Collects all `Inf` leaf IDs from @p subtree_ and, if the subtree root
+     * is an `And` node with at least one `Inf` leaf, initializes the returned
+     * context as `SHARED_BREAKPOINT` and selects the first leaf ID.
+     *
+     * @param t Type of the subtree root.
+     * @param subtree_ Subtree to inspect for `Inf` leaf IDs.
+     * @return A freshly initialized context for that subtree.
+     */
+    static NodeContext create_subtree_sh_context(TreeType t, const check_macrostate& subtree_) {
+      NodeContext ctx;
+      collect_inf_leaf_ids(subtree_, ctx.leaf_ids);
+      if(t == TreeType::And && ctx.leaf_ids.size() > 0) {
+        ctx.type = NodeContextType::SHARED_BREAKPOINT;
+        ctx.leaf_id = ctx.leaf_ids[ctx.leaf_index % ctx.leaf_ids.size()];
+      }
+      return ctx;
+    }
+
+    bool operator==(const NodeContext& other) const = default;
+
+    std::strong_ordering operator<=>(const NodeContext& other) const {
+      if (this->type < other.type)
+        return std::strong_ordering::less;
+      if (other.type < this->type)
+        return std::strong_ordering::greater;
+
+      if (this->breakpoint < other.breakpoint)
+        return std::strong_ordering::less;
+      if (other.breakpoint < this->breakpoint)
+        return std::strong_ordering::greater;
+
+      if (this->leaf_id < other.leaf_id)
+        return std::strong_ordering::less;
+      if (other.leaf_id < this->leaf_id)
+        return std::strong_ordering::greater;
+
+      if (this->leaf_index < other.leaf_index)
+        return std::strong_ordering::less;
+      if (other.leaf_index < this->leaf_index)
+        return std::strong_ordering::greater;
+
+      if (this->leaf_ids < other.leaf_ids)
+        return std::strong_ordering::less;
+      if (other.leaf_ids < this->leaf_ids)
+        return std::strong_ordering::greater;
+
+      if (this->state < other.state)
+        return std::strong_ordering::less;
+      if (other.state < this->state)
+        return std::strong_ordering::greater;
+
+      return std::strong_ordering::equal;
+    }
+
+    /**
+     * @brief Merge this context with a predecessor context.
+     *
+     * Intended use: propagate a shared-breakpoint context top-down.
+     * If both this and @p predecessor are `SHARED_BREAKPOINT`, the predecessor
+     * is kept (so the shared-breakpoint state is effectively inherited).
+     * Otherwise this context is kept.
+     *
+     * @param predecessor Context from the parent node.
+     * @return Reference to the context that should be used downstream.
+     */
+    NodeContext& merge_contexts(NodeContext& predecessor) {
+      if (this->type == NodeContextType::NONE) {
+        return *this;
+      }
+      if(this->type == NodeContextType::SHARED_BREAKPOINT && predecessor.type == NodeContextType::SHARED_BREAKPOINT) {
+        return predecessor;
+      } 
+      return *this;
+    }
+
+    /**
+     * @brief Check whether this context can be merged with @p predecessor.
+     *
+     * Currently, contexts are mergeable iff both are `SHARED_BREAKPOINT`.
+     *
+     * @param predecessor Context from the parent node.
+     * @return `true` if the two contexts are considered mergeable.
+     */
+    bool is_mergable(NodeContext& predecessor) {
+      return this->type == NodeContextType::SHARED_BREAKPOINT && predecessor.type == NodeContextType::SHARED_BREAKPOINT;
+    }
+
+    void restrict_states(const std::set<unsigned>& forbidden) {
+      this->breakpoint = get_set_difference(this->breakpoint, forbidden);
+    }
+
+    std::string to_string() const {
+      std::ostringstream os;
+      os << *this;
+      return os.str();
+    }
+  };
+
+  inline std::ostream& operator<<(std::ostream& os, const NodeContext& ctx) {
+    os << "NodeContext{";
+    switch (ctx.type) {
+      case NodeContextType::NONE:
+        os << "type=NONE";
+        break;
+      case NodeContextType::SHARED_BREAKPOINT:
+        os << "type=SHARED_BREAKPOINT";
+        break;
+    }
+    os << ", leaf_id=" << ctx.leaf_id;
+    os << ", breakpoint=" << std::to_string(ctx.breakpoint);
+    os << ", state=" << (int)ctx.state;
+    os << "}";
+    return os;
+  }
+
+  /**
+   * @brief Payload of an internal `And`/`Or` node in `check_macrostate`.
+   *
+   * Stores a subtree (rooted at the corresponding internal node) as a
+   * `check_macrostate`. This is stored indirectly to avoid recursive
+   * by-value type definitions.
+   */
+  struct AndOrNode {
+    TreeType type {TreeType::And};
+    std::shared_ptr<check_macrostate> subtree {};
+
+    NodeContext context{};
+
+    AndOrNode() = default;
+    AndOrNode(TreeType t, check_macrostate subtree_, NodeContext context_);
+
+    bool operator==(const AndOrNode& other) const;
+    std::strong_ordering operator<=>(const AndOrNode& other) const;
+
+    bool is_satisfied() const {
+      return (this->context.type != NodeContextType::SHARED_BREAKPOINT || this->context.breakpoint.empty()) && this->context.state == NodeContextState::GLOBAL_WAIT;
+    }
+
+    NodeContext get_succ_context(bool resample) const {
+      return this->context.get_succ_context(resample);
+    }
+
+    const NodeContext& get_context() const {
+      return this->context;
+    }
+
+    void set_context(const NodeContext& ctx) {
+      this->context = ctx;
+    } 
+  };
 
   /**
    * @brief Payload of a `Fin` leaf in `check_macrostate`.
@@ -45,6 +291,9 @@ namespace sd_inductive {
     std::set<unsigned> safe {};
     /** @brief Acceptance color associated with this Fin-check. */
     spot::acc_cond::mark_t color {}; 
+
+    /** @brief Unique numeric id of this leaf within a check tree. */
+    unsigned id {0};
 
     static std::string mark_to_string(const spot::acc_cond::mark_t& m) {
       std::ostringstream os;
@@ -70,6 +319,10 @@ namespace sd_inductive {
     bool operator==(const fin_leaf&) const = default;
 
     std::strong_ordering operator<=>(const fin_leaf& other) const {
+      if (this->id < other.id)
+        return std::strong_ordering::less;
+      if (other.id < this->id)
+        return std::strong_ordering::greater;
       if (this->safe < other.safe)
         return std::strong_ordering::less;
       if (other.safe < this->safe)
@@ -85,8 +338,10 @@ namespace sd_inductive {
       const spot::const_twa_graph_ptr&  aut,
       const spot::scc_info&             scc_info,
       const std::set<unsigned>&         check_states,
+      options_ptr                        opts,
       const bdd&                        bdd,
-      bool                              resample) const;
+      bool                              resample,
+      NodeContext&                      context) const;
 
     bool is_satisfied() const;
   };
@@ -101,6 +356,9 @@ namespace sd_inductive {
     std::set<unsigned> breakpoint {};
     /** @brief Acceptance color associated with this Inf-check. */
     spot::acc_cond::mark_t color {}; 
+
+    /** @brief Unique numeric id of this leaf within a check tree. */
+    unsigned id {0};
 
     /**
      * @brief Convert this leaf payload into a human-readable string.
@@ -121,6 +379,10 @@ namespace sd_inductive {
     bool operator==(const inf_leaf&) const = default;
 
     std::strong_ordering operator<=>(const inf_leaf& other) const {
+      if (this->id < other.id)
+        return std::strong_ordering::less;
+      if (other.id < this->id)
+        return std::strong_ordering::greater;
       if (this->track < other.track)
         return std::strong_ordering::less;
       if (other.track < this->track)
@@ -140,8 +402,10 @@ namespace sd_inductive {
       const spot::const_twa_graph_ptr&  aut,
       const spot::scc_info&             scc_info,
       const std::set<unsigned>&         check_states,
+      options_ptr                        opts,
       const bdd&                        bdd,
-      bool                              resample) const;
+      bool                              resample,
+      NodeContext&                      context) const;
 
     bool is_satisfied() const;
 
@@ -176,11 +440,12 @@ namespace sd_inductive {
    *
    * This is a thin wrapper over `kofola::types::binary_tree` with:
    * - node type: `TreeType`
+   * - internal-node payload: `AndOrNode`
    * - leaf payload: `fin_leaf` or `inf_leaf`
    */
-  class check_macrostate : public kofola::types::binary_tree<TreeType, fin_leaf, inf_leaf> {
+  class check_macrostate : public kofola::types::binary_tree<TreeType, AndOrNode, fin_leaf, inf_leaf> {
     /** @brief Base tree type used for representation. */
-    using base_tree = kofola::types::binary_tree<TreeType, fin_leaf, inf_leaf>;
+    using base_tree = kofola::types::binary_tree<TreeType, AndOrNode, fin_leaf, inf_leaf>;
 
   public:
     /** @brief Deleted default constructor (a check must be a leaf or a node). */
@@ -219,9 +484,20 @@ namespace sd_inductive {
     /**
      * @brief Construct a `check_macrostate` from an already-built base tree.
      *
+     * @param opts Options shared by all nodes in this check tree.
      * @param tree Underlying tree representation.
      */
-    explicit check_macrostate(base_tree tree) : base_tree(std::move(tree)) {}
+    explicit check_macrostate(options_ptr opts, base_tree tree)
+      : base_tree(std::move(tree)),
+        opts_(opts ? std::move(opts) : default_options()) {}
+
+    static options_ptr default_options() {
+      static const options_ptr opts = std::make_shared<options>();
+      return opts;
+    }
+
+    const options& get_options() const { return *opts_; }
+    const options_ptr& get_options_ptr() const { return opts_; }
 
     /**
      * @brief Build a `Fin` leaf.
@@ -229,8 +505,20 @@ namespace sd_inductive {
      * @param safe Set of safe states.
      * @return A `check_macrostate` leaf of type `TreeType::Fin`.
      */
+    static check_macrostate fin(options_ptr opts, std::set<unsigned> safe, spot::acc_cond::mark_t color) {
+      return check_macrostate(std::move(opts), base_tree::leaf(TreeType::Fin, fin_leaf{std::move(safe), color, 0}));
+    }
+
+    static check_macrostate fin(options_ptr opts, std::set<unsigned> safe, spot::acc_cond::mark_t color, unsigned id) {
+      return check_macrostate(std::move(opts), base_tree::leaf(TreeType::Fin, fin_leaf{std::move(safe), color, id}));
+    }
+
     static check_macrostate fin(std::set<unsigned> safe, spot::acc_cond::mark_t color) {
-      return check_macrostate(base_tree::leaf(TreeType::Fin, fin_leaf{std::move(safe), color}));
+      return fin(default_options(), std::move(safe), color);
+    }
+
+    static check_macrostate fin(std::set<unsigned> safe, spot::acc_cond::mark_t color, unsigned id) {
+      return fin(default_options(), std::move(safe), color, id);
     }
 
     /**
@@ -240,8 +528,20 @@ namespace sd_inductive {
      * @param breakpoint Breakpoint set.
      * @return A `check_macrostate` leaf of type `TreeType::Inf`.
      */
+    static check_macrostate inf(options_ptr opts, std::set<unsigned> track, std::set<unsigned> breakpoint, spot::acc_cond::mark_t color) {
+      return check_macrostate(std::move(opts), base_tree::leaf(TreeType::Inf, inf_leaf{std::move(track), std::move(breakpoint), color, 0}));
+    }
+
+    static check_macrostate inf(options_ptr opts, std::set<unsigned> track, std::set<unsigned> breakpoint, spot::acc_cond::mark_t color, unsigned id) {
+      return check_macrostate(std::move(opts), base_tree::leaf(TreeType::Inf, inf_leaf{std::move(track), std::move(breakpoint), color, id}));
+    }
+
     static check_macrostate inf(std::set<unsigned> track, std::set<unsigned> breakpoint, spot::acc_cond::mark_t color) {
-      return check_macrostate(base_tree::leaf(TreeType::Inf, inf_leaf{std::move(track), std::move(breakpoint), color}));
+      return inf(default_options(), std::move(track), std::move(breakpoint), color);
+    }
+
+    static check_macrostate inf(std::set<unsigned> track, std::set<unsigned> breakpoint, spot::acc_cond::mark_t color, unsigned id) {
+      return inf(default_options(), std::move(track), std::move(breakpoint), color, id);
     }
 
     /**
@@ -252,10 +552,18 @@ namespace sd_inductive {
      * @param right Right subtree.
      * @return A `check_macrostate` internal node.
      */
-    static check_macrostate make(TreeType type, check_macrostate left, check_macrostate right) {
+    static check_macrostate make(options_ptr opts, TreeType type, check_macrostate left, check_macrostate right, NodeContext node_payload = NodeContext{}) {
+      // Build a concrete subtree rooted at this internal node.
+      // We intentionally construct this subtree using a default internal
+      // payload, and store it in the node payload for now.
+      check_macrostate subtree_root(opts, base_tree::make_node(type, base_tree(left), base_tree(right)));
       base_tree l(std::move(left));
       base_tree r(std::move(right));
-      return check_macrostate(base_tree::make_node(type, std::move(l), std::move(r)));
+      return check_macrostate(std::move(opts), base_tree::make_node(type, AndOrNode(type, std::move(subtree_root), std::move(node_payload)), std::move(l), std::move(r)));
+    }
+
+    static check_macrostate make(TreeType type, check_macrostate left, check_macrostate right, NodeContext node_payload = NodeContext{}) {
+      return make(left.get_options_ptr(), type, std::move(left), std::move(right), std::move(node_payload));
     }
 
     /**
@@ -264,7 +572,7 @@ namespace sd_inductive {
      * @return String representation of this macrostate check tree.
      */
     std::string to_string() const {
-      return to_string_impl(static_cast<const base_tree&>(*this));
+      return to_string_impl(static_cast<const base_tree&>(*this), opts_ && opts_->use_shared_breakpoint);
     }
 
     /**
@@ -280,7 +588,18 @@ namespace sd_inductive {
     }
 
     /// Build a `check_macrostate` tree from a Spot acceptance formula.
-    static check_macrostate from_acc_code(const spot::acc_cond::acc_code& code);
+    static check_macrostate from_acc_code(options_ptr opts, const spot::acc_cond::acc_code& code);
+
+    static check_macrostate from_acc_code(const spot::acc_cond::acc_code& code) {
+      return from_acc_code(default_options(), code);
+    }
+
+    /// Re-initialize NodeContext for all internal nodes in this tree.
+    ///
+    /// This is intended to be called after leaf IDs have been assigned
+    /// (e.g., after parsing acceptance and running an ID-renaming pass),
+    /// because shared-breakpoint contexts depend on `inf_leaf::id`.
+    check_macrostate init_contexts() const;
 
     /// Compute successor macrostate(s) for this check tree node.
     std::vector<check_macrostate> get_succ(
@@ -288,7 +607,8 @@ namespace sd_inductive {
       const spot::scc_info&             scc_info,
       const std::set<unsigned>&         check_states,
       const bdd&                        bdd,
-      bool                              resample) const;
+      bool                              resample,
+      NodeContext&                      parent_context) const;
 
     /// Check whether this macrostate check tree is satisfied.
     bool is_satisfied() const;
@@ -309,9 +629,9 @@ namespace sd_inductive {
 
   private:
 
-    static check_macrostate fold(TreeType op, const std::vector<spot::acc_cond::acc_code>& parts);
+    static check_macrostate fold(options_ptr opts, TreeType op, const std::vector<spot::acc_cond::acc_code>& parts);
 
-    static check_macrostate from_acc_code_impl(const spot::acc_cond::acc_code& code);
+    static check_macrostate from_acc_code_impl(options_ptr opts, const spot::acc_cond::acc_code& code);
 
     /**
      * @brief Convert `TreeType` to a stable string name.
@@ -327,8 +647,78 @@ namespace sd_inductive {
      * @param tree Tree to print.
      * @return String representation of @p tree.
      */
-    static std::string to_string_impl(const base_tree& tree);
+    static std::string to_string_impl(const base_tree& tree, bool show_shared_breakpoint);
+
+  private:
+    options_ptr opts_;
   };
+
+  inline void collect_inf_leaf_ids(const check_macrostate& t, std::vector<unsigned>& out) {
+    using base_tree = kofola::types::binary_tree<TreeType, AndOrNode, fin_leaf, inf_leaf>;
+    const base_tree& bt = static_cast<const base_tree&>(t);
+    if (bt.is_leaf()) {
+      if (bt.type() == TreeType::Inf) {
+        out.push_back(std::get<inf_leaf>(bt.leaf_value()).id);
+      }
+      return;
+    }
+    if(bt.type() != TreeType::And) {
+      return;
+    }
+    collect_inf_leaf_ids(check_macrostate(nullptr, base_tree(bt.left())), out);
+    collect_inf_leaf_ids(check_macrostate(nullptr, base_tree(bt.right())), out);
+  }
+
+  inline AndOrNode::AndOrNode(TreeType t, check_macrostate subtree_, NodeContext context_)
+    : type(t),
+      subtree(std::make_shared<check_macrostate>(std::move(subtree_))),
+      context(std::move(context_)) {
+  }
+
+  inline bool AndOrNode::operator==(const AndOrNode& other) const {
+    if (this->type != other.type)
+      return false;
+    if (this->context != other.context)
+      return false;
+
+    if (!this->subtree && !other.subtree) {
+      return true;
+    }
+    if (!this->subtree || !other.subtree) {
+      return false;
+    }
+    return *this->subtree == *other.subtree;
+  }
+
+  inline std::strong_ordering AndOrNode::operator<=>(const AndOrNode& other) const {
+    if (this->type < other.type) {
+      return std::strong_ordering::less;
+    }
+    if (other.type < this->type) {
+      return std::strong_ordering::greater;
+    }
+
+    if (auto cmp = (this->context <=> other.context); cmp != std::strong_ordering::equal)
+      return cmp;
+
+    // Same type and context: order by subtree presence then subtree structure.
+    if (!this->subtree && !other.subtree) {
+      return std::strong_ordering::equal;
+    }
+    if (!this->subtree) {
+      return std::strong_ordering::less;
+    }
+    if (!other.subtree) {
+      return std::strong_ordering::greater;
+    }
+    if (*this->subtree < *other.subtree) {
+      return std::strong_ordering::less;
+    }
+    if (*other.subtree < *this->subtree) {
+      return std::strong_ordering::greater;
+    }
+    return std::strong_ordering::equal;
+  }
 
 enum class mstate_type {
   GUESS,
@@ -433,6 +823,7 @@ public:
 // DATA MEMBERS
 private:
   spot::acc_cond::acc_code acc_cond_ {};
+  sd_inductive::options_ptr opts_ { nullptr };
 }; // complement_sd_inductive }}}
 
 

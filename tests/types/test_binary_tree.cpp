@@ -8,7 +8,7 @@ namespace {
 
 enum class op_t { and_, or_ };
 
-using tree_t = kofola::types::binary_tree<op_t, int, std::string>;
+using tree_t = kofola::types::binary_tree<op_t, int, int, std::string>;
 
 } // namespace
 
