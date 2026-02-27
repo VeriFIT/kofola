@@ -196,13 +196,23 @@ namespace sd_inductive {
      * @param predecessor Context from the parent node.
      * @return Reference to the context that should be used downstream.
      */
-    NodeContext& merge_contexts(NodeContext& predecessor) {
+    NodeContext merge_contexts(const NodeContext& predecessor) const {
       if (this->type == NodeContextType::NONE) {
         return *this;
       }
       if(this->type == NodeContextType::SHARED_BREAKPOINT && predecessor.type == NodeContextType::SHARED_BREAKPOINT) {
         return predecessor;
       } 
+      return *this;
+    }
+
+    NodeContext union_contexts(const NodeContext& other) {
+      if(this->type == NodeContextType::NONE) {
+        return other;
+      }
+      if(other.type == NodeContextType::NONE) {
+        return *this;
+      }
       return *this;
     }
 
@@ -334,14 +344,14 @@ namespace sd_inductive {
       return std::strong_ordering::equal;
     }
 
-    std::vector<check_macrostate> get_succ(
+    std::vector<std::pair<check_macrostate, NodeContext>> get_succ(
       const spot::const_twa_graph_ptr&  aut,
       const spot::scc_info&             scc_info,
       const std::set<unsigned>&         check_states,
       options_ptr                        opts,
       const bdd&                        bdd,
       bool                              resample,
-      NodeContext&                      context) const;
+      NodeContext                       context) const;
 
     bool is_satisfied() const;
   };
@@ -398,14 +408,14 @@ namespace sd_inductive {
       return std::strong_ordering::equal;
     }
 
-    std::vector<check_macrostate> get_succ(
+    std::vector<std::pair<check_macrostate, NodeContext>> get_succ(
       const spot::const_twa_graph_ptr&  aut,
       const spot::scc_info&             scc_info,
       const std::set<unsigned>&         check_states,
       options_ptr                        opts,
       const bdd&                        bdd,
       bool                              resample,
-      NodeContext&                      context) const;
+      NodeContext                       context) const;
 
     bool is_satisfied() const;
 
@@ -602,13 +612,13 @@ namespace sd_inductive {
     check_macrostate init_contexts() const;
 
     /// Compute successor macrostate(s) for this check tree node.
-    std::vector<check_macrostate> get_succ(
+    std::vector<std::pair<check_macrostate, NodeContext>> get_succ(
       const spot::const_twa_graph_ptr&  aut,
       const spot::scc_info&             scc_info,
       const std::set<unsigned>&         check_states,
       const bdd&                        bdd,
       bool                              resample,
-      NodeContext&                      parent_context) const;
+      NodeContext                       parent_context) const;
 
     /// Check whether this macrostate check tree is satisfied.
     bool is_satisfied() const;
