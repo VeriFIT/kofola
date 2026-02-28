@@ -168,8 +168,8 @@ std::vector<std::pair<check_macrostate, NodeContext>> check_macrostate::get_succ
 
   NodeContext context_sent = parent_context;
   NodeContext actual_node_context = this->node_value().get_context();
-  bool is_root = actual_node_context.is_root(parent_context);
-  if(is_root) {
+  bool is_scope_root = actual_node_context.is_scope_root(parent_context);
+  if (is_scope_root) {
     context_sent = this->node_value().get_succ_context(resample);
     actual_node_context = context_sent;
   }
@@ -185,11 +185,11 @@ std::vector<std::pair<check_macrostate, NodeContext>> check_macrostate::get_succ
     return cartesian_product<std::pair<check_macrostate, NodeContext>, std::pair<check_macrostate, NodeContext>>(
       left_succ,
       right_succ,
-      [opts = this->opts_, is_root, &actual_node_context](const std::pair<check_macrostate, NodeContext>& l, const std::pair<check_macrostate, NodeContext>& r) -> std::pair<check_macrostate, NodeContext> {
+      [opts = this->opts_, is_scope_root, &actual_node_context](const std::pair<check_macrostate, NodeContext>& l, const std::pair<check_macrostate, NodeContext>& r) -> std::pair<check_macrostate, NodeContext> {
         NodeContext local = actual_node_context;
         NodeContext merge = l.second.union_contexts(r.second);
-        if(is_root) {
-          if(merge.type != NodeContextType::NONE) local = merge;
+        if (is_scope_root) {
+          if (!merge.is_none()) local = merge;
           merge = NodeContext{};
         }
         auto tmp = check_macrostate::make(opts, TreeType::And, l.first, r.first, local);
@@ -213,11 +213,11 @@ std::vector<std::pair<check_macrostate, NodeContext>> check_macrostate::get_succ
       const auto combined = cartesian_product<std::pair<check_macrostate, NodeContext>, std::pair<check_macrostate, NodeContext>>(
         left_succ,
         right_succ,
-        [opts = this->opts_, is_root, &actual_node_context](const std::pair<check_macrostate, NodeContext>& l, const std::pair<check_macrostate, NodeContext>& r) -> std::pair<check_macrostate, NodeContext> {
+        [opts = this->opts_, is_scope_root, &actual_node_context](const std::pair<check_macrostate, NodeContext>& l, const std::pair<check_macrostate, NodeContext>& r) -> std::pair<check_macrostate, NodeContext> {
           NodeContext local = actual_node_context;
           NodeContext merge = l.second.union_contexts(r.second);
-          if(is_root) {
-            if(merge.type != NodeContextType::NONE) local = merge;
+          if (is_scope_root) {
+            if (!merge.is_none()) local = merge;
             merge = NodeContext{};
           }
           auto tmp = check_macrostate::make(opts, TreeType::Or, l.first, r.first, local);
@@ -613,19 +613,20 @@ std::vector<std::pair<check_macrostate, NodeContext>> inf_leaf::get_succ(
   std::set<unsigned> succ_break {};
 
 
-  if(opts && opts->use_shared_breakpoint && context.type == NodeContextType::SHARED_BREAKPOINT) {
-    if(context.leaf_id != this->id) {
+  if (opts && opts->use_shared_breakpoint && context.is_shared_breakpoint()) {
+    if (!context.targets_leaf(this->id)) {
       return {{check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id), NodeContext{}}};
     }
-    assert(!resample || context.state == NodeContextState::RESAMLE_LEAF);
-    if(context.state == NodeContextState::GLOBAL_WAIT) {
+    assert(!resample || context.state == NodeContextState::RESAMPLE_LEAF);
+    if (context.state == NodeContextState::GLOBAL_WAIT) {
       return {{check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id), NodeContext{}}};
-    } else if(context.state == NodeContextState::RESAMLE_LEAF) {
+    } else if (context.state == NodeContextState::RESAMPLE_LEAF) {
       succ_break = succs;
-      if(context.leaf_id == this->id) {
+      if (context.targets_leaf(this->id)) {
         context.state = NodeContextState::PROCESS_LEAF;
       }
     } else {
+      // PROCESS_LEAF: advance the breakpoint via the stored shared breakpoint set
       for (unsigned s : context.breakpoint) {
         for (const auto& t : aut->out(s)) {
           if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
@@ -638,12 +639,12 @@ std::vector<std::pair<check_macrostate, NodeContext>> inf_leaf::get_succ(
       }
     }
 
-    if(context.leaf_id == this->id) {
-      // If using a shared breakpoint context, update it in-place.
+    if (context.targets_leaf(this->id)) {
+      // Store the new breakpoint in the shared context; the leaf's own breakpoint field stays clear.
       context.breakpoint = succ_break;
       succ_break.clear();
-    } 
-    
+    }
+
     return {{check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id), context}};
   }
 

@@ -50,7 +50,7 @@ namespace sd_inductive {
 
   enum class NodeContextState {
     GLOBAL_WAIT,
-    RESAMLE_LEAF,
+    RESAMPLE_LEAF,
     PROCESS_LEAF,
   };
 
@@ -76,57 +76,86 @@ namespace sd_inductive {
 
     std::set<unsigned> breakpoint {};
     unsigned leaf_id {0};
-    unsigned leaf_index {0};
-    std::vector<unsigned> leaf_ids {};
     NodeContextState state {NodeContextState::GLOBAL_WAIT};
+
+    // ----------------------------------------------------------------
+    // Predicates — prefer these over direct field comparisons in callers
+    // ----------------------------------------------------------------
+
+    /// True when this context carries no special optimization (default state).
+    bool is_none() const { return type == NodeContextType::NONE; }
+
+    /// True when this context runs the shared-breakpoint optimization.
+    bool is_shared_breakpoint() const { return type == NodeContextType::SHARED_BREAKPOINT; }
+
+    /// True when this context is currently targeting the leaf with the given @p id.
+    bool targets_leaf(unsigned id) const { return leaf_id == id; }
+
+    /**
+     * @brief True when the shared-breakpoint cycle for this And-node is complete.
+     *
+     * An And-node is cycle-complete when either the context is not a
+     * shared-breakpoint context at all, or the breakpoint is empty and the
+     * state machine has returned to `GLOBAL_WAIT`.
+     */
+    bool is_cycle_completed() const {
+      return !is_shared_breakpoint() ||
+             (breakpoint.empty() && state == NodeContextState::GLOBAL_WAIT);
+    }
+
+    // ----------------------------------------------------------------
+    // State-machine
+    // ----------------------------------------------------------------
 
     /**
      * @brief Compute the successor context for one transition step.
      *
-     * This method implements the small state machine used by the
-     * shared-breakpoint optimization.
-     *
-     * - If `type != SHARED_BREAKPOINT`, the context is returned unchanged.
-     * - In `GLOBAL_WAIT`, a `resample` request moves the context to
-     *   `RESAMLE_LEAF` (otherwise it stays in `GLOBAL_WAIT`).
-     * - In `PROCESS_LEAF`, the selected leaf is advanced when the breakpoint
-     *   becomes empty; when the leaf index wraps to 0, the state returns to
-     *   `GLOBAL_WAIT`.
+     * Implements the small state machine used by the shared-breakpoint
+     * optimization:
+     * - If not a `SHARED_BREAKPOINT` context, returns itself unchanged.
+     * - In `GLOBAL_WAIT`: a `resample` request advances to `RESAMPLE_LEAF`.
+     * - In `PROCESS_LEAF`: advances the leaf index when the breakpoint empties;
+     *   wrapping back to index 0 returns to `GLOBAL_WAIT`.
      *
      * @param resample Whether the caller requests a resampling step.
      * @return A copy of this context updated for the next step.
      */
     NodeContext get_succ_context(bool resample) const {
       NodeContext succ = *this;
-      if(this->type != NodeContextType::SHARED_BREAKPOINT) {
+      if (!this->is_shared_breakpoint()) {
         return succ;
       }
 
-      if(this->state == NodeContextState::GLOBAL_WAIT) {
-        if(resample) {
-          succ.state = NodeContextState::RESAMLE_LEAF;
+      if (this->state == NodeContextState::GLOBAL_WAIT) {
+        if (resample) {
+          succ.state = NodeContextState::RESAMPLE_LEAF;
         }
-        // else do nothing
-      } else if(this->state == NodeContextState::RESAMLE_LEAF) {
+        // else stay in GLOBAL_WAIT
+      } else if (this->state == NodeContextState::RESAMPLE_LEAF) {
         assert(false);
         return succ;
       } else {
-        if(succ.leaf_ids.size() > 0) {
-          succ.leaf_index = succ.leaf_index % succ.leaf_ids.size();
-          if(succ.breakpoint.empty()) {
-            succ.leaf_index = (succ.leaf_index + 1) % succ.leaf_ids.size();
-            if(succ.leaf_index == 0) {
+        // PROCESS_LEAF: advance the cyclic leaf pointer when breakpoint drains
+        if (succ.leaf_ids_.size() > 0) {
+          succ.leaf_index_ = succ.leaf_index_ % succ.leaf_ids_.size();
+          if (succ.breakpoint.empty()) {
+            succ.leaf_index_ = (succ.leaf_index_ + 1) % succ.leaf_ids_.size();
+            if (succ.leaf_index_ == 0) {
               succ.state = NodeContextState::GLOBAL_WAIT;
             } else {
-              succ.state = NodeContextState::RESAMLE_LEAF;
+              succ.state = NodeContextState::RESAMPLE_LEAF;
             }
           }
         }
-        succ.leaf_id = succ.leaf_ids[succ.leaf_index];
+        succ.leaf_id = succ.leaf_ids_[succ.leaf_index_];
       }
-      
+
       return succ;
     }
+
+    // ----------------------------------------------------------------
+    // Factory
+    // ----------------------------------------------------------------
 
     /**
      * @brief Build a shared-breakpoint context for a subtree.
@@ -135,101 +164,87 @@ namespace sd_inductive {
      * is an `And` node with at least one `Inf` leaf, initializes the returned
      * context as `SHARED_BREAKPOINT` and selects the first leaf ID.
      *
-     * @param t Type of the subtree root.
+     * @param t        Type of the subtree root.
      * @param subtree_ Subtree to inspect for `Inf` leaf IDs.
      * @return A freshly initialized context for that subtree.
      */
     static NodeContext create_subtree_sh_context(TreeType t, const check_macrostate& subtree_) {
       NodeContext ctx;
-      collect_inf_leaf_ids(subtree_, ctx.leaf_ids);
-      if(t == TreeType::And && ctx.leaf_ids.size() > 0) {
+      collect_inf_leaf_ids(subtree_, ctx.leaf_ids_);
+      if (t == TreeType::And && ctx.leaf_ids_.size() > 0) {
         ctx.type = NodeContextType::SHARED_BREAKPOINT;
-        ctx.leaf_id = ctx.leaf_ids[ctx.leaf_index % ctx.leaf_ids.size()];
+        ctx.leaf_id = ctx.leaf_ids_[ctx.leaf_index_ % ctx.leaf_ids_.size()];
       }
       return ctx;
     }
 
-    bool operator==(const NodeContext& other) const = default;
+    // ----------------------------------------------------------------
+    // Structural
+    // ----------------------------------------------------------------
 
-    std::strong_ordering operator<=>(const NodeContext& other) const {
-      if (this->type < other.type)
-        return std::strong_ordering::less;
-      if (other.type < this->type)
-        return std::strong_ordering::greater;
-
-      if (this->breakpoint < other.breakpoint)
-        return std::strong_ordering::less;
-      if (other.breakpoint < this->breakpoint)
-        return std::strong_ordering::greater;
-
-      if (this->leaf_id < other.leaf_id)
-        return std::strong_ordering::less;
-      if (other.leaf_id < this->leaf_id)
-        return std::strong_ordering::greater;
-
-      if (this->leaf_index < other.leaf_index)
-        return std::strong_ordering::less;
-      if (other.leaf_index < this->leaf_index)
-        return std::strong_ordering::greater;
-
-      if (this->leaf_ids < other.leaf_ids)
-        return std::strong_ordering::less;
-      if (other.leaf_ids < this->leaf_ids)
-        return std::strong_ordering::greater;
-
-      if (this->state < other.state)
-        return std::strong_ordering::less;
-      if (other.state < this->state)
-        return std::strong_ordering::greater;
-
-      return std::strong_ordering::equal;
+    /**
+     * @brief True when this context opens a new shared-breakpoint scope.
+     *
+     * A context is a scope root when it carries a shared-breakpoint type
+     * while its parent does not, i.e. this is the topmost And-node that
+     * introduces the optimization.
+     *
+     * @param parent Context from the enclosing (parent) node.
+     */
+    bool is_scope_root(const NodeContext& parent) const {
+      return is_shared_breakpoint() && !parent.is_shared_breakpoint();
     }
 
     /**
-     * @brief Merge this context with a predecessor context.
+     * @brief Combine this context with a sibling context coming from the
+     *        other child of an And/Or node.
      *
-     * Intended use: propagate a shared-breakpoint context top-down.
-     * If both this and @p predecessor are `SHARED_BREAKPOINT`, the predecessor
-     * is kept (so the shared-breakpoint state is effectively inherited).
-     * Otherwise this context is kept.
+     * `NONE` is the identity element: if either side is `NONE`, the other
+     * is returned.  When both sides carry a context, `*this` wins.
      *
-     * @param predecessor Context from the parent node.
-     * @return Reference to the context that should be used downstream.
+     * @param other Context returned by the sibling subtree.
+     * @return The combined context to propagate upward.
      */
-    NodeContext merge_contexts(const NodeContext& predecessor) const {
-      if (this->type == NodeContextType::NONE) {
-        return *this;
-      }
-      if(this->type == NodeContextType::SHARED_BREAKPOINT && predecessor.type == NodeContextType::SHARED_BREAKPOINT) {
-        return predecessor;
-      } 
-      return *this;
-    }
-
     NodeContext union_contexts(const NodeContext& other) const {
-      if(this->type == NodeContextType::NONE) {
+      if (this->is_none()) {
         return other;
       }
-      if(other.type == NodeContextType::NONE) {
+      if (other.is_none()) {
         return *this;
       }
       return *this;
-    }
-
-    /**
-     * @brief Check whether this context can be merged with @p predecessor.
-     *
-     * Currently, contexts are mergeable iff both are `SHARED_BREAKPOINT`.
-     *
-     * @param predecessor Context from the parent node.
-     * @return `true` if the two contexts are considered mergeable.
-     */
-    bool is_root(NodeContext& predecessor) {
-      return this->type == NodeContextType::SHARED_BREAKPOINT && predecessor.type != NodeContextType::SHARED_BREAKPOINT;
     }
 
     void restrict_states(const std::set<unsigned>& forbidden) {
       this->breakpoint = get_set_difference(this->breakpoint, forbidden);
+    }
+
+    // ----------------------------------------------------------------
+    // Comparison & serialization
+    // ----------------------------------------------------------------
+
+    bool operator==(const NodeContext& other) const = default;
+
+    std::strong_ordering operator<=>(const NodeContext& other) const {
+      if (this->type < other.type) return std::strong_ordering::less;
+      if (other.type < this->type) return std::strong_ordering::greater;
+
+      if (this->breakpoint < other.breakpoint) return std::strong_ordering::less;
+      if (other.breakpoint < this->breakpoint) return std::strong_ordering::greater;
+
+      if (this->leaf_id < other.leaf_id) return std::strong_ordering::less;
+      if (other.leaf_id < this->leaf_id) return std::strong_ordering::greater;
+
+      if (this->leaf_index_ < other.leaf_index_) return std::strong_ordering::less;
+      if (other.leaf_index_ < this->leaf_index_) return std::strong_ordering::greater;
+
+      if (this->leaf_ids_ < other.leaf_ids_) return std::strong_ordering::less;
+      if (other.leaf_ids_ < this->leaf_ids_) return std::strong_ordering::greater;
+
+      if (this->state < other.state) return std::strong_ordering::less;
+      if (other.state < this->state) return std::strong_ordering::greater;
+
+      return std::strong_ordering::equal;
     }
 
     std::string to_string() const {
@@ -237,6 +252,12 @@ namespace sd_inductive {
       os << *this;
       return os.str();
     }
+
+  private:
+    /// Index of the currently active leaf inside `leaf_ids_`.
+    unsigned leaf_index_ {0};
+    /// Ordered list of `Inf` leaf IDs under the enclosing `And` node.
+    std::vector<unsigned> leaf_ids_ {};
   };
 
   inline std::ostream& operator<<(std::ostream& os, const NodeContext& ctx) {
@@ -275,8 +296,10 @@ namespace sd_inductive {
     bool operator==(const AndOrNode& other) const;
     std::strong_ordering operator<=>(const AndOrNode& other) const;
 
+    /// True when the shared-breakpoint cycle for this node has completed
+    /// (or the context is not a shared-breakpoint context at all).
     bool is_satisfied() const {
-      return (this->context.type != NodeContextType::SHARED_BREAKPOINT || this->context.breakpoint.empty()) && this->context.state == NodeContextState::GLOBAL_WAIT;
+      return this->context.is_cycle_completed();
     }
 
     NodeContext get_succ_context(bool resample) const {
