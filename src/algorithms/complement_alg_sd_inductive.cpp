@@ -166,31 +166,30 @@ std::vector<std::pair<check_macrostate, NodeContext>> check_macrostate::get_succ
       this->leaf_value());
   }
 
-  // we get current context (for nodes not using meanungful contexts it is unique default context)
-  NodeContext actual_ctx = this->node_value().get_context();
-  // if parent context is not mergable with the parent == it is a root of a subtree where shared breakpoint is used
-  NodeContext local = !actual_ctx.is_mergable(parent_context) ? this->node_value().get_succ_context(resample) : actual_ctx;
-  // we either take predecessor reference of reference to local; get_succ applied on leaves modifies 
-  // the context reference 
-  NodeContext context  = this->opts_->use_shared_breakpoint ? local.merge_contexts(parent_context) : local;
-  bool is_root = actual_ctx.is_mergable(parent_context);
+  NodeContext context_sent = parent_context;
+  NodeContext actual_node_context = this->node_value().get_context();
+  bool is_root = actual_node_context.is_root(parent_context);
+  if(is_root) {
+    context_sent = this->node_value().get_succ_context(resample);
+    actual_node_context = context_sent;
+  }
 
   const auto node_type = this->type();
   const check_macrostate left_ms(this->opts_, base_tree(this->left()));
   const check_macrostate right_ms(this->opts_, base_tree(this->right()));
 
   if (node_type == TreeType::And) {
-    const auto left_succ = left_ms.get_succ(aut, scc_info, check_states, bdd, resample, context);
-    const auto right_succ = right_ms.get_succ(aut, scc_info, check_states, bdd, resample, context);
+    const auto left_succ = left_ms.get_succ(aut, scc_info, check_states, bdd, resample, context_sent);
+    const auto right_succ = right_ms.get_succ(aut, scc_info, check_states, bdd, resample, context_sent);
 
     return cartesian_product<std::pair<check_macrostate, NodeContext>, std::pair<check_macrostate, NodeContext>>(
       left_succ,
       right_succ,
-      [opts = this->opts_, is_root](const std::pair<check_macrostate, NodeContext>& l, const std::pair<check_macrostate, NodeContext>& r) -> std::pair<check_macrostate, NodeContext> {
-        NodeContext local{};
-        NodeContext merge = l.second.merge_contexts(r.second);
+      [opts = this->opts_, is_root, &actual_node_context](const std::pair<check_macrostate, NodeContext>& l, const std::pair<check_macrostate, NodeContext>& r) -> std::pair<check_macrostate, NodeContext> {
+        NodeContext local = actual_node_context;
+        NodeContext merge = l.second.union_contexts(r.second);
         if(is_root) {
-          local = merge;
+          if(merge.type != NodeContextType::NONE) local = merge;
           merge = NodeContext{};
         }
         auto tmp = check_macrostate::make(opts, TreeType::And, l.first, r.first, local);
@@ -207,18 +206,18 @@ std::vector<std::pair<check_macrostate, NodeContext>> check_macrostate::get_succ
       }
       const auto& left_states = part[0];
       const auto& right_states = part[1];
-      const auto left_succ = left_ms.get_succ(aut, scc_info, left_states, bdd, resample, context);
-      const auto right_succ = right_ms.get_succ(aut, scc_info, right_states, bdd, resample, context);
+      const auto left_succ = left_ms.get_succ(aut, scc_info, left_states, bdd, resample, context_sent);
+      const auto right_succ = right_ms.get_succ(aut, scc_info, right_states, bdd, resample, context_sent);
 
       // TODO: it is not efficient to call reduce here
       const auto combined = cartesian_product<std::pair<check_macrostate, NodeContext>, std::pair<check_macrostate, NodeContext>>(
         left_succ,
         right_succ,
-        [opts = this->opts_, is_root](const std::pair<check_macrostate, NodeContext>& l, const std::pair<check_macrostate, NodeContext>& r) -> std::pair<check_macrostate, NodeContext> {
-          NodeContext local{};
-          NodeContext merge = l.second.merge_contexts(r.second);
+        [opts = this->opts_, is_root, &actual_node_context](const std::pair<check_macrostate, NodeContext>& l, const std::pair<check_macrostate, NodeContext>& r) -> std::pair<check_macrostate, NodeContext> {
+          NodeContext local = actual_node_context;
+          NodeContext merge = l.second.union_contexts(r.second);
           if(is_root) {
-            local = merge;
+            if(merge.type != NodeContextType::NONE) local = merge;
             merge = NodeContext{};
           }
           auto tmp = check_macrostate::make(opts, TreeType::Or, l.first, r.first, local);

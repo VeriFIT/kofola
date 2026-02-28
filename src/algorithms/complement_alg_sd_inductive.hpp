@@ -206,7 +206,7 @@ namespace sd_inductive {
       return *this;
     }
 
-    NodeContext union_contexts(const NodeContext& other) {
+    NodeContext union_contexts(const NodeContext& other) const {
       if(this->type == NodeContextType::NONE) {
         return other;
       }
@@ -224,8 +224,8 @@ namespace sd_inductive {
      * @param predecessor Context from the parent node.
      * @return `true` if the two contexts are considered mergeable.
      */
-    bool is_mergable(NodeContext& predecessor) {
-      return this->type == NodeContextType::SHARED_BREAKPOINT && predecessor.type == NodeContextType::SHARED_BREAKPOINT;
+    bool is_root(NodeContext& predecessor) {
+      return this->type == NodeContextType::SHARED_BREAKPOINT && predecessor.type != NodeContextType::SHARED_BREAKPOINT;
     }
 
     void restrict_states(const std::set<unsigned>& forbidden) {
