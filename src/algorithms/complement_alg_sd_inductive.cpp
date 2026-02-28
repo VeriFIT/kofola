@@ -657,24 +657,9 @@ bool inf_leaf::is_satisfied() const {
   return this->breakpoint.empty();
 }
 
-namespace {
-
-const char* mstate_type_to_string(mstate_type t) {
-  switch (t) {
-    case mstate_type::GUESS:
-      return "GUESS";
-    case mstate_type::CHECK:
-      return "CHECK";
-  }
-  return "?";
-}
-
-} // namespace
-
 std::string mstate_sd_inductive::to_string() const {
   std::string res = "[SD-INDUCTIVE: ";
-  res += std::string("Type=") + mstate_type_to_string(this->type_);
-  res += ", C=" + std::to_string(this->check_);
+  res += "C=" + std::to_string(this->check_);
   res += ", Tree=" + this->check_tree_.to_string();
   res += "]";
   return res;
@@ -683,8 +668,7 @@ std::string mstate_sd_inductive::to_string() const {
 bool mstate_sd_inductive::eq(const mstate& rhs) const {
   const auto* rhs_sd = dynamic_cast<const mstate_sd_inductive*>(&rhs);
   assert(rhs_sd);
-  return (this->type_ == rhs_sd->type_) &&
-         (this->check_ == rhs_sd->check_) &&
+  return (this->check_ == rhs_sd->check_) &&
          (this->check_tree_ == rhs_sd->check_tree_);
 }
 
@@ -692,9 +676,6 @@ bool mstate_sd_inductive::lt(const mstate& rhs) const {
   const auto* rhs_sd = dynamic_cast<const mstate_sd_inductive*>(&rhs);
   assert(rhs_sd);
 
-  if (this->type_ != rhs_sd->type_) {
-    return this->type_ < rhs_sd->type_;
-  }
   if (this->check_ != rhs_sd->check_) {
     return this->check_ < rhs_sd->check_;
   }
@@ -731,17 +712,11 @@ complement_sd_inductive::complement_sd_inductive(const cmpl_info& info, unsigned
  */
 mstate_set complement_sd_inductive::get_init() { // {{
   DEBUG_PRINT_LN("init SD-INDUCTIVE for partition " + std::to_string(this->part_index_));
-  std::set<unsigned> init_state;
-
-  unsigned orig_init = this->info_.aut_->get_init_state_number();
-  if (this->info_.st_to_part_map_.at(orig_init) == static_cast<int>(this->part_index_)) {
-    init_state.insert(orig_init);
-  }
+  std::set<unsigned> init_state {};
 
   std::shared_ptr<mstate> ms(new sd_inductive::mstate_sd_inductive(
     init_state,
-    sd_inductive::check_macrostate::from_acc_code(this->opts_, this->acc_cond_),
-    sd_inductive::mstate_type::GUESS));
+    sd_inductive::check_macrostate::from_acc_code(this->opts_, this->acc_cond_)));
   mstate_set result = {ms};
   return result;
 } // get_init() }}}
@@ -794,20 +769,7 @@ mstate_col_set complement_sd_inductive::get_succ_active(
   std::vector<sd_inductive::check_macrostate> succ_trees = src_mst->check_tree_.get_succ(this->info_.aut_, 
       this->info_.scc_info_, empty, symbol, false, context);
 
-  if(src_mst->type_ == sd_inductive::mstate_type::GUESS) {
-    std::vector<sd_inductive::check_macrostate> succ_check_trees = src_mst->check_tree_.get_succ(this->info_.aut_, 
-      this->info_.scc_info_, src_mst->check_, symbol, true, context);
-    for(const auto& tree : succ_trees) {
-      std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
-          succ_check, tree, sd_inductive::mstate_type::GUESS));
-      result.push_back({new_ms, {}});
-    }
-    for(const auto& tree : succ_check_trees) {
-      std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
-          succ_check, tree, sd_inductive::mstate_type::CHECK));
-      result.push_back({new_ms, {}});
-    }
-  } else if(src_mst->check_tree_.is_satisfied()) {
+  if(src_mst->check_.empty() && src_mst->check_tree_.is_satisfied()) {
     std::set<unsigned> colors = {0};
     std::set<unsigned> full_scc_reach = {};
     for (unsigned s : glob_reached) {
@@ -817,17 +779,33 @@ mstate_col_set complement_sd_inductive::get_succ_active(
     }
     for(const auto& tree : succ_trees) {
       std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
-          full_scc_reach, tree, sd_inductive::mstate_type::GUESS));
+          full_scc_reach, tree));
       result.push_back({new_ms, colors});
     }
-  } else {
-    for(const auto& tree : succ_trees) {
-      std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
-          succ_check, tree, sd_inductive::mstate_type::CHECK));
-      result.push_back({new_ms, {}});
-    }
+    return result;
   }
 
+  if(!src_mst->check_.empty()) {
+    std::vector<sd_inductive::check_macrostate> succ_check_trees = src_mst->check_tree_.get_succ(this->info_.aut_, 
+      this->info_.scc_info_, src_mst->check_, symbol, true, context);
+    for(const auto& tree : succ_trees) {
+      std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
+          succ_check, tree));
+      result.push_back({new_ms, {}});
+    }
+    for(const auto& tree : succ_check_trees) {
+      std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
+          empty, tree));
+      result.push_back({new_ms, {}});
+    }
+    return result;
+  }
+
+  for(const auto& tree : succ_trees) {
+    std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
+      empty, tree));
+    result.push_back({new_ms, {}});
+  }
   return result;
 }
 

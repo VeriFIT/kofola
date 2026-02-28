@@ -720,11 +720,6 @@ namespace sd_inductive {
     return std::strong_ordering::equal;
   }
 
-enum class mstate_type {
-  GUESS,
-  CHECK,
-};
-
 /// partial macrostate for the given component
 class mstate_sd_inductive : public abstract_complement_alg::mstate
 { // {{{
@@ -732,7 +727,6 @@ public: // DATA MEMBERS
 
   std::set<unsigned> check_ {};       // states for runs that need to be checked
   check_macrostate check_tree_; // check macrostate tree
-  mstate_type type_ {};          // type of the macrostate (GUESS / CHECK)
   
 
 public: // METHODS
@@ -740,11 +734,9 @@ public: // METHODS
   /// constructor
   mstate_sd_inductive(
     const std::set<unsigned>&  check,
-    const check_macrostate&  check_tree,
-    const mstate_type&  type
+    const check_macrostate&  check_tree
   ) : check_(check),
-    check_tree_(check_tree),
-    type_(type)
+    check_tree_(check_tree)
   { }
 
   virtual std::string to_string() const override;
@@ -794,8 +786,7 @@ public: // METHODS
 
     std::shared_ptr<mstate> cp(new sd_inductive::mstate_sd_inductive(
       src_ms->check_,
-      src_ms->check_tree_,
-      src_ms->type_
+      src_ms->check_tree_
     ));
     return {cp};
   };
