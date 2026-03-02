@@ -793,23 +793,23 @@ mstate_col_set complement_sd_inductive::get_succ_active(
     }
     for(const auto& tree : succ_trees) {
       std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
-          full_scc_reach, tree));
+          full_scc_reach, tree.first));
       result.push_back({new_ms, colors});
     }
     return result;
   }
 
   if(!src_mst->check_.empty()) {
-    std::vector<sd_inductive::check_macrostate> succ_check_trees = src_mst->check_tree_.get_succ(this->info_.aut_, 
+    std::vector<std::pair<sd_inductive::check_macrostate, sd_inductive::NodeContext>> succ_check_trees = src_mst->check_tree_.get_succ(this->info_.aut_, 
       this->info_.scc_info_, src_mst->check_, symbol, true, context);
     for(const auto& tree : succ_trees) {
       std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
-          succ_check, tree));
+          succ_check, tree.first));
       result.push_back({new_ms, {}});
     }
     for(const auto& tree : succ_check_trees) {
       std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
-          empty, tree));
+          empty, tree.first));
       result.push_back({new_ms, {}});
     }
     return result;
@@ -817,7 +817,7 @@ mstate_col_set complement_sd_inductive::get_succ_active(
 
   for(const auto& tree : succ_trees) {
     std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
-      empty, tree));
+      empty, tree.first));
     result.push_back({new_ms, {}});
   }
   return result;
