@@ -150,13 +150,13 @@ check_macrostate check_macrostate::init_contexts() const {
  *         encountered or if `nondet_split_set` yields a non-binary
  *         partition.
  */
-std::vector<check_macrostate> check_macrostate::get_succ(
+std::vector<std::pair<check_macrostate, NodeContext>> check_macrostate::get_succ(
   const spot::const_twa_graph_ptr&  aut,
   const spot::scc_info&             scc_info,
   const std::set<unsigned>&         check_states,
   const bdd&                        bdd,
   bool                              resample,
-  NodeContext&                      parent_context) const {
+  NodeContext                       parent_context) const {
 
   if (this->is_leaf()) {
     return std::visit(
@@ -166,33 +166,39 @@ std::vector<check_macrostate> check_macrostate::get_succ(
       this->leaf_value());
   }
 
-  // we get current context (for nodes not using meanungful contexts it is unique default context)
-  NodeContext actual_ctx = this->node_value().get_context();
-  // if parent context is not mergable with the parent == it is a root of a subtree where shared breakpoint is used
-  NodeContext local = !actual_ctx.is_mergable(parent_context) ? this->node_value().get_succ_context(resample) : actual_ctx;
-  // we either take predecessor reference of reference to local; get_succ applied on leaves modifies 
-  // the context reference 
-  NodeContext& context  = this->opts_->use_shared_breakpoint ? local.merge_contexts(parent_context) : local;
+  NodeContext context_sent = parent_context;
+  NodeContext actual_node_context = this->node_value().get_context();
+  bool is_scope_root = actual_node_context.is_scope_root(parent_context);
+  if (is_scope_root) {
+    context_sent = this->node_value().get_succ_context(resample);
+    actual_node_context = context_sent;
+  }
 
   const auto node_type = this->type();
   const check_macrostate left_ms(this->opts_, base_tree(this->left()));
   const check_macrostate right_ms(this->opts_, base_tree(this->right()));
 
   if (node_type == TreeType::And) {
-    const auto left_succ = left_ms.get_succ(aut, scc_info, check_states, bdd, resample, context);
-    const auto right_succ = right_ms.get_succ(aut, scc_info, check_states, bdd, resample, context);
+    const auto left_succ = left_ms.get_succ(aut, scc_info, check_states, bdd, resample, context_sent);
+    const auto right_succ = right_ms.get_succ(aut, scc_info, check_states, bdd, resample, context_sent);
 
-    return cartesian_product<check_macrostate, check_macrostate>(
+    return cartesian_product<std::pair<check_macrostate, NodeContext>, std::pair<check_macrostate, NodeContext>>(
       left_succ,
       right_succ,
-      [opts = this->opts_, &local](const check_macrostate& l, const check_macrostate& r) {
-        auto tmp = check_macrostate::make(opts, TreeType::And, l, r, local);
-        return tmp;
+      [opts = this->opts_, is_scope_root, &actual_node_context](const std::pair<check_macrostate, NodeContext>& l, const std::pair<check_macrostate, NodeContext>& r) -> std::pair<check_macrostate, NodeContext> {
+        NodeContext local = actual_node_context;
+        NodeContext merge = l.second.union_contexts(r.second);
+        if (is_scope_root) {
+          if (!merge.is_none()) local = merge;
+          merge = NodeContext{};
+        }
+        auto tmp = check_macrostate::make(opts, TreeType::And, l.first, r.first, local);
+        return {tmp, merge};
       });
   }
 
   if (node_type == TreeType::Or) {
-    std::set<check_macrostate> out;
+    std::set<std::pair<check_macrostate, NodeContext>> out;
     const auto partitions = nondet_split_set(check_states, 2);
     for (const auto& part : partitions) {
       if (part.size() != 2) {
@@ -200,20 +206,26 @@ std::vector<check_macrostate> check_macrostate::get_succ(
       }
       const auto& left_states = part[0];
       const auto& right_states = part[1];
-      const auto left_succ = left_ms.get_succ(aut, scc_info, left_states, bdd, resample, context);
-      const auto right_succ = right_ms.get_succ(aut, scc_info, right_states, bdd, resample, context);
+      const auto left_succ = left_ms.get_succ(aut, scc_info, left_states, bdd, resample, context_sent);
+      const auto right_succ = right_ms.get_succ(aut, scc_info, right_states, bdd, resample, context_sent);
 
       // TODO: it is not efficient to call reduce here
-      const auto combined = cartesian_product<check_macrostate, check_macrostate>(
+      const auto combined = cartesian_product<std::pair<check_macrostate, NodeContext>, std::pair<check_macrostate, NodeContext>>(
         left_succ,
         right_succ,
-        [opts = this->opts_, &local](const check_macrostate& l, const check_macrostate& r) {
-          auto tmp = check_macrostate::make(opts, TreeType::Or, l, r, local);
-          return tmp.reduce();
+        [opts = this->opts_, is_scope_root, &actual_node_context](const std::pair<check_macrostate, NodeContext>& l, const std::pair<check_macrostate, NodeContext>& r) -> std::pair<check_macrostate, NodeContext> {
+          NodeContext local = actual_node_context;
+          NodeContext merge = l.second.union_contexts(r.second);
+          if (is_scope_root) {
+            if (!merge.is_none()) local = merge;
+            merge = NodeContext{};
+          }
+          auto tmp = check_macrostate::make(opts, TreeType::Or, l.first, r.first, local);
+          return { tmp.reduce(), merge };
         });
       out.insert(combined.begin(), combined.end());
     }
-    return std::vector<check_macrostate>(out.begin(), out.end());
+    return std::vector<std::pair<check_macrostate, NodeContext>>(out.begin(), out.end());
   }
 
   throw std::logic_error("check_macrostate::get_succ: unexpected internal node type");
@@ -530,14 +542,14 @@ std::string check_macrostate::to_string_impl(const base_tree& tree, bool show_sh
  *         successor states, or an empty vector if an accepting transition
  *         matching `color` is encountered (no successors).
  */
-std::vector<check_macrostate> fin_leaf::get_succ(
+std::vector<std::pair<check_macrostate, NodeContext>> fin_leaf::get_succ(
   const spot::const_twa_graph_ptr&  aut,
   const spot::scc_info&             scc_info,
   const std::set<unsigned>&         check_states,
   options_ptr                        opts,
   const bdd&                        bdd,
   bool                              resample,
-  NodeContext&                      context) const {
+  NodeContext                       context) const {
 
   (void)opts;
   (void)resample; // unused
@@ -554,7 +566,7 @@ std::vector<check_macrostate> fin_leaf::get_succ(
       }
     }
   }
-  return {check_macrostate::fin(std::move(opts), std::move(succs), this->color, this->id)};
+  return {{check_macrostate::fin(std::move(opts), std::move(succs), this->color, this->id), NodeContext{}}};
 }
 
 bool fin_leaf::is_satisfied() const {
@@ -587,32 +599,34 @@ bool fin_leaf::is_satisfied() const {
  * @return Vector containing a single `check_macrostate::inf` with the
  *         successor sets `(succs, succ_break)` as described above.
  */
-std::vector<check_macrostate> inf_leaf::get_succ(
+std::vector<std::pair<check_macrostate, NodeContext>> inf_leaf::get_succ(
   const spot::const_twa_graph_ptr&  aut,
   const spot::scc_info&             scc_info,
   const std::set<unsigned>&         check_states,
   options_ptr                       opts,
   const bdd&                        bdd,
   bool                              resample,
-  NodeContext&                      context) const {
+  NodeContext                      context) const {
 
   std::set<unsigned> st = get_set_union(this->track, check_states);
   std::set<unsigned> succs = kofola::get_all_successors_in_scc(aut, scc_info, st, bdd);
   std::set<unsigned> succ_break {};
 
-  if(opts && opts->use_shared_breakpoint && context.type == NodeContextType::SHARED_BREAKPOINT) {
-    if(context.leaf_id != this->id) {
-      return {check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id)};
+
+  if (opts && opts->use_shared_breakpoint && context.is_shared_breakpoint()) {
+    if (!context.targets_leaf(this->id)) {
+      return {{check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id), NodeContext{}}};
     }
-    assert(!resample || context.state == NodeContextState::RESAMLE_LEAF);
-    if(context.state == NodeContextState::GLOBAL_WAIT) {
-      return {check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id)};
-    } else if(context.state == NodeContextState::RESAMLE_LEAF) {
+    assert(!resample || context.state == NodeContextState::RESAMPLE_LEAF);
+    if (context.state == NodeContextState::GLOBAL_WAIT) {
+      return {{check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id), NodeContext{}}};
+    } else if (context.state == NodeContextState::RESAMPLE_LEAF) {
       succ_break = succs;
-      if(context.leaf_id == this->id) {
+      if (context.targets_leaf(this->id)) {
         context.state = NodeContextState::PROCESS_LEAF;
       }
     } else {
+      // PROCESS_LEAF: advance the breakpoint via the stored shared breakpoint set
       for (unsigned s : context.breakpoint) {
         for (const auto& t : aut->out(s)) {
           if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
@@ -625,13 +639,13 @@ std::vector<check_macrostate> inf_leaf::get_succ(
       }
     }
 
-    if(context.leaf_id == this->id) {
-      // If using a shared breakpoint context, update it in-place.
+    if (context.targets_leaf(this->id)) {
+      // Store the new breakpoint in the shared context; the leaf's own breakpoint field stays clear.
       context.breakpoint = succ_break;
       succ_break.clear();
-    } 
-    
-    return {check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id)};
+    }
+
+    return {{check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id), context}};
   }
 
   if (!resample) {
@@ -646,11 +660,11 @@ std::vector<check_macrostate> inf_leaf::get_succ(
       }
     }
 
-    return {check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id)};
+    return {{check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id), context}};
   }
 
   auto succs_copy = succs;
-  return {check_macrostate::inf(std::move(opts), std::move(succs), std::move(succs_copy), this->color, this->id)};
+  return {{check_macrostate::inf(std::move(opts), std::move(succs), std::move(succs_copy), this->color, this->id), context}};
 }
 
 bool inf_leaf::is_satisfied() const {
@@ -766,7 +780,7 @@ mstate_col_set complement_sd_inductive::get_succ_active(
 
   std::set<unsigned> succ_check = kofola::get_all_successors_in_scc(
       this->info_.aut_, this->info_.scc_info_, src_mst->check_, symbol);
-  std::vector<sd_inductive::check_macrostate> succ_trees = src_mst->check_tree_.get_succ(this->info_.aut_, 
+  auto succ_trees = src_mst->check_tree_.get_succ(this->info_.aut_, 
       this->info_.scc_info_, empty, symbol, false, context);
 
   if(src_mst->check_.empty() && src_mst->check_tree_.is_satisfied()) {
@@ -779,23 +793,23 @@ mstate_col_set complement_sd_inductive::get_succ_active(
     }
     for(const auto& tree : succ_trees) {
       std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
-          full_scc_reach, tree));
+          full_scc_reach, tree.first));
       result.push_back({new_ms, colors});
     }
     return result;
   }
 
   if(!src_mst->check_.empty()) {
-    std::vector<sd_inductive::check_macrostate> succ_check_trees = src_mst->check_tree_.get_succ(this->info_.aut_, 
+    std::vector<std::pair<sd_inductive::check_macrostate, sd_inductive::NodeContext>> succ_check_trees = src_mst->check_tree_.get_succ(this->info_.aut_, 
       this->info_.scc_info_, src_mst->check_, symbol, true, context);
     for(const auto& tree : succ_trees) {
       std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
-          succ_check, tree));
+          succ_check, tree.first));
       result.push_back({new_ms, {}});
     }
     for(const auto& tree : succ_check_trees) {
       std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
-          empty, tree));
+          empty, tree.first));
       result.push_back({new_ms, {}});
     }
     return result;
@@ -803,7 +817,7 @@ mstate_col_set complement_sd_inductive::get_succ_active(
 
   for(const auto& tree : succ_trees) {
     std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
-      empty, tree));
+      empty, tree.first));
     result.push_back({new_ms, {}});
   }
   return result;
