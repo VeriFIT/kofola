@@ -131,8 +131,10 @@ namespace helpers {
             this->is_accepting_.assign(this->nb_states_, false);
         }
 
-        // this->names_ = new std::vector<std::string>();   // FIXME: allocate at one place
-        this->show_names_ = true;     // FIXME: set from parameters
+        // Show macrostate labels in state names when raw=yes or show-macrostate-labels=yes.
+        // With raw=yes postprocessing is skipped so labels are preserved in HOA output.
+        this->show_names_ = kofola::has_value("raw", "yes", kofola::OPTIONS.params) ||
+                            kofola::has_value("show-macrostate-labels", "yes", kofola::OPTIONS.params);
 
         // compute vector of accepting states, supports, etc.
         for (unsigned i = 0; i < this->aut_->num_states(); ++i) {
