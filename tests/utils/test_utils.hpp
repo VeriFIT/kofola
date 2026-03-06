@@ -94,7 +94,11 @@ const std::vector<std::string> COMMON_TEST_FILES = {
     "tests/test_data/tela_det/automaton940.hoa",
     "tests/test_data/tela_det/out_1332.hoa",
     //"tests/test_data/tela_det/out_3357.hoa",
-    "tests/test_data/tela_det/elev_out_3602.hoa"
+    "tests/test_data/tela_det/elev_out_3602.hoa",
+    // OR-FIN optimization test automata
+    "tests/test_data/or_fin_opt_gen_buchi_2.hoa",
+    "tests/test_data/or_fin_opt_gen_buchi_3.hoa",
+    "tests/test_data/or_fin_opt_mixed.hoa"
 };
 
 /**

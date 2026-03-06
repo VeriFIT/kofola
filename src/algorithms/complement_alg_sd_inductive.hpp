@@ -26,6 +26,7 @@ namespace sd_inductive {
 
   struct options {
     bool use_shared_breakpoint{false};
+    bool use_or_fin_opt{false};
   };
 
   using options_ptr = std::shared_ptr<const options>;
@@ -77,6 +78,10 @@ namespace sd_inductive {
     std::set<unsigned> breakpoint {};
     unsigned leaf_id {0};
     NodeContextState state {NodeContextState::GLOBAL_WAIT};
+
+    // OR-FIN optimization: transient fields (not part of macrostate identity)
+    bool collect_violating {false};           // downward: tells FIN leaves to collect violations
+    std::set<unsigned> violating_states {};   // upward: violating source states propagated to parent
 
     // ----------------------------------------------------------------
     // Predicates — prefer these over direct field comparisons in callers
@@ -223,8 +228,17 @@ namespace sd_inductive {
     // Comparison & serialization
     // ----------------------------------------------------------------
 
-    bool operator==(const NodeContext& other) const = default;
+    /// Equality comparison (excludes transient fields: collect_violating, violating_states).
+    bool operator==(const NodeContext& other) const {
+      return type == other.type &&
+             breakpoint == other.breakpoint &&
+             leaf_id == other.leaf_id &&
+             leaf_index_ == other.leaf_index_ &&
+             leaf_ids_ == other.leaf_ids_ &&
+             state == other.state;
+    }
 
+    /// Three-way comparison (excludes transient fields: collect_violating, violating_states).
     std::strong_ordering operator<=>(const NodeContext& other) const {
       if (this->type < other.type) return std::strong_ordering::less;
       if (other.type < this->type) return std::strong_ordering::greater;
@@ -700,6 +714,76 @@ namespace sd_inductive {
     }
     collect_inf_leaf_ids(check_macrostate(nullptr, base_tree(bt.left())), out);
     collect_inf_leaf_ids(check_macrostate(nullptr, base_tree(bt.right())), out);
+  }
+
+  /**
+   * @brief Check whether a check tree contains only Fin leaves (no Inf leaves).
+   *
+   * @param t Check tree to inspect.
+   * @return true if every leaf in @p t is a Fin leaf.
+   */
+  inline bool has_only_fin_leaves(const check_macrostate& t) {
+    using base_tree = kofola::types::binary_tree<TreeType, AndOrNode, fin_leaf, inf_leaf>;
+    const base_tree& bt = static_cast<const base_tree&>(t);
+    if (bt.is_leaf()) {
+      return bt.type() == TreeType::Fin;
+    }
+    const check_macrostate left(nullptr, base_tree(bt.left()));
+    const check_macrostate right(nullptr, base_tree(bt.right()));
+    return has_only_fin_leaves(left) && has_only_fin_leaves(right);
+  }
+
+  /**
+   * @brief Check whether a check tree contains only Fin leaves with no internal Or nodes.
+   *
+   * Used by the OR-FIN optimization to determine whether the left subtree of an Or node
+   * is eligible: the optimization requires all leaves to be Fin and no internal Or nodes,
+   * so that violation-collection semantics through And nodes are simple (union of
+   * violating states from children).
+   *
+   * @param t Check tree to inspect.
+   * @return true if every leaf in @p t is a Fin leaf and no internal node is an Or.
+   */
+  inline bool has_only_fin_leaves_no_inner_or(const check_macrostate& t) {
+    using base_tree = kofola::types::binary_tree<TreeType, AndOrNode, fin_leaf, inf_leaf>;
+    const base_tree& bt = static_cast<const base_tree&>(t);
+    if (bt.is_leaf()) {
+      return bt.type() == TreeType::Fin;
+    }
+    if (bt.type() == TreeType::Or) return false;
+    const check_macrostate left(nullptr, base_tree(bt.left()));
+    const check_macrostate right(nullptr, base_tree(bt.right()));
+    return has_only_fin_leaves_no_inner_or(left) && has_only_fin_leaves_no_inner_or(right);
+  }
+
+  /**
+   * @brief Check whether a set of transition marks would cause the entire
+   *        all-FIN tree to fail.
+   *
+   * - Fin leaf: true if marks intersect the leaf's color.
+   * - And(L, R): true if L violates OR R violates (either child failing
+   *   kills the And).
+   * - Or(L, R): true if BOTH L and R violate (both children must fail
+   *   for the Or to fail).
+   *
+   * @param t    All-FIN check tree.
+   * @param marks Transition acceptance marks to test.
+   * @return true if the marks would cause the tree to produce no successors.
+   */
+  inline bool is_violating(const check_macrostate& t, const spot::acc_cond::mark_t& marks) {
+    using base_tree = kofola::types::binary_tree<TreeType, AndOrNode, fin_leaf, inf_leaf>;
+    const base_tree& bt = static_cast<const base_tree&>(t);
+    if (bt.is_leaf()) {
+      assert(bt.type() == TreeType::Fin);
+      return static_cast<bool>(marks & std::get<fin_leaf>(bt.leaf_value()).color);
+    }
+    const check_macrostate left(nullptr, base_tree(bt.left()));
+    const check_macrostate right(nullptr, base_tree(bt.right()));
+    if (bt.type() == TreeType::And) {
+      return is_violating(left, marks) || is_violating(right, marks);
+    }
+    // Or: both must violate
+    return is_violating(left, marks) && is_violating(right, marks);
   }
 
   inline AndOrNode::AndOrNode(TreeType t, check_macrostate subtree_, NodeContext context_)
