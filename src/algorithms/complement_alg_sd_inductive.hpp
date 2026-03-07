@@ -80,8 +80,9 @@ namespace sd_inductive {
     NodeContextState state {NodeContextState::GLOBAL_WAIT};
 
     // OR-FIN optimization: transient fields (not part of macrostate identity)
-    bool collect_violating {false};           // downward: tells FIN leaves to collect violations
-    std::set<unsigned> violating_states {};   // upward: violating source states propagated to parent
+    bool collect_violating {false};                  // downward: tells FIN leaves to collect violations
+    std::set<unsigned> violating_states {};          // upward: successors of violating states (for restrict_states_in_tree)
+    std::set<unsigned> violating_predecessors {};    // upward: source states that fired Fin transitions (for right subtree check_states)
 
     // ----------------------------------------------------------------
     // Predicates — prefer these over direct field comparisons in callers
@@ -211,13 +212,16 @@ namespace sd_inductive {
      * @return The combined context to propagate upward.
      */
     NodeContext union_contexts(const NodeContext& other) const {
+      NodeContext result;
       if (this->is_none()) {
-        return other;
+        result = other;
+      } else {
+        result = *this;
       }
-      if (other.is_none()) {
-        return *this;
-      }
-      return *this;
+      // Always union transient violation fields from both sides
+      result.violating_states = get_set_union(this->violating_states, other.violating_states);
+      result.violating_predecessors = get_set_union(this->violating_predecessors, other.violating_predecessors);
+      return result;
     }
 
     void restrict_states(const std::set<unsigned>& forbidden) {
