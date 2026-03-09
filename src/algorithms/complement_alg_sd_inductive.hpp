@@ -738,15 +738,19 @@ namespace sd_inductive {
   }
 
   /**
-   * @brief Check whether a check tree contains only Fin leaves with no internal Or nodes.
+   * @brief Check whether a check tree contains only Fin leaves and has no internal And nodes.
    *
-   * Used by the OR-FIN optimization to determine whether the left subtree of an Or node
-   * is eligible: the optimization requires all leaves to be Fin and no internal Or nodes,
-   * so that violation-collection semantics through And nodes are simple (union of
-   * violating states from children).
+   * This predicate returns true if every leaf in @p t is a `Fin` leaf and all
+   * internal nodes (if any) are `Or` nodes. In other words, internal `And`
+   * nodes are forbidden.
+   *
+   * The function is used by the OR-FIN optimization to decide whether a subtree
+   * is eligible: the optimization requires all leaves to be `Fin` and that the
+   * subtree contains no `And` internals so that violation-collection semantics
+   * through `Or` nodes remain straightforward.
    *
    * @param t Check tree to inspect.
-   * @return true if every leaf in @p t is a Fin leaf and no internal node is an Or.
+   * @return true if every leaf in @p t is a `Fin` leaf and no internal node is an `And`.
    */
   inline bool has_only_fin_leaves_no_inner_or(const check_macrostate& t) {
     using base_tree = kofola::types::binary_tree<TreeType, AndOrNode, fin_leaf, inf_leaf>;
