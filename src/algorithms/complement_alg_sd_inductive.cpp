@@ -3,6 +3,7 @@
 #include "complement_alg_sd_inductive.hpp"
 
 #include <cassert>
+#include <map>
 #include <stdexcept>
 #include <type_traits>
 
@@ -180,6 +181,7 @@ std::vector<std::pair<check_macrostate, NodeContext>> check_macrostate::get_succ
 
   if (node_type == TreeType::And) {
     const auto left_succ = left_ms.get_succ(aut, scc_info, check_states, bdd, resample, context_sent);
+    if (left_succ.empty()) return {};
     const auto right_succ = right_ms.get_succ(aut, scc_info, check_states, bdd, resample, context_sent);
 
     return cartesian_product<std::pair<check_macrostate, NodeContext>, std::pair<check_macrostate, NodeContext>>(
@@ -198,8 +200,30 @@ std::vector<std::pair<check_macrostate, NodeContext>> check_macrostate::get_succ
   }
 
   if (node_type == TreeType::Or) {
+    // Optimization: reduce check_states to behavior-equivalent representatives.
+    // In a deterministic SCC, each state has at most one successor per symbol.
+    // States with the same (successor_state, transition_marks) pair produce
+    // identical effects on all leaves, so only one representative per group
+    // is needed. States with no SCC-internal successor are dropped entirely.
+    using sig_t = std::pair<unsigned, spot::acc_cond::mark_t>;
+    std::map<sig_t, unsigned> sig_to_repr;
+    std::set<unsigned> repr_states;
+
+    for (unsigned s : check_states) {
+      for (const auto& t : aut->out(s)) {
+        if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
+          sig_t sig{t.dst, t.acc};
+          auto [it, inserted] = sig_to_repr.try_emplace(sig, s);
+          if (inserted) {
+            repr_states.insert(s);
+          }
+          break; // deterministic SCC: at most one successor per symbol
+        }
+      }
+    }
+
     std::set<std::pair<check_macrostate, NodeContext>> out;
-    const auto partitions = nondet_split_set(check_states, 2);
+    const auto partitions = nondet_split_set(repr_states, 2);
     for (const auto& part : partitions) {
       if (part.size() != 2) {
         throw std::logic_error("check_macrostate::get_succ: nondet_split_set returned non-binary partition");
@@ -207,7 +231,9 @@ std::vector<std::pair<check_macrostate, NodeContext>> check_macrostate::get_succ
       const auto& left_states = part[0];
       const auto& right_states = part[1];
       const auto left_succ = left_ms.get_succ(aut, scc_info, left_states, bdd, resample, context_sent);
+      if (left_succ.empty()) continue;
       const auto right_succ = right_ms.get_succ(aut, scc_info, right_states, bdd, resample, context_sent);
+      if (right_succ.empty()) continue;
 
       // TODO: it is not efficient to call reduce here
       const auto combined = cartesian_product<std::pair<check_macrostate, NodeContext>, std::pair<check_macrostate, NodeContext>>(
@@ -800,8 +826,22 @@ mstate_col_set complement_sd_inductive::get_succ_active(
   }
 
   if(!src_mst->check_.empty()) {
-    std::vector<std::pair<sd_inductive::check_macrostate, sd_inductive::NodeContext>> succ_check_trees = src_mst->check_tree_.get_succ(this->info_.aut_, 
-      this->info_.scc_info_, src_mst->check_, symbol, true, context);
+    // Pre-filter check_ to only states with SCC-internal successors for this symbol.
+    // States with no SCC-internal successor contribute nothing to any leaf's
+    // successor set and don't trigger any acceptance marks, so they can be
+    // safely removed before the expensive Or-node partitioning.
+    std::set<unsigned> relevant_check;
+    for (unsigned s : src_mst->check_) {
+      for (const auto& t : this->info_.aut_->out(s)) {
+        if (this->info_.scc_info_.scc_of(s) == this->info_.scc_info_.scc_of(t.dst)
+            && bdd_implies(symbol, t.cond)) {
+          relevant_check.insert(s);
+          break;
+        }
+      }
+    }
+    std::vector<std::pair<sd_inductive::check_macrostate, sd_inductive::NodeContext>> succ_check_trees = src_mst->check_tree_.get_succ(this->info_.aut_,
+      this->info_.scc_info_, relevant_check, symbol, true, context);
     for(const auto& tree : succ_trees) {
       std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
           succ_check, tree.first));
