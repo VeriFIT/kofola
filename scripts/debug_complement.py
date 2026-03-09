@@ -90,6 +90,14 @@ def replay_word(aut, word) -> tuple:
         cycle_trace   : list of (src_state, bdd_cond, acc_marks)
         cycle_entry_state : state number where the cycle starts
     Raises RuntimeError if the word cannot be replayed (automaton rejects it).
+
+    Notes
+    -----
+    A word's cycle (prefix)^ω does not mean the cycle letters form a self-loop in
+    the automaton.  Several passes through the cycle letters may be needed before
+    any automaton state is revisited.  This function unrolls the cycle letters
+    until it finds a real cycle in the automaton (by detecting the first repeated
+    automaton state), extending the prefix accordingly.
     """
     current = aut.get_init_state_number()
     prefix_trace = []
@@ -105,10 +113,29 @@ def replay_word(aut, word) -> tuple:
         prefix_trace.append((current, bdd_cond, acc))
         current = dst
 
-    cycle_entry = current
-    cycle_trace = []
+    cycle_letters = list(word.cycle)
+    if not cycle_letters:
+        raise RuntimeError("Word has an empty cycle – cannot find a real cycle in the automaton.")
 
-    for bdd_cond in word.cycle:
+    # Unroll cycle letters until an automaton state is revisited.
+    # By the pigeonhole principle this is guaranteed within num_states steps.
+    num_letters = len(cycle_letters)
+    max_steps = aut.num_states() + 1   # pigeonhole bound
+
+    visited_states: dict = {}   # automaton state → index in unrolled_trace
+    unrolled_trace: list = []   # (src, bdd_cond, acc)
+
+    for step_count in range(max_steps + 1):
+        if current in visited_states:
+            # Found the first repeated automaton state → real cycle starts here.
+            cycle_start = visited_states[current]
+            cycle_entry = current
+            cycle_trace = unrolled_trace[cycle_start:]
+            extended_prefix = prefix_trace + unrolled_trace[:cycle_start]
+            return extended_prefix, cycle_trace, cycle_entry
+
+        visited_states[current] = len(unrolled_trace)
+        bdd_cond = cycle_letters[step_count % num_letters]
         result = _find_transition(aut, current, bdd_cond)
         if result is None:
             raise RuntimeError(
@@ -116,10 +143,13 @@ def replay_word(aut, word) -> tuple:
                 f"for condition {bdd_to_str(bdd_cond, aut.get_dict())}"
             )
         dst, acc = result
-        cycle_trace.append((current, bdd_cond, acc))
+        unrolled_trace.append((current, bdd_cond, acc))
         current = dst
 
-    return prefix_trace, cycle_trace, cycle_entry
+    raise RuntimeError(
+        f"Could not find a real cycle within {max_steps} steps – "
+        "the word may not be accepted by this automaton."
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
