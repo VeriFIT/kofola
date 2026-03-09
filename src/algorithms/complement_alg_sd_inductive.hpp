@@ -754,7 +754,7 @@ namespace sd_inductive {
     if (bt.is_leaf()) {
       return bt.type() == TreeType::Fin;
     }
-    if (bt.type() == TreeType::Or) return false;
+    if (bt.type() == TreeType::And) return false;
     const check_macrostate left(nullptr, base_tree(bt.left()));
     const check_macrostate right(nullptr, base_tree(bt.right()));
     return has_only_fin_leaves_no_inner_or(left) && has_only_fin_leaves_no_inner_or(right);
