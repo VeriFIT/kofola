@@ -453,6 +453,18 @@ check_macrostate check_macrostate::reduce() const {
   }
 
   if (node_type == TreeType::Or) {
+    // OR-FIN optimization: the right subtree holds states that were moved there
+    // because they fired a Fin-colored transition (i.e., they violated the left/Fin
+    // condition). These states must remain in the right subtree so that the Inf check
+    // can track them. Priority is therefore reversed: remove from the *left* any
+    // states already present in the *right*, not the other way around.
+    if (this->opts_ && this->opts_->use_or_fin_opt) {
+      const check_macrostate right_red = right_ms.reduce();
+      const auto right_states = right_red.gather_states();
+      const check_macrostate left_restricted = restrict_states_in_tree(left_ms, right_states);
+      return check_macrostate::make(this->opts_, TreeType::Or, left_restricted.reduce(), right_red, this->node_value().context);
+    }
+
     const check_macrostate left_red = left_ms.reduce();
     const auto left_states = left_red.gather_states();
     const check_macrostate right_restricted = restrict_states_in_tree(right_ms, left_states);
