@@ -122,7 +122,14 @@ namespace helpers {
             // 1) Update the number of states to match the reduced automaton.
             this->nb_states_ = this->aut_->num_states();
             // 2) Recompute SCC information for the reduced automaton.
-            this->si_ = spot::scc_info(this->aut_);
+            this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
+            // For TELA automata, Spot's is_accepting_scc may report "unknown" for
+            // Fin-based acceptance conditions unless determine_unknown_acceptance() is
+            // called.  Without this, create_partitions() sees all SCCs as non-accepting
+            // and returns num_partitions == 0, causing select_algorithms() to do nothing.
+            if (kofola::has_value("tela", "yes", kofola::OPTIONS.params)) {
+                this->si_.determine_unknown_acceptance();
+            }
             // 3) Recompute SCC types.
             this->scc_types_ = get_scc_types(this->si_);
             // 4) Resize per-state vectors to the new size; they will be filled below.
@@ -935,7 +942,7 @@ namespace helpers {
             helpers::tnba_complement::abs_cmpl_alg_p alg;
             
             const PartitionType partition_type = this->info_->part_to_type_map_.at(i);
-            
+
             switch (partition_type) {
                 case PartitionType::INHERENTLY_WEAK:
                     alg = create_inherently_weak_algorithm(i);

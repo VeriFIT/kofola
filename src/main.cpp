@@ -288,7 +288,6 @@ int main(int argc, char *argv[])
 	// Default: enable simulation-based macrostate pruning unless user specified otherwise.
 	// (May be internally turned off for very large automata in the construction code.)
 	if(options.operation != "inclusion" && kofola::OPTIONS.params.count("sim-ms-prune") == 0) kofola::OPTIONS.params["sim-ms-prune"] = "yes";
-	if(kofola::OPTIONS.params.count("tela") != 0 && kofola::OPTIONS.params["tela"] == "yes") kofola::OPTIONS.params["sim-ms-prune"] = "no";
 
 	DEBUG_PRINT_LN("filenames: " + std::to_string(options.filenames));
 	DEBUG_PRINT_LN("operation: " + std::to_string(options.operation));
