@@ -11,6 +11,9 @@ using kofola::sd_inductive::check_macrostate;
 using kofola::sd_inductive::AndOrNode;
 using kofola::sd_inductive::fin_leaf;
 using kofola::sd_inductive::inf_leaf;
+using kofola::sd_inductive::options;
+using kofola::sd_inductive::options_ptr;
+using kofola::sd_inductive::has_only_fin_leaves_no_inner_or;
 using base_tree = kofola::types::binary_tree<TreeType, AndOrNode, fin_leaf, inf_leaf>;
 
 static const auto& as_base(const check_macrostate& t) {
@@ -147,5 +150,153 @@ TEST_CASE("check_macrostate builds And/Or structure from Spot acc_code", "[check
     };
     std::sort(expected.begin(), expected.end(), leaf_sig_less);
     REQUIRE(leaves == expected);
+  }
+}
+
+// Helpers for reorganization tests.
+namespace {
+static check_macrostate child_left(const check_macrostate& t) {
+  return check_macrostate(t.get_options_ptr(), base_tree(as_base(t).left()));
+}
+static check_macrostate child_right(const check_macrostate& t) {
+  return check_macrostate(t.get_options_ptr(), base_tree(as_base(t).right()));
+}
+static options_ptr or_fin_opts() {
+  return std::make_shared<const options>(options{.use_or_fin_opt = true});
+}
+} // namespace
+
+TEST_CASE("reorganize_fins_left: FIN-only subtrees moved left in OR (use_or_fin_opt=true)",
+          "[check_macrostate][or_fin_opt][reorganize_fins_left]") {
+
+  SECTION("Inf(0) | Fin(1): FIN leaf moves to the left of OR") {
+    auto code = spot::acc_cond::acc_code("Inf(0) | Fin(1)");
+    auto got = check_macrostate::from_acc_code(or_fin_opts(), code);
+
+    REQUIRE(!as_base(got).is_leaf());
+    REQUIRE(as_base(got).type() == TreeType::Or);
+    // Left subtree must be FIN-only after reorganization.
+    REQUIRE(has_only_fin_leaves_no_inner_or(child_left(got)));
+
+    // Leaf multiset unchanged.
+    std::vector<TreeType> internal_types;
+    std::vector<leaf_sig> leaves;
+    collect(as_base(got), internal_types, leaves);
+    std::sort(leaves.begin(), leaves.end(), leaf_sig_less);
+    std::vector<leaf_sig> expected{
+      leaf_sig{TreeType::Fin, spot::acc_cond::mark_t{1}},
+      leaf_sig{TreeType::Inf, spot::acc_cond::mark_t{0}},
+    };
+    std::sort(expected.begin(), expected.end(), leaf_sig_less);
+    REQUIRE(leaves == expected);
+  }
+
+  SECTION("Inf(0) | Fin(1) | Fin(2): both FINs grouped on left, INF on right (user example)") {
+    // Corresponds to the user's example:
+    //   (INF1 | FIN1) | FIN3  =>  (FIN1 | FIN3) | INF1
+    auto code = spot::acc_cond::acc_code("Inf(0) | Fin(1) | Fin(2)");
+    auto got = check_macrostate::from_acc_code(or_fin_opts(), code);
+
+    REQUIRE(!as_base(got).is_leaf());
+    REQUIRE(as_base(got).type() == TreeType::Or);
+
+    // Top-level left child must be FIN-only (Or(Fin(1), Fin(2))).
+    REQUIRE(has_only_fin_leaves_no_inner_or(child_left(got)));
+
+    // Top-level right child must be the single INF leaf.
+    auto right = child_right(got);
+    REQUIRE(right.is_leaf());
+    REQUIRE(right.type() == TreeType::Inf);
+
+    // Leaf multiset unchanged.
+    std::vector<TreeType> internal_types;
+    std::vector<leaf_sig> leaves;
+    collect(as_base(got), internal_types, leaves);
+    std::sort(leaves.begin(), leaves.end(), leaf_sig_less);
+    std::vector<leaf_sig> expected{
+      leaf_sig{TreeType::Fin, spot::acc_cond::mark_t{1}},
+      leaf_sig{TreeType::Fin, spot::acc_cond::mark_t{2}},
+      leaf_sig{TreeType::Inf, spot::acc_cond::mark_t{0}},
+    };
+    std::sort(expected.begin(), expected.end(), leaf_sig_less);
+    REQUIRE(leaves == expected);
+  }
+
+  SECTION("Fin(0) | Inf(1) | Fin(2): both FINs again grouped on left") {
+    auto code = spot::acc_cond::acc_code("Fin(0) | Inf(1) | Fin(2)");
+    auto got = check_macrostate::from_acc_code(or_fin_opts(), code);
+
+    REQUIRE(!as_base(got).is_leaf());
+    REQUIRE(as_base(got).type() == TreeType::Or);
+
+    REQUIRE(has_only_fin_leaves_no_inner_or(child_left(got)));
+    auto right = child_right(got);
+    REQUIRE(right.is_leaf());
+    REQUIRE(right.type() == TreeType::Inf);
+
+    std::vector<TreeType> internal_types;
+    std::vector<leaf_sig> leaves;
+    collect(as_base(got), internal_types, leaves);
+    std::sort(leaves.begin(), leaves.end(), leaf_sig_less);
+    std::vector<leaf_sig> expected{
+      leaf_sig{TreeType::Fin, spot::acc_cond::mark_t{0}},
+      leaf_sig{TreeType::Fin, spot::acc_cond::mark_t{2}},
+      leaf_sig{TreeType::Inf, spot::acc_cond::mark_t{1}},
+    };
+    std::sort(expected.begin(), expected.end(), leaf_sig_less);
+    REQUIRE(leaves == expected);
+  }
+
+  SECTION("(Fin(0) & Inf(1)) | Fin(2): FIN leaf moves left, AND node stays right") {
+    // And(Fin(0), Inf(1)) is NOT FIN-only; Fin(2) IS.
+    auto code = spot::acc_cond::acc_code("(Fin(0) & Inf(1)) | Fin(2)");
+    auto got = check_macrostate::from_acc_code(or_fin_opts(), code);
+
+    REQUIRE(!as_base(got).is_leaf());
+    REQUIRE(as_base(got).type() == TreeType::Or);
+
+    // Left must be FIN-only (the plain Fin(2) leaf).
+    auto left = child_left(got);
+    REQUIRE(has_only_fin_leaves_no_inner_or(left));
+    REQUIRE(left.is_leaf());
+    REQUIRE(left.type() == TreeType::Fin);
+    REQUIRE(std::get<fin_leaf>(as_base(left).leaf_value()).color == spot::acc_cond::mark_t{2});
+
+    // Right must be the AND node.
+    auto right = child_right(got);
+    REQUIRE(!right.is_leaf());
+    REQUIRE(right.type() == TreeType::And);
+  }
+
+  SECTION("Fin(0) | Fin(1): all-FIN OR leaves both children FIN-only") {
+    auto code = spot::acc_cond::acc_code("Fin(0) | Fin(1)");
+    auto got = check_macrostate::from_acc_code(or_fin_opts(), code);
+
+    REQUIRE(!as_base(got).is_leaf());
+    REQUIRE(as_base(got).type() == TreeType::Or);
+    // Both children remain FIN-only (nothing to move).
+    REQUIRE(has_only_fin_leaves_no_inner_or(child_left(got)));
+    REQUIRE(has_only_fin_leaves_no_inner_or(child_right(got)));
+  }
+
+  SECTION("Inf(0): single INF leaf unaffected") {
+    auto code = spot::acc_cond::acc_code("Inf(0)");
+    auto got = check_macrostate::from_acc_code(or_fin_opts(), code);
+    REQUIRE(as_base(got).is_leaf());
+    REQUIRE(as_base(got).type() == TreeType::Inf);
+  }
+
+  SECTION("Fin(0): single FIN leaf unaffected") {
+    auto code = spot::acc_cond::acc_code("Fin(0)");
+    auto got = check_macrostate::from_acc_code(or_fin_opts(), code);
+    REQUIRE(as_base(got).is_leaf());
+    REQUIRE(as_base(got).type() == TreeType::Fin);
+  }
+
+  SECTION("Fin(0) & Inf(1): AND at top level is preserved as AND") {
+    auto code = spot::acc_cond::acc_code("Fin(0) & Inf(1)");
+    auto got = check_macrostate::from_acc_code(or_fin_opts(), code);
+    REQUIRE(!as_base(got).is_leaf());
+    REQUIRE(as_base(got).type() == TreeType::And);
   }
 }

@@ -120,6 +120,91 @@ sd_inductive::check_macrostate restrict_states_in_tree(
     context);
 }
 
+/**
+ * Collect all top-level OR disjuncts by flattening consecutive OR nodes
+ * into @p parts.  Non-OR nodes (including leaves and AND) are appended as-is.
+ */
+static void collect_or_disjuncts(const check_macrostate& tree, std::vector<check_macrostate>& parts) {
+  if (tree.is_leaf() || tree.type() != TreeType::Or) {
+    parts.push_back(tree);
+    return;
+  }
+  collect_or_disjuncts(check_macrostate(tree.get_options_ptr(), base_tree(tree.left())), parts);
+  collect_or_disjuncts(check_macrostate(tree.get_options_ptr(), base_tree(tree.right())), parts);
+}
+
+/**
+ * Build a left-associative OR chain from the non-empty subrange
+ * @p parts[@p begin .. @p end).
+ */
+static check_macrostate build_or_chain(options_ptr opts,std::vector<check_macrostate>& parts, size_t begin, size_t end) {
+  check_macrostate result = parts[begin];
+  for (size_t i = begin + 1; i < end; ++i) {
+    result = check_macrostate::make(opts, TreeType::Or, std::move(result), parts[i]);
+  }
+  return result;
+}
+
+/**
+ * Reorganize a check tree so that in every OR node all subtrees that consist
+ * only of Fin leaves (satisfying `has_only_fin_leaves_no_inner_or`) are
+ * placed in the left subtree, and all remaining (Inf-containing) subtrees
+ * are placed in the right subtree.  AND nodes are left structurally
+ * unchanged; their children are reorganized recursively.
+ *
+ * This is a prerequisite for the OR-FIN optimization in
+ * `check_macrostate::get_succ`, which assumes that the left subtree of
+ * every Or node satisfies `has_only_fin_leaves_no_inner_or`.
+ *
+ * @param tree Tree to reorganize.
+ * @return A semantically equivalent tree with FIN-only disjuncts on the
+ *         left of every OR node.
+ */
+static check_macrostate reorganize_fins_left(const check_macrostate& tree) {
+  if (tree.is_leaf()) return tree;
+
+  const auto node_type = tree.type();
+  const check_macrostate left_ms(tree.get_options_ptr(), base_tree(tree.left()));
+  const check_macrostate right_ms(tree.get_options_ptr(), base_tree(tree.right()));
+
+  if (node_type == TreeType::And) {
+    return check_macrostate::make(
+        tree.get_options_ptr(), TreeType::And,
+        reorganize_fins_left(left_ms), reorganize_fins_left(right_ms),
+        tree.node_value().context);
+  }
+
+  // OR node: flatten all consecutive OR disjuncts, reorganize each
+  // recursively, bucket into FIN-only vs other, then rebuild.
+  std::vector<check_macrostate> parts;
+  collect_or_disjuncts(tree, parts);
+
+  std::vector<check_macrostate> fin_parts, other_parts;
+  for (const auto& p : parts) {
+    auto reorg = reorganize_fins_left(p);
+    if (has_only_fin_leaves_no_inner_or(reorg)) {
+      fin_parts.push_back(std::move(reorg));
+    } else {
+      other_parts.push_back(std::move(reorg));
+    }
+  }
+
+  if (fin_parts.empty()) {
+    return build_or_chain(tree.get_options_ptr(), other_parts, 0, other_parts.size());
+  }
+
+  auto fin_chain = build_or_chain(tree.get_options_ptr(), fin_parts, 0, fin_parts.size());
+
+  if (other_parts.empty()) {
+    return fin_chain;
+  }
+
+  auto other_chain = build_or_chain(tree.get_options_ptr(), other_parts, 0, other_parts.size());
+  return check_macrostate::make(
+      tree.get_options_ptr(), TreeType::Or,
+      std::move(fin_chain), std::move(other_chain));
+}
+
 } // namespace
 
 /**
@@ -145,7 +230,10 @@ sd_inductive::check_macrostate restrict_states_in_tree(
  *         unsupported/top-level operator that cannot be represented.
  */
 check_macrostate check_macrostate::from_acc_code(options_ptr opts, const spot::acc_cond::acc_code& code) {
-  const auto parsed = from_acc_code_impl(std::move(opts), code);
+  auto parsed = from_acc_code_impl(opts, code);
+  if (opts && opts->use_or_fin_opt) {
+    parsed = reorganize_fins_left(parsed);
+  }
   unsigned next_id = 0;
   // First assign stable leaf IDs, then (re)initialize NodeContext using the
   // fully ID-annotated subtrees.
