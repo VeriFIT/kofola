@@ -297,19 +297,15 @@ namespace sd_inductive {
 
   /**
    * @brief Payload of an internal `And`/`Or` node in `check_macrostate`.
-   *
-   * Stores a subtree (rooted at the corresponding internal node) as a
-   * `check_macrostate`. This is stored indirectly to avoid recursive
-   * by-value type definitions.
    */
   struct AndOrNode {
     TreeType type {TreeType::And};
-    std::shared_ptr<check_macrostate> subtree {};
 
     NodeContext context{};
 
     AndOrNode() = default;
-    AndOrNode(TreeType t, check_macrostate subtree_, NodeContext context_);
+    AndOrNode(TreeType t, NodeContext context_)
+      : type(t), context(std::move(context_)) {}
 
     bool operator==(const AndOrNode& other) const;
     std::strong_ordering operator<=>(const AndOrNode& other) const;
@@ -604,13 +600,9 @@ namespace sd_inductive {
      * @return A `check_macrostate` internal node.
      */
     static check_macrostate make(options_ptr opts, TreeType type, check_macrostate left, check_macrostate right, NodeContext node_payload = NodeContext{}) {
-      // Build a concrete subtree rooted at this internal node.
-      // We intentionally construct this subtree using a default internal
-      // payload, and store it in the node payload for now.
-      check_macrostate subtree_root(opts, base_tree::make_node(type, base_tree(left), base_tree(right)));
       base_tree l(std::move(left));
       base_tree r(std::move(right));
-      return check_macrostate(std::move(opts), base_tree::make_node(type, AndOrNode(type, std::move(subtree_root), std::move(node_payload)), std::move(l), std::move(r)));
+      return check_macrostate(std::move(opts), base_tree::make_node(type, AndOrNode(type, std::move(node_payload)), std::move(l), std::move(r)));
     }
 
     static check_macrostate make(TreeType type, check_macrostate left, check_macrostate right, NodeContext node_payload = NodeContext{}) {
@@ -794,25 +786,12 @@ namespace sd_inductive {
     return is_violating(left, marks) && is_violating(right, marks);
   }
 
-  inline AndOrNode::AndOrNode(TreeType t, check_macrostate subtree_, NodeContext context_)
-    : type(t),
-      subtree(std::make_shared<check_macrostate>(std::move(subtree_))),
-      context(std::move(context_)) {
-  }
-
   inline bool AndOrNode::operator==(const AndOrNode& other) const {
     if (this->type != other.type)
       return false;
-    if (this->context != other.context)
-      return false;
-
-    if (!this->subtree && !other.subtree) {
-      return true;
-    }
-    if (!this->subtree || !other.subtree) {
-      return false;
-    }
-    return *this->subtree == *other.subtree;
+    return this->context == other.context;
+    // Structural child comparison is handled by binary_tree::operator==
+    // via *left_ and *right_; no need to compare the subtree here.
   }
 
   inline std::strong_ordering AndOrNode::operator<=>(const AndOrNode& other) const {
@@ -823,26 +802,9 @@ namespace sd_inductive {
       return std::strong_ordering::greater;
     }
 
-    if (auto cmp = (this->context <=> other.context); cmp != std::strong_ordering::equal)
-      return cmp;
-
-    // Same type and context: order by subtree presence then subtree structure.
-    if (!this->subtree && !other.subtree) {
-      return std::strong_ordering::equal;
-    }
-    if (!this->subtree) {
-      return std::strong_ordering::less;
-    }
-    if (!other.subtree) {
-      return std::strong_ordering::greater;
-    }
-    if (*this->subtree < *other.subtree) {
-      return std::strong_ordering::less;
-    }
-    if (*other.subtree < *this->subtree) {
-      return std::strong_ordering::greater;
-    }
-    return std::strong_ordering::equal;
+    return (this->context <=> other.context);
+    // Structural child ordering is handled by binary_tree::operator<
+    // via *left_ and *right_; no subtree comparison needed here.
   }
 
 /// partial macrostate for the given component
