@@ -81,7 +81,7 @@ void init_contexts_in_tree(check_macrostate& tree, options_ptr opts) {
  * Return a copy of `tree` with all states from `forbidden` removed
  * from any leaf state-sets.
  */
-sd_inductive::check_macrostate restrict_states_in_tree(
+static sd_inductive::check_macrostate restrict_states_in_tree(
   const sd_inductive::check_macrostate& tree,
   const std::set<unsigned>& forbidden) {
 
@@ -607,18 +607,6 @@ check_macrostate check_macrostate::from_acc_code_impl(options_ptr opts, const sp
     throw std::invalid_argument("check_macrostate: empty acceptance formula");
   }
 
-  // Leaf: [mark][op]
-  if (code.size() == 2 && false) {
-    const auto op = code[1].sub.op;
-    const auto mark = code[0].mark;
-    if (op == spot::acc_cond::acc_op::Fin) {
-      return check_macrostate(opts, base_tree::leaf(TreeType::Fin, fin_leaf{{}, mark, 0}));
-    }
-    if (op == spot::acc_cond::acc_op::Inf) {
-      return check_macrostate(opts, base_tree::leaf(TreeType::Inf, inf_leaf{{}, {}, mark, 0}));
-    }
-  }
-
   // Prefer top-level flattening (Spot returns a singleton vector when the operator is not present at top-level).
   const auto conjuncts = code.top_conjuncts();
   if (conjuncts.size() > 1) {
@@ -709,11 +697,16 @@ std::vector<std::pair<check_macrostate, NodeContext>> fin_leaf::get_succ(
   std::set<unsigned> st = get_set_union(this->safe, check_states);
   std::set<unsigned> succs {};
 
-  // OR-FIN optimization: when instructed to collect violations, gather the check_state
-  // sources that fire a Fin-colored transition instead of immediately returning empty.
-  // States already in `safe` are committed to this Fin path from a prior step; if any
-  // committed state fires the Fin-colored transition the check fails immediately.
-  // Only newly-arriving check_states may be rerouted to the right (Fin_R) subtree.
+  // OR-FIN optimization: when collecting violations, inspect both the leaf's
+  // `safe` set and the incoming `check_states`. Any source state that fires a
+  // Fin-colored transition is recorded: its successor targets are placed into
+  // `violating_succs` and the source is recorded in `violating_predecessors`.
+  // The leaf returns the non-violating successor set while reporting these
+  // violating sets so the caller (an Or-node) can remove violating successors
+  // from the left subtree and route the violating predecessor states to the
+  // right subtree for further processing. States in `safe` are not treated
+  // specially here; they are reported like any other source and handled by
+  // the caller.
   if (opts && opts->use_or_fin_opt && context.collect_violating) {
     // Newly-arriving check_states: reroute violating ones to Fin_R.
     std::set<unsigned> violating_preds{};

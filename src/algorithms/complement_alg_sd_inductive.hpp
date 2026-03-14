@@ -713,23 +713,6 @@ namespace sd_inductive {
   }
 
   /**
-   * @brief Check whether a check tree contains only Fin leaves (no Inf leaves).
-   *
-   * @param t Check tree to inspect.
-   * @return true if every leaf in @p t is a Fin leaf.
-   */
-  inline bool has_only_fin_leaves(const check_macrostate& t) {
-    using base_tree = kofola::types::binary_tree<TreeType, AndOrNode, fin_leaf, inf_leaf>;
-    const base_tree& bt = static_cast<const base_tree&>(t);
-    if (bt.is_leaf()) {
-      return bt.type() == TreeType::Fin;
-    }
-    const check_macrostate left(nullptr, base_tree(bt.left()));
-    const check_macrostate right(nullptr, base_tree(bt.right()));
-    return has_only_fin_leaves(left) && has_only_fin_leaves(right);
-  }
-
-  /**
    * @brief Check whether a check tree contains only Fin leaves and has no internal And nodes.
    *
    * This predicate returns true if every leaf in @p t is a `Fin` leaf and all
@@ -754,36 +737,6 @@ namespace sd_inductive {
     const check_macrostate left(nullptr, base_tree(bt.left()));
     const check_macrostate right(nullptr, base_tree(bt.right()));
     return has_only_fin_leaves_no_inner_or(left) && has_only_fin_leaves_no_inner_or(right);
-  }
-
-  /**
-   * @brief Check whether a set of transition marks would cause the entire
-   *        all-FIN tree to fail.
-   *
-   * - Fin leaf: true if marks intersect the leaf's color.
-   * - And(L, R): true if L violates OR R violates (either child failing
-   *   kills the And).
-   * - Or(L, R): true if BOTH L and R violate (both children must fail
-   *   for the Or to fail).
-   *
-   * @param t    All-FIN check tree.
-   * @param marks Transition acceptance marks to test.
-   * @return true if the marks would cause the tree to produce no successors.
-   */
-  inline bool is_violating(const check_macrostate& t, const spot::acc_cond::mark_t& marks) {
-    using base_tree = kofola::types::binary_tree<TreeType, AndOrNode, fin_leaf, inf_leaf>;
-    const base_tree& bt = static_cast<const base_tree&>(t);
-    if (bt.is_leaf()) {
-      assert(bt.type() == TreeType::Fin);
-      return static_cast<bool>(marks & std::get<fin_leaf>(bt.leaf_value()).color);
-    }
-    const check_macrostate left(nullptr, base_tree(bt.left()));
-    const check_macrostate right(nullptr, base_tree(bt.right()));
-    if (bt.type() == TreeType::And) {
-      return is_violating(left, marks) || is_violating(right, marks);
-    }
-    // Or: both must violate
-    return is_violating(left, marks) && is_violating(right, marks);
   }
 
   inline bool AndOrNode::operator==(const AndOrNode& other) const {

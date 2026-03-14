@@ -73,11 +73,7 @@ spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 {
 	spot::twa_graph_ptr aut_reduced;
 	std::vector<bdd> implications;
-	spot::twa_graph_ptr aut_tmp = nullptr;
-	if (aut_tmp)
-		aut_reduced = aut_tmp;
-	else
-		aut_reduced = aut;
+	aut_reduced = aut;
 
 	// Special case: if the automaton is deterministic, complement by
 	// making it complete and complementing the acceptance condition
