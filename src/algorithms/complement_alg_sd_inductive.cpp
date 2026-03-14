@@ -968,7 +968,11 @@ mstate_col_set complement_sd_inductive::get_succ_active(
   auto succ_trees = src_mst->check_tree_.get_succ(this->info_.aut_, 
       this->info_.scc_info_, empty, symbol, false, context);
 
-  if(src_mst->check_.empty() && src_mst->check_tree_.is_satisfied()) {
+  // If the complement acceptance condition is trivially false (Fin({})), no
+  // run can satisfy it.  In that case the original SCC was trivially
+  // accepting (all runs satisfy it), so the complement must accept nothing.
+  // Skip emitting colors to avoid generating spurious accepting transitions.
+  if(!this->acc_cond_.is_f() && src_mst->check_.empty() && src_mst->check_tree_.is_satisfied()) {
     std::set<unsigned> colors = {0};
     std::set<unsigned> full_scc_reach = {};
     for (unsigned s : glob_reached) {
