@@ -961,11 +961,9 @@ mstate_col_set complement_sd_inductive::get_succ_active(
   auto succ_trees = src_mst->check_tree_.get_succ(this->info_.aut_, 
       this->info_.scc_info_, empty, symbol, false, context);
 
-  // If the complement acceptance condition is trivially false (Fin({})), no
-  // run can satisfy it.  In that case the original SCC was trivially
-  // accepting (all runs satisfy it), so the complement must accept nothing.
-  // Skip emitting colors to avoid generating spurious accepting transitions.
-  if(!this->acc_cond_.is_f() && src_mst->check_.empty() && src_mst->check_tree_.is_satisfied()) {
+  // For the FALSE acceptance condition we generate accepting mark only if we reachable set of states is empty. 
+  // Because for non-complete automata the FALSE condition satisfies runs that are not in the automaton structure.
+  if(src_mst->check_.empty() && src_mst->check_tree_.is_satisfied()) {
     std::set<unsigned> colors = {0};
     std::set<unsigned> full_scc_reach = {};
     for (unsigned s : glob_reached) {
@@ -973,14 +971,16 @@ mstate_col_set complement_sd_inductive::get_succ_active(
         full_scc_reach.insert(s);
       }
     }
-    for(const auto& tree : succ_trees) {
-      // OR-FIN opt: discard results with unhandled violating predecessor states
-      if (!tree.second.violating_predecessors.empty()) continue;
-      std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
-          full_scc_reach, tree.first));
-      result.push_back({new_ms, colors});
+    if(!this->acc_cond_.is_f() || full_scc_reach.empty()) {
+      for(const auto& tree : succ_trees) {
+        // OR-FIN opt: discard results with unhandled violating predecessor states
+        if (!tree.second.violating_predecessors.empty()) continue;
+        std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
+            full_scc_reach, tree.first));
+        result.push_back({new_ms, colors});
+      }
+      return result;
     }
-    return result;
   }
 
   if(!src_mst->check_.empty()) {
