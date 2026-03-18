@@ -77,6 +77,134 @@ void init_contexts_in_tree(check_macrostate& tree, options_ptr opts) {
   
 }
 
+/**
+ * Return a copy of `tree` with all states from `forbidden` removed
+ * from any leaf state-sets.
+ */
+static sd_inductive::check_macrostate restrict_states_in_tree(
+  const sd_inductive::check_macrostate& tree,
+  const std::set<unsigned>& forbidden) {
+
+  using check_macrostate = sd_inductive::check_macrostate;
+  using base_tree = kofola::types::binary_tree<sd_inductive::TreeType, sd_inductive::AndOrNode, sd_inductive::fin_leaf, sd_inductive::inf_leaf>;
+
+  if (tree.is_leaf()) {
+    return std::visit(
+      [&](const auto& leaf) -> check_macrostate {
+        using leaf_t = std::decay_t<decltype(leaf)>;
+        if constexpr (std::is_same_v<leaf_t, sd_inductive::fin_leaf>) {
+          return check_macrostate::fin(tree.get_options_ptr(), get_set_difference(leaf.safe, forbidden), leaf.color, leaf.id);
+        } else {
+          static_assert(std::is_same_v<leaf_t, sd_inductive::inf_leaf>, "Unexpected leaf type");
+          return check_macrostate::inf(
+            tree.get_options_ptr(),
+            get_set_difference(leaf.track, forbidden),
+            get_set_difference(leaf.breakpoint, forbidden),
+            leaf.color,
+            leaf.id);
+        }
+      },
+      tree.leaf_value());
+  }
+
+  const auto node_type = tree.type();
+  check_macrostate left(tree.get_options_ptr(), base_tree(tree.left()));
+  check_macrostate right(tree.get_options_ptr(), base_tree(tree.right()));
+  NodeContext context = tree.node_value().context;
+  context.restrict_states(forbidden);
+  return check_macrostate::make(
+    tree.get_options_ptr(),
+    node_type,
+    restrict_states_in_tree(left, forbidden),
+    restrict_states_in_tree(right, forbidden),
+    context);
+}
+
+/**
+ * Collect all top-level OR disjuncts by flattening consecutive OR nodes
+ * into @p parts.  Non-OR nodes (including leaves and AND) are appended as-is.
+ */
+static void collect_or_disjuncts(const check_macrostate& tree, std::vector<check_macrostate>& parts) {
+  if (tree.is_leaf() || tree.type() != TreeType::Or) {
+    parts.push_back(tree);
+    return;
+  }
+  collect_or_disjuncts(check_macrostate(tree.get_options_ptr(), base_tree(tree.left())), parts);
+  collect_or_disjuncts(check_macrostate(tree.get_options_ptr(), base_tree(tree.right())), parts);
+}
+
+/**
+ * Build a left-associative OR chain from the non-empty subrange
+ * @p parts[@p begin .. @p end).
+ */
+static check_macrostate build_or_chain(options_ptr opts,std::vector<check_macrostate>& parts, size_t begin, size_t end) {
+  check_macrostate result = parts[begin];
+  for (size_t i = begin + 1; i < end; ++i) {
+    result = check_macrostate::make(opts, TreeType::Or, std::move(result), parts[i]);
+  }
+  return result;
+}
+
+/**
+ * Reorganize a check tree so that in every OR node all subtrees that consist
+ * only of Fin leaves (satisfying `has_only_fin_leaves_no_inner_or`) are
+ * placed in the left subtree, and all remaining (Inf-containing) subtrees
+ * are placed in the right subtree.  AND nodes are left structurally
+ * unchanged; their children are reorganized recursively.
+ *
+ * This is a prerequisite for the OR-FIN optimization in
+ * `check_macrostate::get_succ`, which assumes that the left subtree of
+ * every Or node satisfies `has_only_fin_leaves_no_inner_or`.
+ *
+ * @param tree Tree to reorganize.
+ * @return A semantically equivalent tree with FIN-only disjuncts on the
+ *         left of every OR node.
+ */
+static check_macrostate reorganize_fins_left(const check_macrostate& tree) {
+  if (tree.is_leaf()) return tree;
+
+  const auto node_type = tree.type();
+  const check_macrostate left_ms(tree.get_options_ptr(), base_tree(tree.left()));
+  const check_macrostate right_ms(tree.get_options_ptr(), base_tree(tree.right()));
+
+  if (node_type == TreeType::And) {
+    return check_macrostate::make(
+        tree.get_options_ptr(), TreeType::And,
+        reorganize_fins_left(left_ms), reorganize_fins_left(right_ms),
+        tree.node_value().context);
+  }
+
+  // OR node: flatten all consecutive OR disjuncts, reorganize each
+  // recursively, bucket into FIN-only vs other, then rebuild.
+  std::vector<check_macrostate> parts;
+  collect_or_disjuncts(tree, parts);
+
+  std::vector<check_macrostate> fin_parts, other_parts;
+  for (const auto& p : parts) {
+    auto reorg = reorganize_fins_left(p);
+    if (has_only_fin_leaves_no_inner_or(reorg)) {
+      fin_parts.push_back(std::move(reorg));
+    } else {
+      other_parts.push_back(std::move(reorg));
+    }
+  }
+
+  if (fin_parts.empty()) {
+    return build_or_chain(tree.get_options_ptr(), other_parts, 0, other_parts.size());
+  }
+
+  auto fin_chain = build_or_chain(tree.get_options_ptr(), fin_parts, 0, fin_parts.size());
+
+  if (other_parts.empty()) {
+    return fin_chain;
+  }
+
+  auto other_chain = build_or_chain(tree.get_options_ptr(), other_parts, 0, other_parts.size());
+  return check_macrostate::make(
+      tree.get_options_ptr(), TreeType::Or,
+      std::move(fin_chain), std::move(other_chain));
+}
+
 } // namespace
 
 /**
@@ -102,7 +230,10 @@ void init_contexts_in_tree(check_macrostate& tree, options_ptr opts) {
  *         unsupported/top-level operator that cannot be represented.
  */
 check_macrostate check_macrostate::from_acc_code(options_ptr opts, const spot::acc_cond::acc_code& code) {
-  const auto parsed = from_acc_code_impl(std::move(opts), code);
+  auto parsed = from_acc_code_impl(opts, code);
+  if (opts && opts->use_or_fin_opt) {
+    parsed = reorganize_fins_left(parsed);
+  }
   unsigned next_id = 0;
   // First assign stable leaf IDs, then (re)initialize NodeContext using the
   // fully ID-annotated subtrees.
@@ -191,8 +322,12 @@ std::vector<std::pair<check_macrostate, NodeContext>> check_macrostate::get_succ
         NodeContext local = actual_node_context;
         NodeContext merge = l.second.union_contexts(r.second);
         if (is_scope_root) {
+          auto viol_states = merge.violating_states;
+          auto viol_preds  = merge.violating_predecessors;
           if (!merge.is_none()) local = merge;
           merge = NodeContext{};
+          merge.violating_states       = std::move(viol_states);
+          merge.violating_predecessors = std::move(viol_preds);
         }
         auto tmp = check_macrostate::make(opts, TreeType::And, l.first, r.first, local);
         return {tmp, merge};
@@ -200,6 +335,48 @@ std::vector<std::pair<check_macrostate, NodeContext>> check_macrostate::get_succ
   }
 
   if (node_type == TreeType::Or) {
+    // OR-FIN optimization: when the left subtree contains only FIN leaves (no inner Or
+    // nodes), send ALL check_states to the left subtree with collect_violating=true.
+    // States that fire a Fin-colored transition are collected as "violating" and are
+    // subsequently removed from the left subtree result and forwarded to the right
+    // subtree as check_states. If the right subtree itself cannot accommodate those
+    // states (returns empty), this path produces no successor. Any violating states
+    // that propagate back from the right subtree are passed up to our caller.
+    if (this->opts_ && this->opts_->use_or_fin_opt && has_only_fin_leaves_no_inner_or(left_ms)) {
+      NodeContext left_ctx = context_sent;
+      left_ctx.collect_violating = true;
+
+      const auto left_succ = left_ms.get_succ(aut, scc_info, check_states, bdd, resample, left_ctx);
+
+      std::set<std::pair<check_macrostate, NodeContext>> out;
+      for (const auto& [left_tree, left_node_ctx] : left_succ) {
+        const std::set<unsigned>& viol_succs = left_node_ctx.violating_states;
+        const std::set<unsigned>& viol_preds = left_node_ctx.violating_predecessors;
+
+        // Remove successors of violating states from the left subtree (left_tree has successor states).
+        const check_macrostate left_restricted =
+          viol_succs.empty() ? left_tree : restrict_states_in_tree(left_tree, viol_succs);
+
+        // Route violating predecessor states to the right subtree as fresh check_states.
+        const auto right_succ = right_ms.get_succ(aut, scc_info, viol_preds, bdd, resample, context_sent);
+        if (right_succ.empty()) {
+          // Right cannot accommodate the violating states: no valid successor for this case.
+          continue;
+        }
+
+        for (const auto& [right_tree, right_node_ctx] : right_succ) {
+          // Propagate any further violations from right up to the parent.
+          NodeContext out_ctx{};
+          out_ctx.violating_states = right_node_ctx.violating_states;
+          out_ctx.violating_predecessors = right_node_ctx.violating_predecessors;
+          auto combined = check_macrostate::make(this->opts_, TreeType::Or,
+            left_restricted, right_tree, actual_node_context);
+          out.insert({combined.reduce(), out_ctx});
+        }
+      }
+      return std::vector<std::pair<check_macrostate, NodeContext>>(out.begin(), out.end());
+    }
+
     // Optimization: reduce check_states to behavior-equivalent representatives.
     // In a deterministic SCC, each state has at most one successor per symbol.
     // States with the same (successor_state, transition_marks) pair produce
@@ -328,67 +505,6 @@ std::set<unsigned> check_macrostate::gather_states() const {
   return get_set_union(left_ms.gather_states(), right_ms.gather_states());
 }
 
-namespace {
-
-/**
- * Return a copy of `tree` with all states from `forbidden` removed
- * from any leaf state-sets.
- *
- * - For a `fin_leaf`, the `safe` set is replaced with
- *   `get_set_difference(leaf.safe, forbidden)`.
- * - For an `inf_leaf`, the `track` and `breakpoint` sets are
- *   replaced with `get_set_difference(..., forbidden)`.
- *
- * Internal nodes (`And` / `Or`) are processed recursively and rebuilt
- * with the restricted children.
- *
- * @param tree The input `check_macrostate` to restrict.
- * @param forbidden Set of automaton state indices to remove from
- *                  leaf sets.
- * @return A new `check_macrostate` instance equivalent to `tree` but
- *         with `forbidden` removed from all leaf state-sets.
- */
-sd_inductive::check_macrostate restrict_states_in_tree(
-  const sd_inductive::check_macrostate& tree,
-  const std::set<unsigned>& forbidden) {
-
-  using check_macrostate = sd_inductive::check_macrostate;
-  using base_tree = kofola::types::binary_tree<sd_inductive::TreeType, sd_inductive::AndOrNode, sd_inductive::fin_leaf, sd_inductive::inf_leaf>;
-
-  if (tree.is_leaf()) {
-    return std::visit(
-      [&](const auto& leaf) -> check_macrostate {
-        using leaf_t = std::decay_t<decltype(leaf)>;
-        if constexpr (std::is_same_v<leaf_t, sd_inductive::fin_leaf>) {
-          return check_macrostate::fin(tree.get_options_ptr(), get_set_difference(leaf.safe, forbidden), leaf.color, leaf.id);
-        } else {
-          static_assert(std::is_same_v<leaf_t, sd_inductive::inf_leaf>, "Unexpected leaf type");
-          return check_macrostate::inf(
-            tree.get_options_ptr(),
-            get_set_difference(leaf.track, forbidden),
-            get_set_difference(leaf.breakpoint, forbidden),
-            leaf.color,
-            leaf.id);
-        }
-      },
-      tree.leaf_value());
-  }
-
-  const auto node_type = tree.type();
-  check_macrostate left(tree.get_options_ptr(), base_tree(tree.left()));
-  check_macrostate right(tree.get_options_ptr(), base_tree(tree.right()));
-  NodeContext context = tree.node_value().context;
-  context.restrict_states(forbidden);
-  return check_macrostate::make(
-    tree.get_options_ptr(),
-    node_type,
-    restrict_states_in_tree(left, forbidden),
-    restrict_states_in_tree(right, forbidden),
-    context);
-}
-
-} // namespace
-
 /**
  * Reduce/simplify this `check_macrostate` tree.
  *
@@ -425,6 +541,18 @@ check_macrostate check_macrostate::reduce() const {
   }
 
   if (node_type == TreeType::Or) {
+    // OR-FIN optimization: the right subtree holds states that were moved there
+    // because they fired a Fin-colored transition (i.e., they violated the left/Fin
+    // condition). These states must remain in the right subtree so that the Inf check
+    // can track them. Priority is therefore reversed: remove from the *left* any
+    // states already present in the *right*, not the other way around.
+    if (this->opts_ && this->opts_->use_or_fin_opt) {
+      const check_macrostate right_red = right_ms.reduce();
+      const auto right_states = right_red.gather_states();
+      const check_macrostate left_restricted = restrict_states_in_tree(left_ms, right_states);
+      return check_macrostate::make(this->opts_, TreeType::Or, left_restricted.reduce(), right_red, this->node_value().context);
+    }
+
     const check_macrostate left_red = left_ms.reduce();
     const auto left_states = left_red.gather_states();
     const check_macrostate right_restricted = restrict_states_in_tree(right_ms, left_states);
@@ -477,18 +605,6 @@ check_macrostate check_macrostate::fold(options_ptr opts, TreeType op, const std
 check_macrostate check_macrostate::from_acc_code_impl(options_ptr opts, const spot::acc_cond::acc_code& code) {
   if (code.empty()) {
     throw std::invalid_argument("check_macrostate: empty acceptance formula");
-  }
-
-  // Leaf: [mark][op]
-  if (code.size() == 2 && false) {
-    const auto op = code[1].sub.op;
-    const auto mark = code[0].mark;
-    if (op == spot::acc_cond::acc_op::Fin) {
-      return check_macrostate(opts, base_tree::leaf(TreeType::Fin, fin_leaf{{}, mark, 0}));
-    }
-    if (op == spot::acc_cond::acc_op::Inf) {
-      return check_macrostate(opts, base_tree::leaf(TreeType::Inf, inf_leaf{{}, {}, mark, 0}));
-    }
   }
 
   // Prefer top-level flattening (Spot returns a singleton vector when the operator is not present at top-level).
@@ -577,11 +693,46 @@ std::vector<std::pair<check_macrostate, NodeContext>> fin_leaf::get_succ(
   bool                              resample,
   NodeContext                       context) const {
 
-  (void)opts;
   (void)resample; // unused
-  (void)context;  // unused
   std::set<unsigned> st = get_set_union(this->safe, check_states);
   std::set<unsigned> succs {};
+
+  // OR-FIN optimization: when collecting violations, inspect both the leaf's
+  // `safe` set and the incoming `check_states`. Any source state that fires a
+  // Fin-colored transition is recorded: its successor targets are placed into
+  // `violating_succs` and the source is recorded in `violating_predecessors`.
+  // The leaf returns the non-violating successor set while reporting these
+  // violating sets so the caller (an Or-node) can remove violating successors
+  // from the left subtree and route the violating predecessor states to the
+  // right subtree for further processing. States in `safe` are not treated
+  // specially here; they are reported like any other source and handled by
+  // the caller.
+  if (opts && opts->use_or_fin_opt && context.collect_violating) {
+    // Newly-arriving check_states: reroute violating ones to Fin_R.
+    std::set<unsigned> violating_preds{};
+    std::set<unsigned> violating_succs{};
+    for (unsigned s : st) {
+      bool is_viol = false;
+      for (const auto& t : aut->out(s)) {
+        if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
+          if (t.acc & this->color) {
+            is_viol = true;
+            violating_succs.insert(t.dst);
+          } else {
+            succs.insert(t.dst);
+          }
+        }
+      }
+      if (is_viol) violating_preds.insert(s);
+    }
+    NodeContext out_ctx{};
+    out_ctx.violating_predecessors = violating_preds;
+    out_ctx.violating_states = violating_succs;
+    return {{check_macrostate::fin(opts, std::move(succs), this->color, this->id), out_ctx}};
+  }
+
+  (void)opts;
+  (void)context;  // unused in normal path
   for (unsigned s : st) {
     for (const auto& t : aut->out(s)) {
       if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
@@ -735,7 +886,8 @@ complement_sd_inductive::complement_sd_inductive(const cmpl_info& info, unsigned
   spot::acc_cond::acc_code acc = this->info_.part_to_acc_map_.at(part_index_).get_acceptance();
   this->acc_cond_ = acc.complement();
   this->opts_ = std::make_shared<sd_inductive::options>(sd_inductive::options{
-    .use_shared_breakpoint = (kofola::OPTIONS.params["sd_ind_sh_break"] == "yes")
+    .use_shared_breakpoint = (kofola::OPTIONS.params["sd_ind_sh_break"] == "yes"),
+    .use_or_fin_opt = (kofola::OPTIONS.params["sd_ind_or_opt"] == "yes")
   });
 }
 
@@ -809,6 +961,8 @@ mstate_col_set complement_sd_inductive::get_succ_active(
   auto succ_trees = src_mst->check_tree_.get_succ(this->info_.aut_, 
       this->info_.scc_info_, empty, symbol, false, context);
 
+  // For the FALSE acceptance condition we generate accepting mark only if we reachable set of states is empty. 
+  // Because for non-complete automata the FALSE condition satisfies runs that are not in the automaton structure.
   if(src_mst->check_.empty() && src_mst->check_tree_.is_satisfied()) {
     std::set<unsigned> colors = {0};
     std::set<unsigned> full_scc_reach = {};
@@ -817,12 +971,16 @@ mstate_col_set complement_sd_inductive::get_succ_active(
         full_scc_reach.insert(s);
       }
     }
-    for(const auto& tree : succ_trees) {
-      std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
-          full_scc_reach, tree.first));
-      result.push_back({new_ms, colors});
+    if(!this->acc_cond_.is_f() || full_scc_reach.empty()) {
+      for(const auto& tree : succ_trees) {
+        // OR-FIN opt: discard results with unhandled violating predecessor states
+        if (!tree.second.violating_predecessors.empty()) continue;
+        std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
+            full_scc_reach, tree.first));
+        result.push_back({new_ms, colors});
+      }
+      return result;
     }
-    return result;
   }
 
   if(!src_mst->check_.empty()) {
@@ -843,11 +1001,15 @@ mstate_col_set complement_sd_inductive::get_succ_active(
     std::vector<std::pair<sd_inductive::check_macrostate, sd_inductive::NodeContext>> succ_check_trees = src_mst->check_tree_.get_succ(this->info_.aut_,
       this->info_.scc_info_, relevant_check, symbol, true, context);
     for(const auto& tree : succ_trees) {
+      // OR-FIN opt: discard results with unhandled violating predecessor states
+      if (!tree.second.violating_predecessors.empty()) continue;
       std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
           succ_check, tree.first));
       result.push_back({new_ms, {}});
     }
     for(const auto& tree : succ_check_trees) {
+      // OR-FIN opt: discard results with unhandled violating predecessor states
+      if (!tree.second.violating_predecessors.empty()) continue;
       std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
           empty, tree.first));
       result.push_back({new_ms, {}});
@@ -856,6 +1018,8 @@ mstate_col_set complement_sd_inductive::get_succ_active(
   }
 
   for(const auto& tree : succ_trees) {
+    // OR-FIN opt: discard results with unhandled violating predecessor states
+    if (!tree.second.violating_predecessors.empty()) continue;
     std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
       empty, tree.first));
     result.push_back({new_ms, {}});

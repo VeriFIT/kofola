@@ -26,6 +26,7 @@ namespace sd_inductive {
 
   struct options {
     bool use_shared_breakpoint{false};
+    bool use_or_fin_opt{false};
   };
 
   using options_ptr = std::shared_ptr<const options>;
@@ -77,6 +78,11 @@ namespace sd_inductive {
     std::set<unsigned> breakpoint {};
     unsigned leaf_id {0};
     NodeContextState state {NodeContextState::GLOBAL_WAIT};
+
+    // OR-FIN optimization: transient fields (not part of macrostate identity)
+    bool collect_violating {false};                  // downward: tells FIN leaves to collect violations
+    std::set<unsigned> violating_states {};          // upward: successors of violating states (for restrict_states_in_tree)
+    std::set<unsigned> violating_predecessors {};    // upward: source states that fired Fin transitions (for right subtree check_states)
 
     // ----------------------------------------------------------------
     // Predicates — prefer these over direct field comparisons in callers
@@ -206,13 +212,16 @@ namespace sd_inductive {
      * @return The combined context to propagate upward.
      */
     NodeContext union_contexts(const NodeContext& other) const {
+      NodeContext result;
       if (this->is_none()) {
-        return other;
+        result = other;
+      } else {
+        result = *this;
       }
-      if (other.is_none()) {
-        return *this;
-      }
-      return *this;
+      // Always union transient violation fields from both sides
+      result.violating_states = get_set_union(this->violating_states, other.violating_states);
+      result.violating_predecessors = get_set_union(this->violating_predecessors, other.violating_predecessors);
+      return result;
     }
 
     void restrict_states(const std::set<unsigned>& forbidden) {
@@ -223,8 +232,17 @@ namespace sd_inductive {
     // Comparison & serialization
     // ----------------------------------------------------------------
 
-    bool operator==(const NodeContext& other) const = default;
+    /// Equality comparison (excludes transient fields: collect_violating, violating_states).
+    bool operator==(const NodeContext& other) const {
+      return type == other.type &&
+             breakpoint == other.breakpoint &&
+             leaf_id == other.leaf_id &&
+             leaf_index_ == other.leaf_index_ &&
+             leaf_ids_ == other.leaf_ids_ &&
+             state == other.state;
+    }
 
+    /// Three-way comparison (excludes transient fields: collect_violating, violating_states).
     std::strong_ordering operator<=>(const NodeContext& other) const {
       if (this->type < other.type) return std::strong_ordering::less;
       if (other.type < this->type) return std::strong_ordering::greater;
@@ -279,19 +297,15 @@ namespace sd_inductive {
 
   /**
    * @brief Payload of an internal `And`/`Or` node in `check_macrostate`.
-   *
-   * Stores a subtree (rooted at the corresponding internal node) as a
-   * `check_macrostate`. This is stored indirectly to avoid recursive
-   * by-value type definitions.
    */
   struct AndOrNode {
     TreeType type {TreeType::And};
-    std::shared_ptr<check_macrostate> subtree {};
 
     NodeContext context{};
 
     AndOrNode() = default;
-    AndOrNode(TreeType t, check_macrostate subtree_, NodeContext context_);
+    AndOrNode(TreeType t, NodeContext context_)
+      : type(t), context(std::move(context_)) {}
 
     bool operator==(const AndOrNode& other) const;
     std::strong_ordering operator<=>(const AndOrNode& other) const;
@@ -586,13 +600,9 @@ namespace sd_inductive {
      * @return A `check_macrostate` internal node.
      */
     static check_macrostate make(options_ptr opts, TreeType type, check_macrostate left, check_macrostate right, NodeContext node_payload = NodeContext{}) {
-      // Build a concrete subtree rooted at this internal node.
-      // We intentionally construct this subtree using a default internal
-      // payload, and store it in the node payload for now.
-      check_macrostate subtree_root(opts, base_tree::make_node(type, base_tree(left), base_tree(right)));
       base_tree l(std::move(left));
       base_tree r(std::move(right));
-      return check_macrostate(std::move(opts), base_tree::make_node(type, AndOrNode(type, std::move(subtree_root), std::move(node_payload)), std::move(l), std::move(r)));
+      return check_macrostate(std::move(opts), base_tree::make_node(type, AndOrNode(type, std::move(node_payload)), std::move(l), std::move(r)));
     }
 
     static check_macrostate make(TreeType type, check_macrostate left, check_macrostate right, NodeContext node_payload = NodeContext{}) {
@@ -702,25 +712,39 @@ namespace sd_inductive {
     collect_inf_leaf_ids(check_macrostate(nullptr, base_tree(bt.right())), out);
   }
 
-  inline AndOrNode::AndOrNode(TreeType t, check_macrostate subtree_, NodeContext context_)
-    : type(t),
-      subtree(std::make_shared<check_macrostate>(std::move(subtree_))),
-      context(std::move(context_)) {
+  /**
+   * @brief Check whether a check tree contains only Fin leaves and has no internal And nodes.
+   *
+   * This predicate returns true if every leaf in @p t is a `Fin` leaf and all
+   * internal nodes (if any) are `Or` nodes. In other words, internal `And`
+   * nodes are forbidden.
+   *
+   * The function is used by the OR-FIN optimization to decide whether a subtree
+   * is eligible: the optimization requires all leaves to be `Fin` and that the
+   * subtree contains no `And` internals so that violation-collection semantics
+   * through `Or` nodes remain straightforward.
+   *
+   * @param t Check tree to inspect.
+   * @return true if every leaf in @p t is a `Fin` leaf and no internal node is an `And`.
+   */
+  inline bool has_only_fin_leaves_no_inner_or(const check_macrostate& t) {
+    using base_tree = kofola::types::binary_tree<TreeType, AndOrNode, fin_leaf, inf_leaf>;
+    const base_tree& bt = static_cast<const base_tree&>(t);
+    if (bt.is_leaf()) {
+      return bt.type() == TreeType::Fin;
+    }
+    if (bt.type() == TreeType::And) return false;
+    const check_macrostate left(nullptr, base_tree(bt.left()));
+    const check_macrostate right(nullptr, base_tree(bt.right()));
+    return has_only_fin_leaves_no_inner_or(left) && has_only_fin_leaves_no_inner_or(right);
   }
 
   inline bool AndOrNode::operator==(const AndOrNode& other) const {
     if (this->type != other.type)
       return false;
-    if (this->context != other.context)
-      return false;
-
-    if (!this->subtree && !other.subtree) {
-      return true;
-    }
-    if (!this->subtree || !other.subtree) {
-      return false;
-    }
-    return *this->subtree == *other.subtree;
+    return this->context == other.context;
+    // Structural child comparison is handled by binary_tree::operator==
+    // via *left_ and *right_; no need to compare the subtree here.
   }
 
   inline std::strong_ordering AndOrNode::operator<=>(const AndOrNode& other) const {
@@ -731,26 +755,9 @@ namespace sd_inductive {
       return std::strong_ordering::greater;
     }
 
-    if (auto cmp = (this->context <=> other.context); cmp != std::strong_ordering::equal)
-      return cmp;
-
-    // Same type and context: order by subtree presence then subtree structure.
-    if (!this->subtree && !other.subtree) {
-      return std::strong_ordering::equal;
-    }
-    if (!this->subtree) {
-      return std::strong_ordering::less;
-    }
-    if (!other.subtree) {
-      return std::strong_ordering::greater;
-    }
-    if (*this->subtree < *other.subtree) {
-      return std::strong_ordering::less;
-    }
-    if (*other.subtree < *this->subtree) {
-      return std::strong_ordering::greater;
-    }
-    return std::strong_ordering::equal;
+    return (this->context <=> other.context);
+    // Structural child ordering is handled by binary_tree::operator<
+    // via *left_ and *right_; no subtree comparison needed here.
   }
 
 /// partial macrostate for the given component

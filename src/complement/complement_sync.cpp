@@ -122,7 +122,14 @@ namespace helpers {
             // 1) Update the number of states to match the reduced automaton.
             this->nb_states_ = this->aut_->num_states();
             // 2) Recompute SCC information for the reduced automaton.
-            this->si_ = spot::scc_info(this->aut_);
+            this->si_ = spot::scc_info(this->aut_, spot::scc_info_options::ALL);
+            // For TELA automata, Spot's is_accepting_scc may report "unknown" for
+            // Fin-based acceptance conditions unless determine_unknown_acceptance() is
+            // called.  Without this, create_partitions() sees all SCCs as non-accepting
+            // and returns num_partitions == 0, causing select_algorithms() to do nothing.
+            if (kofola::has_value("tela", "yes", kofola::OPTIONS.params)) {
+                this->si_.determine_unknown_acceptance();
+            }
             // 3) Recompute SCC types.
             this->scc_types_ = get_scc_types(this->si_);
             // 4) Resize per-state vectors to the new size; they will be filled below.
@@ -131,8 +138,10 @@ namespace helpers {
             this->is_accepting_.assign(this->nb_states_, false);
         }
 
-        // this->names_ = new std::vector<std::string>();   // FIXME: allocate at one place
-        this->show_names_ = true;     // FIXME: set from parameters
+        // Show macrostate labels in state names when raw=yes or show-macrostate-labels=yes.
+        // With raw=yes postprocessing is skipped so labels are preserved in HOA output.
+        this->show_names_ = kofola::has_value("raw", "yes", kofola::OPTIONS.params) ||
+                            kofola::has_value("show-macrostate-labels", "yes", kofola::OPTIONS.params);
 
         // compute vector of accepting states, supports, etc.
         for (unsigned i = 0; i < this->aut_->num_states(); ++i) {
@@ -933,7 +942,7 @@ namespace helpers {
             helpers::tnba_complement::abs_cmpl_alg_p alg;
             
             const PartitionType partition_type = this->info_->part_to_type_map_.at(i);
-            
+
             switch (partition_type) {
                 case PartitionType::INHERENTLY_WEAK:
                     alg = create_inherently_weak_algorithm(i);
@@ -1081,7 +1090,11 @@ namespace helpers {
         if (is_buchi) {
             return std::make_unique<kofola::complement_init_det>(*(this->info_.get()), partition_index);
         } else {
-            return std::make_unique<kofola::complement_sd_tela>(*(this->info_.get()), partition_index);
+            if (kofola::has_value("tela_det_alg", "inductive", kofola::OPTIONS.params)) {
+                return std::make_unique<kofola::complement_sd_inductive>(*(this->info_.get()), partition_index);
+            } else {
+                return std::make_unique<kofola::complement_sd_tela>(*(this->info_.get()), partition_index);
+            }
         }
     } // create_initial_deterministic_algorithm() }}}
 

@@ -17,6 +17,7 @@
 #include "complement_tela.hpp"
 #include "../util/util.hpp"
 #include "decomposer.hpp"
+#include "elevatorization.hpp"
 
 // Spot
 #include <spot/twaalgos/postproc.hh>
@@ -72,11 +73,7 @@ spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 {
 	spot::twa_graph_ptr aut_reduced;
 	std::vector<bdd> implications;
-	spot::twa_graph_ptr aut_tmp = nullptr;
-	if (aut_tmp)
-		aut_reduced = aut_tmp;
-	else
-		aut_reduced = aut;
+	aut_reduced = aut;
 
 	// Special case: if the automaton is deterministic, complement by
 	// making it complete and complementing the acceptance condition
@@ -169,6 +166,16 @@ spot::twa_graph_ptr kofola::complement_tela(const spot::twa_graph_ptr& aut)
 	}
 	spot::twa_graph_ptr aut_to_compl;
 	aut_to_compl = p.run(aut_reduced);
+
+	// When tela=yes, apply elevatorization as a preprocessing step.
+	// This matches the behaviour of main.cpp (which elevatorizes before calling
+	// complement_tela) and is required for the inductive/sd_ind_or_opt algorithm
+	// to produce correct results on arbitrary TELA automata.
+	// spot::twa_graph_ptr aut_tmp = nullptr;
+	if (kofola::has_value("tela", "yes", kofola::OPTIONS.params)) {
+		kofola::Elevatorization elev(aut_to_compl);
+		aut_to_compl = p.run(elev.elevatorize(true));
+	}
 
 	auto res = kofola::complement_sync(aut_to_compl);
 	DEBUG_PRINT_LN("finished call to run_new()");

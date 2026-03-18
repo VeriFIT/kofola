@@ -3,3 +3,5 @@ CMakeCache.txt
 random_tela_automata
 tests/CMakeFiles
 build-release/
+.claude
+.DS_Store
