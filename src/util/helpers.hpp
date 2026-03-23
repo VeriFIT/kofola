@@ -32,7 +32,7 @@ static const char SCC_DET_TYPE = 4;
 static const char SCC_ACC = 8;
 static const char SCC_INITIAL_DET_TYPE = 16;
 static const char SCC_DET_BORDER_NONDET_TYPE = 32;
-static const char SCC_ALMOST_INITIAL_DET_TYPE = 64;
+static const char SCC_INITIAL_ALMOST_DETERMINISTIC_TYPE = 64;
 
 namespace kofola
 { // {{{
@@ -147,7 +147,7 @@ namespace kofola
     STRONGLY_DETERMINISTIC,
     NONDETERMINISTIC,
     INITIAL_DETERMINISTIC,
-    ALMOST_INITIAL_DETERMINISTIC,
+    INITIAL_ALMOST_DETERMINISTIC,
   };
 
   /// output stream overloaded operator
@@ -346,7 +346,7 @@ namespace helpers
   is_accepting_nondetscc(const std::string& scc_types, unsigned scc);
 
   bool
-  is_accepting_almost_initial_detscc(const std::string& scc_types, unsigned scc);
+  is_accepting_initial_almost_detscc(const std::string& scc_types, unsigned scc);
 
   bool
   is_accepting_initial_detscc(const std::string& scc_types, unsigned scc);

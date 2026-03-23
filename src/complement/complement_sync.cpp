@@ -848,7 +848,7 @@ namespace helpers {
         if (merge_det) {
             DEBUG_PRINT_LN("Merge DET");
             for (size_t i = 0; i < scc_inf.scc_count(); ++i) {
-                if (helpers::is_accepting_detscc(scc_types, i) && !helpers::is_accepting_almost_initial_detscc(scc_types, i)) { // if there is some DAC
+                if (helpers::is_accepting_detscc(scc_types, i) && !helpers::is_accepting_initial_almost_detscc(scc_types, i)) { // if there is some DAC
                     dac_index = part_index;
                     ++part_index;
                     part_to_type_map[dac_index] = PartitionType::DETERMINISTIC;
@@ -881,22 +881,22 @@ namespace helpers {
                     scc_to_part_map[i] = part_index;
                     ++part_index;
                 }
-            } else if (kofola::OPTIONS.operation != "inclusion" && helpers::is_accepting_almost_initial_detscc(scc_types, i)) {
-                // for inclusion we treat deterministic border nondeterministic SCCs as DACs --> we don't have 
+            } else if (kofola::OPTIONS.operation != "inclusion" && helpers::is_accepting_initial_almost_detscc(scc_types, i)) {
+                // for inclusion we treat  SCCs as DACs --> we don't have 
                 // emptiness checking for general TELA
                 DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is deterministic border nondeterministic");
                 if(merge_det) {
                     if (-1 == det_border_nondet_index) {
                         det_border_nondet_index = part_index;
-                        part_to_type_map[det_border_nondet_index] = PartitionType::ALMOST_INITIAL_DETERMINISTIC;
+                        part_to_type_map[det_border_nondet_index] = PartitionType::INITIAL_ALMOST_DETERMINISTIC;
                         ++part_index;
                     }
                     scc_to_part_map[i] = det_border_nondet_index;
                 } else {
-                    part_to_type_map[part_index] = PartitionType::ALMOST_INITIAL_DETERMINISTIC;
+                    part_to_type_map[part_index] = PartitionType::INITIAL_ALMOST_DETERMINISTIC;
                     ++part_index;
                 }
-            }else if (helpers::is_accepting_detscc(scc_types, i) || (kofola::OPTIONS.operation == "inclusion" && helpers::is_accepting_almost_initial_detscc(scc_types, i))) {
+            }else if (helpers::is_accepting_detscc(scc_types, i) || (kofola::OPTIONS.operation == "inclusion" && helpers::is_accepting_initial_almost_detscc(scc_types, i))) {
                 DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is DAC");
                 if (merge_det) { // merging DACs
                     if (-1 == dac_index) {
@@ -972,8 +972,8 @@ namespace helpers {
                 case PartitionType::NONDETERMINISTIC:
                     alg = create_nondeterministic_algorithm(i);
                     break;
-                case PartitionType::ALMOST_INITIAL_DETERMINISTIC:
-                    alg = create_almost_initial_deterministic_algorithm(i);
+                case PartitionType::INITIAL_ALMOST_DETERMINISTIC:
+                    alg = create_initial_almost_deterministic_algorithm(i);
                     break;
                 default:
                     throw std::runtime_error("Strange SCC type found!");
@@ -1126,9 +1126,9 @@ namespace helpers {
      * @return Unique pointer to the abstract complementation algorithm for deterministic border nondeterministic SCCs.
      */
     helpers::tnba_complement::abs_cmpl_alg_p 
-    helpers::tnba_complement::create_almost_initial_deterministic_algorithm(size_t partition_index) { // {{{
+    helpers::tnba_complement::create_initial_almost_deterministic_algorithm(size_t partition_index) { // {{{
         return std::make_unique<kofola::complement_init_almost_det>(*(this->info_.get()), partition_index);
-    } // create_almost_initial_deterministic_algorithm() }}}
+    } // create_initial_almost_deterministic_algorithm() }}}
 
     bdd helpers::tnba_complement::get_support_at(unsigned s) {
         return support_[s];

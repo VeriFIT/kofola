@@ -133,7 +133,7 @@ TEST_CASE("cola::get_scc_types - initial deterministic components", "[scc_types]
         REQUIRE(scc_info.scc_count() == 1);
         // Single deterministic SCC should be marked as almost initial deterministic
         REQUIRE((scc_types[0] & SCC_DET_TYPE) != 0);
-        REQUIRE((scc_types[0] & SCC_ALMOST_INITIAL_DET_TYPE) != 0);
+        REQUIRE((scc_types[0] & SCC_INITIAL_ALMOST_DETERMINISTIC_TYPE) != 0);
     }
     
     SECTION("Test with HOA string - chain of deterministic SCCs") {
@@ -168,7 +168,7 @@ TEST_CASE("cola::get_scc_types - initial deterministic components", "[scc_types]
         // All deterministic SCCs in a chain should be almost initial deterministic
         for (unsigned sc = 0; sc < scc_info.scc_count(); ++sc) {
             if (scc_types[sc] & SCC_DET_TYPE) {
-                REQUIRE((scc_types[sc] & SCC_ALMOST_INITIAL_DET_TYPE) != 0);
+                REQUIRE((scc_types[sc] & SCC_INITIAL_ALMOST_DETERMINISTIC_TYPE) != 0);
             }
         }
     }
@@ -214,11 +214,11 @@ TEST_CASE("cola::get_scc_types - initial deterministic components", "[scc_types]
             if (!(scc_types[sc] & SCC_DET_TYPE)) {
                 // This should be the nondeterministic SCC containing state 0
                 found_nondet_scc = true;
-                REQUIRE((scc_types[sc] & SCC_ALMOST_INITIAL_DET_TYPE) != 0);
+                REQUIRE((scc_types[sc] & SCC_INITIAL_ALMOST_DETERMINISTIC_TYPE) != 0);
             } else {
                 // These should be deterministic SCCs containing states 1 and 2
-                // They should NOT be almost initial deterministic because they're reachable from nondet SCC
-                if ((scc_types[sc] & SCC_ALMOST_INITIAL_DET_TYPE) == 0) {
+                // They should NOT be initial almost deterministic because they're reachable from nondet SCC
+                if ((scc_types[sc] & SCC_INITIAL_ALMOST_DETERMINISTIC_TYPE) == 0) {
                     found_det_without_initial = true;
                 }
             }
@@ -262,7 +262,7 @@ TEST_CASE("cola::get_scc_types - initial deterministic components", "[scc_types]
         
         // Check that only initial deterministic SCCs are marked as such
         for (unsigned sc = 0; sc < scc_info.scc_count(); ++sc) {
-            REQUIRE((scc_types[sc] & SCC_ALMOST_INITIAL_DET_TYPE) != 0);
+            REQUIRE((scc_types[sc] & SCC_INITIAL_ALMOST_DETERMINISTIC_TYPE) != 0);
         }
     }
 }
@@ -295,9 +295,9 @@ TEST_CASE("kofola::get_scc_types - generalized initial deterministic", "[scc_typ
         std::string scc_types = helpers::get_scc_types(scc_info);
 
         // Test utility functions for SCC type checking
-        REQUIRE(helpers::is_accepting_almost_initial_detscc(scc_types, 0) == true);
-        REQUIRE(helpers::is_accepting_almost_initial_detscc(scc_types, 1) == true);
-        REQUIRE(helpers::is_accepting_almost_initial_detscc(scc_types, 2) == false);
-        REQUIRE(helpers::is_accepting_almost_initial_detscc(scc_types, 3) == false);
+        REQUIRE(helpers::is_accepting_initial_almost_detscc(scc_types, 0) == true);
+        REQUIRE(helpers::is_accepting_initial_almost_detscc(scc_types, 1) == true);
+        REQUIRE(helpers::is_accepting_initial_almost_detscc(scc_types, 2) == false);
+        REQUIRE(helpers::is_accepting_initial_almost_detscc(scc_types, 3) == false);
     }
 }

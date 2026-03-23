@@ -226,7 +226,7 @@ namespace helpers
           }
           if (preds[sc].empty() || all_preds_det) {
             is_almost_initial_det[sc] = true;
-            res[sc] |= SCC_ALMOST_INITIAL_DET_TYPE;
+            res[sc] |= SCC_INITIAL_ALMOST_DETERMINISTIC_TYPE;
             changed = true;
           }
         }
@@ -263,9 +263,9 @@ namespace helpers
       {
         std::cout << " det-border-nondet";
       }
-      if (scc_types[i] & SCC_ALMOST_INITIAL_DET_TYPE)
+      if (scc_types[i] & SCC_INITIAL_ALMOST_DETERMINISTIC_TYPE)
       {
-        std::cout << " almost-initial-det";
+        std::cout << " initial-almost-det";
       }
       if (scc_types[i] & SCC_ACC)
       {
@@ -323,8 +323,8 @@ namespace helpers
     return  (scc_types[scc] & SCC_ACC) > 0 && (scc_types[scc] & SCC_INITIAL_DET_TYPE) > 0;
   }
 
-  bool is_accepting_almost_initial_detscc(const std::string& scc_types, unsigned scc) {
-    return (scc_types[scc] & SCC_ACC) > 0 && (scc_types[scc] & SCC_ALMOST_INITIAL_DET_TYPE) > 0;
+  bool is_accepting_initial_almost_detscc(const std::string& scc_types, unsigned scc) {
+    return (scc_types[scc] & SCC_ACC) > 0 && (scc_types[scc] & SCC_INITIAL_ALMOST_DETERMINISTIC_TYPE) > 0;
   }
 
   bool
@@ -363,7 +363,7 @@ namespace kofola
       case PartitionType::DETERMINISTIC: return os << "Deterministic";
       case PartitionType::STRONGLY_DETERMINISTIC: return os << "Strongly deterministic";
       case PartitionType::NONDETERMINISTIC: return os << "Nondeterministic";
-      case PartitionType::ALMOST_INITIAL_DETERMINISTIC: return os << "Almost initial deterministic";
+      case PartitionType::INITIAL_ALMOST_DETERMINISTIC: return os << "Initial almost deterministic";
       default: throw std::runtime_error("Undefined partition type");
     }
   }
