@@ -210,23 +210,23 @@ namespace helpers
       }
     }
 
-    // Fixpoint computation for initial deterministic components
-    std::vector<bool> is_initial_det(nc, false);
+    // Fixpoint computation for almost initial deterministic components
+    std::vector<bool> is_almost_initial_det(nc, false);
     bool changed = true;
     while (changed) {
       changed = false;
       for (unsigned sc = 0; sc < nc; ++sc) {
-        if ((res[sc] & SCC_DET_BORDER_NONDET_TYPE) && !is_initial_det[sc]) {
+        if ((res[sc] & SCC_DET_BORDER_NONDET_TYPE) && !is_almost_initial_det[sc]) {
           bool all_preds_det = true;
           for (unsigned pred : preds[sc]) {
-            if (!(res[pred] & SCC_DET_BORDER_NONDET_TYPE) || !is_initial_det[pred]) {
+            if (!(res[pred] & SCC_DET_BORDER_NONDET_TYPE) || !is_almost_initial_det[pred]) {
               all_preds_det = false;
               break;
             }
           }
           if (preds[sc].empty() || all_preds_det) {
-            is_initial_det[sc] = true;
-            res[sc] |= SCC_INITIAL_DET_TYPE;
+            is_almost_initial_det[sc] = true;
+            res[sc] |= SCC_ALMOST_INITIAL_DET_TYPE;
             changed = true;
           }
         }
@@ -262,6 +262,10 @@ namespace helpers
       if (scc_types[i] & SCC_DET_BORDER_NONDET_TYPE)
       {
         std::cout << " det-border-nondet";
+      }
+      if (scc_types[i] & SCC_ALMOST_INITIAL_DET_TYPE)
+      {
+        std::cout << " almost-initial-det";
       }
       if (scc_types[i] & SCC_ACC)
       {
@@ -319,6 +323,10 @@ namespace helpers
     return  (scc_types[scc] & SCC_ACC) > 0 && (scc_types[scc] & SCC_INITIAL_DET_TYPE) > 0;
   }
 
+  bool is_accepting_almost_initial_detscc(const std::string& scc_types, unsigned scc) {
+    return (scc_types[scc] & SCC_ACC) > 0 && (scc_types[scc] & SCC_ALMOST_INITIAL_DET_TYPE) > 0;
+  }
+
   bool
   is_accepting_weakscc(const std::string& scc_types, unsigned scc)
   {
@@ -355,7 +363,7 @@ namespace kofola
       case PartitionType::DETERMINISTIC: return os << "Deterministic";
       case PartitionType::STRONGLY_DETERMINISTIC: return os << "Strongly deterministic";
       case PartitionType::NONDETERMINISTIC: return os << "Nondeterministic";
-      case PartitionType::INITIAL_DETERMINISTIC: return os << "Initial deterministic";
+      case PartitionType::ALMOST_INITIAL_DETERMINISTIC: return os << "Almost initial deterministic";
       default: throw std::runtime_error("Undefined partition type");
     }
   }
