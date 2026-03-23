@@ -395,6 +395,9 @@ namespace helpers
         /// selects the algorithms to run on the SCCs
         void select_algorithms();
 
+        /// creates algorithm for deterministic border nondeterministic partition
+        abs_cmpl_alg_p create_deterministic_border_nondeterministic_algorithm(size_t partition_index);
+
         /// creates algorithm for inherently weak partition
         abs_cmpl_alg_p create_inherently_weak_algorithm(size_t partition_index);
 

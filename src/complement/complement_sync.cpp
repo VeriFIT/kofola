@@ -35,6 +35,7 @@
 #include "complement_alg_subs_tuple.hpp"
 #include "complement_alg_sd_tela.hpp"
 #include "complement_alg_sd_inductive.hpp"
+#include "complement_alg_iadacs.hpp"
 
 #include <deque>
 #include <map>
@@ -971,8 +972,8 @@ namespace helpers {
                 case PartitionType::NONDETERMINISTIC:
                     alg = create_nondeterministic_algorithm(i);
                     break;
-                case PartitionType::INITIAL_DETERMINISTIC:
-                    alg = create_initial_deterministic_algorithm(i);
+                case PartitionType::DET_BORDER_NONDET:
+                    alg = create_deterministic_border_nondeterministic_algorithm(i);
                     break;
                 default:
                     throw std::runtime_error("Strange SCC type found!");
@@ -1112,6 +1113,22 @@ namespace helpers {
             }
         }
     } // create_initial_deterministic_algorithm() }}}
+
+    /**
+     * Creates the complementation algorithm for a deterministic border nondeterministic partition.
+     *
+     * This function returns a unique pointer to a `complement_init_almost_det` algorithm instance
+     * configured for the specified partition index. The deterministic border nondeterministic algorithm is
+     * used for SCCs (strongly connected components) that are classified as deterministic border 
+     * nondeterministic (or initially almost deterministic accepting component - IADAC).
+     *
+     * @param partition_index Index of the partition for which the algorithm is created.
+     * @return Unique pointer to the abstract complementation algorithm for deterministic border nondeterministic SCCs.
+     */
+    helpers::tnba_complement::abs_cmpl_alg_p 
+    helpers::tnba_complement::create_deterministic_border_nondeterministic_algorithm(size_t partition_index) { // {{{
+        return std::make_unique<kofola::complement_init_almost_det>(*(this->info_.get()), partition_index);
+    } // create_deterministic_border_nondeterministic_algorithm() }}}
 
     bdd helpers::tnba_complement::get_support_at(unsigned s) {
         return support_[s];

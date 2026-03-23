@@ -11,6 +11,7 @@ set(ALGORITHMS_SOURCES
     complement_alg_sd_inductive.cpp
     complement_alg_sd_tela.cpp
     complement_alg_subs_tuple.cpp
+    complement_alg_iadacs.cpp
 )
 
 set(ALGORITHMS_HEADERS
@@ -26,6 +27,7 @@ set(ALGORITHMS_HEADERS
     complement_alg_sd_tela.hpp
     complement_alg_subs_tuple.hpp
     complement_mh.hpp
+    complement_alg_iadacs.hpp
 )
 
 # Make the sources available to parent scope

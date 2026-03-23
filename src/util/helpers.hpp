@@ -146,6 +146,7 @@ namespace kofola
     STRONGLY_DETERMINISTIC,
     NONDETERMINISTIC,
     INITIAL_DETERMINISTIC,
+    DET_BORDER_NONDET
   };
 
   /// output stream overloaded operator

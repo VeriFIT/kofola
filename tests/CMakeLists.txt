@@ -80,6 +80,7 @@ set(KOFOLA_SOURCES
     ${CMAKE_SOURCE_DIR}/src/complement_alg_mh.cpp
     ${CMAKE_SOURCE_DIR}/src/complement_alg_ncsb.cpp
     ${CMAKE_SOURCE_DIR}/src/complement_alg_ncsb_delay.cpp
+    ${CMAKE_SOURCE_DIR}/src/complement_alg_init_almost_det.cpp
     # Excluding rank algorithms due to compilation issues
     # ${CMAKE_SOURCE_DIR}/src/complement_alg_rank.cpp
     # ${CMAKE_SOURCE_DIR}/src/complement_alg_rank2.cpp
