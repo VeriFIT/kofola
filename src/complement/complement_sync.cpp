@@ -1115,15 +1115,14 @@ namespace helpers {
     } // create_initial_deterministic_algorithm() }}}
 
     /**
-     * Creates the complementation algorithm for a deterministic border nondeterministic partition.
+     * Creates the complementation algorithm for a initial almost deterministic partition.
      *
      * This function returns a unique pointer to a `complement_init_almost_det` algorithm instance
-     * configured for the specified partition index. The deterministic border nondeterministic algorithm is
-     * used for SCCs (strongly connected components) that are classified as deterministic border 
-     * nondeterministic (or initially almost deterministic accepting component - IADAC).
+     * configured for the specified partition index. The initial almost deterministic algorithm is
+     * used for SCCs (strongly connected components) that are classified as initial almost deterministic (IADACs).
      *
      * @param partition_index Index of the partition for which the algorithm is created.
-     * @return Unique pointer to the abstract complementation algorithm for deterministic border nondeterministic SCCs.
+     * @return Unique pointer to the abstract complementation algorithm for IADACs.
      */
     helpers::tnba_complement::abs_cmpl_alg_p 
     helpers::tnba_complement::create_initial_almost_deterministic_algorithm(size_t partition_index) { // {{{
