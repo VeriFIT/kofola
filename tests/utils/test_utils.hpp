@@ -101,6 +101,9 @@ const std::vector<std::string> COMMON_TEST_FILES = {
     "tests/test_data/or_fin_opt_gen_buchi_3.hoa",
     "tests/test_data/or_fin_opt_mixed.hoa",
     "tests/test_data/tela_det/gra-000011.hoa",
+    "tests/test_data/iadac_test_richer_acc_cond_0.hoa",
+    "tests/test_data/iadac_test_richer_acc_cond_1.hoa",
+    "tests/test_data/iadac_test_richer_acc_cond_2.hoa",
 };
 
 /**
