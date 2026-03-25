@@ -69,13 +69,31 @@ bool mstate_init_almost_det::lt(const mstate& rhs) const
 
 } // anonymous namespace }}}
 
+spot::acc_cond::mark_t get_all_infs_dnf(const kofola::CondDNF& dnf) {
+    spot::acc_cond::mark_t all_infs{};
+    
+    for(auto disj : dnf) {
+        for(auto& inf : disj.infs) {
+            all_infs |= inf;
+        }
+    }
+
+    return all_infs;
+}
+
 complement_init_almost_det::complement_init_almost_det(const cmpl_info& info, unsigned part_index)
   : abstract_complement_alg(info, part_index)
 { 
     dualized_acc_cond_ = info.aut_->get_acceptance().complement();
     min_colour_ = info.aut_->acc().all_sets().min_set() - 1;
     DEBUG_PRINT_LN("Created complement_init_almost_det for part " + std::to_string(part_index) + " with acc cond: " + std::to_string(dualized_acc_cond_) + " and min color: " + std::to_string(min_colour_));
-}
+
+    auto [is_sat, mark] = dualized_acc_cond_.sat_mark();
+    if(is_sat)
+      sat_mark_ = mark;
+    else
+      sat_mark_ = spot::acc_cond::mark_t({}); // if the acceptance condition is unsat, we can treat it as if it had an empty sat mark, since it will never be satisfied
+  }
 
 mstate_set complement_init_almost_det::get_init()
 { // {{{
@@ -164,9 +182,9 @@ mstate_col_set complement_init_almost_det::get_succ_active(
   }
   
   mstate_col_set result;
-
   std::shared_ptr<mstate> ms(new mstate_init_almost_det(track_ms->states_, true));
-  auto colors_iterable = acc.sets();
+
+  auto colors_iterable = (track_ms->states_.empty()) ? sat_mark_.sets() : acc.sets(); // if all runs collapse, we need to emit sat colors combination to handle acceptance of discontinued runs in complement
   std::set<unsigned> colors_set(colors_iterable.begin(), colors_iterable.end());
 
   result.push_back({ms, colors_set});  

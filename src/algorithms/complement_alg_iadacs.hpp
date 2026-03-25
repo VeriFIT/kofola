@@ -41,6 +41,7 @@ public: // METHODS
 private:
     spot::acc_cond dualized_acc_cond_;
     unsigned min_colour_;
+    spot::acc_cond::mark_t sat_mark_;
 }; // complement_init_almost_det }}}
 } // namespace kofola }}}
 
