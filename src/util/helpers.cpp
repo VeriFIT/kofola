@@ -255,10 +255,6 @@ namespace helpers
       {
         std::cout << " det";
       }
-      if (scc_types[i] & SCC_INITIAL_DET_TYPE)
-      {
-        std::cout << " initial-det";
-      }
       if (scc_types[i] & SCC_DET_BORDER_NONDET_TYPE)
       {
         std::cout << " det-border-nondet";
@@ -318,11 +314,6 @@ namespace helpers
     return (scc_types[scc] & SCC_WEAK_TYPE) == 0 && (scc_types[scc] & SCC_INSIDE_DET_TYPE) > 0 && (scc_types[scc] & SCC_ACC) > 0;
   }
 
-  bool is_accepting_initial_detscc(const std::string& scc_types, unsigned scc)
-  {
-    return  (scc_types[scc] & SCC_ACC) > 0 && (scc_types[scc] & SCC_INITIAL_DET_TYPE) > 0;
-  }
-
   bool is_accepting_initial_almost_detscc(const std::string& scc_types, unsigned scc) {
     return (scc_types[scc] & SCC_ACC) > 0 && (scc_types[scc] & SCC_INITIAL_ALMOST_DETERMINISTIC_TYPE) > 0;
   }
@@ -330,7 +321,7 @@ namespace helpers
   bool
   is_accepting_weakscc(const std::string& scc_types, unsigned scc)
   {
-    return (scc_types[scc] & SCC_WEAK_TYPE) > 0 && (scc_types[scc] & SCC_ACC) > 0 && (scc_types[scc] & SCC_INITIAL_DET_TYPE) == 0;
+    return (scc_types[scc] & SCC_WEAK_TYPE) > 0 && (scc_types[scc] & SCC_ACC) > 0 && (scc_types[scc] & SCC_INITIAL_ALMOST_DETERMINISTIC_TYPE) == 0;
   }
 
   bool

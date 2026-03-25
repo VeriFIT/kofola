@@ -279,10 +279,10 @@ TEST_CASE("kofola::get_scc_types - generalized initial deterministic", "[scc_typ
         std::string scc_types = helpers::get_scc_types(scc_info);
      
         // Test utility functions for SCC type checking
-        REQUIRE(helpers::is_accepting_initial_detscc(scc_types, 0) == false);
-        REQUIRE(helpers::is_accepting_initial_detscc(scc_types, 1) == false);
-        REQUIRE(helpers::is_accepting_initial_detscc(scc_types, 2) == false);
-        REQUIRE(helpers::is_accepting_initial_detscc(scc_types, 3) == false);
+        REQUIRE(helpers::is_accepting_initial_almost_detscc(scc_types, 0) == false);
+        REQUIRE(helpers::is_accepting_initial_almost_detscc(scc_types, 1) == false);
+        REQUIRE(helpers::is_accepting_initial_almost_detscc(scc_types, 2) == false);
+        REQUIRE(helpers::is_accepting_initial_almost_detscc(scc_types, 3) == false);
     }
     
     SECTION("Det Border") {
