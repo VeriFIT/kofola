@@ -152,34 +152,24 @@ mstate_col_set complement_init_almost_det::get_succ_active(
 
   DEBUG_PRINT_LN("obtained track ms: " + std::to_string(*track_ms));
 
-  bool generate_condition = false;
   spot::acc_cond::mark_t acc = {};
-  std::set<unsigned> seen_cols;
   for (unsigned s : src_iad->states_) {
     for (const auto &t : this->info_.aut_->out(s)) {
       if (bdd_implies(symbol, t.cond)) { 
         if (this->info_.scc_info_.scc_of(t.dst) == this->info_.scc_info_.scc_of(s)) {
           acc |= t.acc;
-          for(auto col: t.acc.sets()) {
-            seen_cols.insert(col);
-          }
         } 
       }
     }
   }
   
-  generate_condition = (acc != spot::acc_cond::mark_t({}));
   mstate_col_set result;
 
-  if (generate_condition) {
-    // round-robin not used
-    std::shared_ptr<mstate> ms(new mstate_init_almost_det(track_ms->states_, true));
-      result.push_back({ms, seen_cols});
-  }
-  else {
-    std::shared_ptr<mstate> ms(new mstate_init_almost_det(track_ms->states_, true));
-    result.push_back({ms, {}});
-  }
+  std::shared_ptr<mstate> ms(new mstate_init_almost_det(track_ms->states_, true));
+  auto colors_iterable = acc.sets();
+  std::set<unsigned> colors_set(colors_iterable.begin(), colors_iterable.end());
+
+  result.push_back({ms, colors_set});  
 
   return result;
 }
