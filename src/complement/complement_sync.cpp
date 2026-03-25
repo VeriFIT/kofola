@@ -825,7 +825,7 @@ namespace helpers {
 
         int iwa_index = -1;
         int dac_index = -1;
-        int det_border_nondet_index = -1;
+        int iadac_index = -1;
 
         bool merge_iwa = kofola::has_value("merge_iwa", "yes", options.params);
         bool merge_det = kofola::has_value("merge_det", "yes", options.params);
@@ -886,12 +886,12 @@ namespace helpers {
                 // emptiness checking for general TELA
                 DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is deterministic border nondeterministic");
                 if(merge_det) {
-                    if (-1 == det_border_nondet_index) {
-                        det_border_nondet_index = part_index;
-                        part_to_type_map[det_border_nondet_index] = PartitionType::INITIAL_ALMOST_DETERMINISTIC;
+                    if (-1 == iadac_index) {
+                        iadac_index = part_index;
+                        part_to_type_map[iadac_index] = PartitionType::INITIAL_ALMOST_DETERMINISTIC;
                         ++part_index;
                     }
-                    scc_to_part_map[i] = det_border_nondet_index;
+                    scc_to_part_map[i] = iadac_index;
                 } else {
                     part_to_type_map[part_index] = PartitionType::INITIAL_ALMOST_DETERMINISTIC;
                     ++part_index;
