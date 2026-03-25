@@ -881,9 +881,9 @@ namespace helpers {
                     ++part_index;
                 }
             } else if (kofola::OPTIONS.operation != "inclusion" && helpers::is_accepting_initial_almost_detscc(scc_types, i)) {
-                // for inclusion we treat  SCCs as DACs --> we don't have 
+                // for inclusion we treat IADAC SCCs as DACs --> we don't have 
                 // emptiness checking for general TELA
-                DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is deterministic border nondeterministic");
+                DEBUG_PRINT_LN("SCC " + std::to_string(i) + " initial almost deterministic");
                 if(merge_det) {
                     if (-1 == iadac_index) {
                         iadac_index = part_index;
