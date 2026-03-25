@@ -166,11 +166,11 @@ mstate_col_set complement_init_almost_det::get_succ_active(
         } 
       }
     }
-    generate_condition = (acc != spot::acc_cond::mark_t({}));
-    if (generate_condition) break;
   }
-
+  
+  generate_condition = (acc != spot::acc_cond::mark_t({}));
   mstate_col_set result;
+
   if (generate_condition) {
     // round-robin not used
     std::shared_ptr<mstate> ms(new mstate_init_almost_det(track_ms->states_, true));
