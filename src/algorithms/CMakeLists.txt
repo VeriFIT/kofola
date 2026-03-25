@@ -1,7 +1,6 @@
 # Algorithms module
 set(ALGORITHMS_SOURCES
     abstract_complement_alg.cpp
-    complement_alg_init_det.cpp
     complement_alg_mh.cpp
     complement_alg_ncsb.cpp
     complement_alg_ncsb_delay.cpp
@@ -16,7 +15,6 @@ set(ALGORITHMS_SOURCES
 
 set(ALGORITHMS_HEADERS
     abstract_complement_alg.hpp
-    complement_alg_init_det.hpp
     complement_alg_mh.hpp
     complement_alg_ncsb.hpp
     complement_alg_ncsb_delay.hpp

@@ -1,4 +1,4 @@
-// implementation of the initial-almost-deterministic complement algorithm
+// implementation of the initial-almost-deterministic complementation algorithm
 
 #include "complement_alg_iadacs.hpp"
 

@@ -31,7 +31,6 @@
 #include "complement_alg_safra.hpp"
 // #include "complement_alg_rank.hpp"
 #include "complement_alg_rank2.hpp"
-#include "complement_alg_init_det.hpp"
 #include "complement_alg_subs_tuple.hpp"
 #include "complement_alg_sd_tela.hpp"
 #include "complement_alg_sd_inductive.hpp"
@@ -1088,31 +1087,6 @@ namespace helpers {
             return std::make_unique<kofola::complement_safra>(*(this->info_.get()), partition_index);
         }
     } // create_nondeterministic_algorithm() }}}
-
-    /**
-     * Creates the complementation algorithm for the initial deterministic partition.
-     *
-     * This function returns a unique pointer to the `complement_init_det` algorithm instance
-     * configured for the specified partition index. It is used for the initial deterministic
-     * component in the modular complementation procedure.
-     *
-     * @param partition_index Index of the partition for which the algorithm is created.
-     * @return Unique pointer to the abstract complementation algorithm for the initial deterministic SCC.
-     */
-    helpers::tnba_complement::abs_cmpl_alg_p 
-    helpers::tnba_complement::create_initial_deterministic_algorithm(size_t partition_index) { // {{{
-        // initial deterministic component
-        bool is_buchi = this->info_->part_to_acc_map_.at(partition_index).is_buchi();
-        if (is_buchi) {
-            return std::make_unique<kofola::complement_init_det>(*(this->info_.get()), partition_index);
-        } else {
-            if (kofola::has_value("tela_det_alg", "inductive", kofola::OPTIONS.params)) {
-                return std::make_unique<kofola::complement_sd_inductive>(*(this->info_.get()), partition_index);
-            } else {
-                return std::make_unique<kofola::complement_sd_tela>(*(this->info_.get()), partition_index);
-            }
-        }
-    } // create_initial_deterministic_algorithm() }}}
 
     /**
      * Creates the complementation algorithm for a initial almost deterministic partition.
