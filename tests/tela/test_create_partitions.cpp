@@ -94,8 +94,6 @@ void print_partition_info(const std::tuple<size_t, kofola::PartitionToTypeMap,
                 std::cout << "STRONGLY_DETERMINISTIC"; break;
             case kofola::PartitionType::NONDETERMINISTIC:
                 std::cout << "NONDETERMINISTIC"; break;
-            case kofola::PartitionType::INITIAL_DETERMINISTIC:
-                std::cout << "INITIAL_DETERMINISTIC"; break;
             case kofola::PartitionType::INITIAL_ALMOST_DETERMINISTIC:
                 std::cout << "INITIAL_ALMOST_DETERMINISTIC"; break;
         }
