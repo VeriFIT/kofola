@@ -92,7 +92,9 @@ namespace helpers {
               compat_(nb_states_),
               is_accepting_(aut->num_states(), false),
               scc_types_(),
-              show_names_() {
+              show_names_(),
+              uberstate_to_num_map_(),
+              num_to_uberstate_map_() {
         // Generate bdd supports and compatible options for each state.
         // Also check if all its transitions are accepting.
         for (unsigned i = 0; i < nb_states_; ++i) {
