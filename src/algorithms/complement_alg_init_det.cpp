@@ -28,7 +28,9 @@ public: // METHODS
     // const std::set<unsigned>&  breakpoint,
     bool                       active
   ) : states_(states),
-    active_(active)
+    breakpoint_(),
+    active_(active),
+    empty_set_()
   { }
 
   virtual std::string to_string() const override;

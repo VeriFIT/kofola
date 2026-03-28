@@ -35,10 +35,18 @@ namespace kofola {
     inclusion_check::inclusion_check(const spot::twa_graph_ptr &aut_A, const spot::twa_graph_ptr &aut_B)
         : aut_A_input_(aut_A),
             aut_B_input_(aut_B),
+            preprocessed_orig_aut_B_(nullptr),
+            intersect_states_(),
+            compl_state_storage_(),
+            init_states_(),
             aut_A_(init_aut_A(aut_A)),
             support_(aut_A_->num_states()),
             compat_(aut_A_->num_states()),
-            aut_B_compl_(init_compl_aut_b(aut_B))
+            aut_B_compl_(init_compl_aut_b(aut_B)),
+            acc_cond_(),
+            first_col_to_use_(0),
+            infs_from_compl_(),
+            dir_simul_()
         {
             // Heavy work from the original constructor body is deferred to setup_for_inclusion(),
             // which is invoked at the start of inclusion().
@@ -150,9 +158,9 @@ namespace kofola {
         res->set_acceptance(aut_A->acc());
         offset_ = aut_A->num_states();
 
-        unsigned init_a;
-        unsigned init_b;
-        unsigned new_st;
+        unsigned init_a = 0;
+        unsigned init_b = 0;
+        unsigned new_st = 0;
 
         res->copy_state_names_from(aut_A);
         for(unsigned i = 0; i < aut_A->num_states(); i++) {

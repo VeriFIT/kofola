@@ -29,7 +29,14 @@
 
 namespace kofola {
     emptiness_check::emptiness_check(inclusion_check *incl_checker):
-    incl_checker_(incl_checker)
+        incl_checker_(incl_checker),
+        dfs_num_(),
+        on_stack_(),
+        tarjan_stack_(),
+        SCCs_(),
+        dfs_acc_stack_(),
+        empty_lang_states_(),
+        state_jumps_to_cutoffs_()
     {
         if(kofola::OPTIONS.params.count("early_sim") != 0 && kofola::OPTIONS.params["early_sim"] == "yes") {
             early_prune_ = true;

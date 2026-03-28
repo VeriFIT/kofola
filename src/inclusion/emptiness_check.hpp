@@ -34,6 +34,9 @@ namespace kofola
         /// constructor that takes abstract_successor to obtain intial states and successors
         emptiness_check(inclusion_check *incl_checker);
 
+        emptiness_check(const emptiness_check&) = delete;
+        emptiness_check& operator=(const emptiness_check&) = delete;
+
         /// returns true if the aut given by abstract_successor is empty (should be called after constructor is called)
         bool empty();
 

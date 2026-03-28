@@ -36,7 +36,8 @@ namespace helpers
 
         public:
         decomposer(spot::twa_graph_ptr &nba)
-        : nba_(nba)
+        : nba_(nba),
+          num_nbas_(0)
         {
             // num_nbas_ = om.get(NUM_NBA_DECOMPOSED);
         }

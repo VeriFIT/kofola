@@ -34,8 +34,12 @@
 #include <spot/parseaut/public.hh>
 #include <spot/misc/version.hh>
 
-// Args.hxx
+// Args.hxx - suppress warnings from vendored 3rdparty header
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Weffc++"
+#pragma GCC diagnostic ignored "-Wctor-dtor-privacy"
 #include "../3rdparty/args.hxx"
+#pragma GCC diagnostic pop
 
 #include <chrono>
 #include <iomanip>

@@ -32,11 +32,16 @@ spot::acc_cond::mark_t get_all_fins_in_dnf(const kofola::CondDNF& dnf) {
 }
 
 kofola::Elevatorization::Elevatorization(const spot::twa_graph_ptr& aut)
-    : aut_(aut),
+    : info_(nullptr),
+      aut_(aut),
       old_aut_num_states_(aut->num_states()),
       si_(aut_, spot::scc_info_options::ALL),
       support_(old_aut_num_states_),
-      compat_(old_aut_num_states_)
+      compat_(old_aut_num_states_),
+      scc_types_(),
+      partitions_(),
+      new_inf_col_(0),
+      new_fin_col_(0)
 {
     // if we work with TELA, we need to properly determine SCC acceptance
     // Spot's is_acceptance might say unknown for Fin conditions

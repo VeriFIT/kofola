@@ -27,9 +27,9 @@ public:
   // a map from a state to its label
   std::vector<label> labels_;
 
-  order_vec() {}
+  order_vec() : labels_() {}
 
-  order_vec(const order_vec &other) { this->labels_ = other.labels_; }
+  order_vec(const order_vec &other) : labels_(other.labels_) {}
 
   order_vec& operator=(const order_vec &other) {
     this->labels_ = other.labels_;
@@ -84,12 +84,9 @@ public:
   // a map from a node to its parent
   std::vector<int> braces_;
 
-  safra_tree() : order_vec() {}
+  safra_tree() : order_vec(), braces_() {}
 
-  safra_tree(const safra_tree &other) : order_vec() {
-    this->labels_ = other.labels_;
-    this->braces_ = other.braces_;
-  }
+  safra_tree(const safra_tree &other) : order_vec(other), braces_(other.braces_) {}
 
   bool operator<(const safra_tree &other) const {
     if (this->labels_ == other.labels_) {
