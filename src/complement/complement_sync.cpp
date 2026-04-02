@@ -1088,7 +1088,8 @@ namespace helpers {
         // initial deterministic component
         bool is_buchi = this->info_->part_to_acc_map_.at(partition_index).is_buchi();
         if (is_buchi) {
-            return std::make_unique<kofola::complement_init_det>(*(this->info_.get()), partition_index);
+            //return std::make_unique<kofola::complement_init_det>(*(this->info_.get()), partition_index);
+            return std::make_unique<kofola::complement_ncsb>(*(this->info_.get()), partition_index);
         } else {
             if (kofola::has_value("tela_det_alg", "inductive", kofola::OPTIONS.params)) {
                 return std::make_unique<kofola::complement_sd_inductive>(*(this->info_.get()), partition_index);
