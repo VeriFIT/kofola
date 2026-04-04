@@ -882,18 +882,9 @@ namespace helpers {
                 }
             } else if (helpers::is_accepting_detscc(scc_types, i) || (kofola::OPTIONS.operation == "inclusion" && helpers::is_accepting_initial_detscc(scc_types, i))) {
                 DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is DAC");
-                if (merge_det) { // merging DACs
-                    if (-1 == dac_index) {
-                        dac_index = part_index;
-                        part_to_type_map[dac_index] = PartitionType::DETERMINISTIC;
-                        ++part_index;
-                    }
-                    scc_to_part_map[i] = dac_index;
-                } else { // not merging DACs
-                    part_to_type_map[part_index] = PartitionType::DETERMINISTIC;
-                    scc_to_part_map[i] = part_index;
-                    ++part_index;
-                }
+                part_to_type_map[part_index] = PartitionType::DETERMINISTIC;
+                scc_to_part_map[i] = part_index;
+                ++part_index;
             } else if (helpers::is_accepting_nondetscc(scc_types, i)) {
                 DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is NAC");
                 part_to_type_map[part_index] = PartitionType::NONDETERMINISTIC;
