@@ -8,7 +8,6 @@ class determinisation_acc_cond
 { // {{{
 private:
     spot::acc_cond::acc_code acc_code_;
-    kofola::CondDNF dnf_;
     std::vector<unsigned> additional_fins_;
     unsigned disj_size_;
     
@@ -19,7 +18,7 @@ public:
 
     unsigned get_min_colour() const;
 
-    spot::acc_cond::mark_t get_additional_fins_mark() const;
+    spot::acc_cond::mark_t get_all_discontinuation_colours() const;
 
     unsigned get_fin_mark(unsigned disjunct_index) const {
         assert(disjunct_index < additional_fins_.size());
@@ -68,7 +67,7 @@ public: // METHODS
   virtual ~complement_init_almost_det() override;
 
 private:
-    unsigned part_states_;
+    unsigned runs_bound_;
     determinisation_acc_cond acc_cond_;
 }; // complement_init_almost_det }}}
 } // namespace kofola }}}
