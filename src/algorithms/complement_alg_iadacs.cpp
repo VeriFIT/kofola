@@ -141,12 +141,13 @@ mstate_set complement_init_almost_det::get_init()
 
 std::vector<unsigned> compress(const std::vector<unsigned>& mapping) {
   std::vector<unsigned> compressed(mapping.size(), UINT_MAX); // initialize with "infinite"
+  unsigned dst = 0;
 
   for (unsigned i = 0; i < mapping.size(); ++i) {
     if (mapping[i] == UINT_MAX) { 
       continue; // compress
     }
-    compressed[i] = mapping[i];
+    compressed[dst++] = mapping[i];
   }
 
   return compressed;
