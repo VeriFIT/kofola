@@ -74,6 +74,71 @@ bool mstate_init_almost_det::lt(const mstate& rhs) const
 
 } // anonymous namespace }}}
 
+unsigned max_runs_in_partition(const cmpl_info& info, unsigned part_index) {
+    auto scc_types = helpers::get_scc_types(info.scc_info_);
+    auto si = info.scc_info_;
+
+    unsigned nc = si.scc_count();
+    std::vector<unsigned> scc_max_runs(nc, 0);
+
+    auto initial_scc = si.initial();
+    scc_max_runs[initial_scc] = 1;
+
+    // traversing in topological order
+    for (unsigned i = nc; i > 0; --i) {
+      unsigned curr_scc = i - 1;
+
+      std::set<unsigned> processed; // in case of multiple jumps into the same successors (from different state within current SCC)
+
+      if(!(scc_types[curr_scc] & SCC_INITIAL_ALMOST_DETERMINISTIC_TYPE)) {
+        continue;
+      }
+
+      for(auto s: si.states_of(curr_scc)) {
+        for (auto& t: si.get_aut()->out(s)) {
+          auto dst_scc = si.scc_of(t.dst);
+          if (dst_scc == curr_scc) {
+            continue;
+          }
+
+          if(processed.find(dst_scc) != processed.end()) { // already processed this successor
+            continue;
+          }
+          
+          processed.insert(dst_scc);
+          scc_max_runs[dst_scc] += scc_max_runs[curr_scc];
+        }
+      }
+    }
+
+    unsigned max_runs = 0;
+    for(unsigned scc = 0; scc < nc; ++scc) {
+      auto succ_sccs = si.succ(scc);
+      unsigned initial_almost_det_succs = 0;
+
+      auto in_partition = info.part_to_scc_map_.at(part_index).find(scc) != info.part_to_scc_map_.at(part_index).end();
+      if(!in_partition) {
+        continue;
+      }
+      
+      for(unsigned succ_scc: succ_sccs) {
+        auto in_partition = info.part_to_scc_map_.at(part_index).find(succ_scc) != info.part_to_scc_map_.at(part_index).end();
+
+        if(in_partition) {
+          initial_almost_det_succs++;
+        }
+      }
+      if(initial_almost_det_succs == 0) { // terminal init.almost-det. SCC
+        max_runs += scc_max_runs[scc];
+      }
+    }
+
+    DEBUG_PRINT_LN("Max runs in partition " + std::to_string(part_index) + ": " + std::to_string(max_runs));
+
+    return max_runs;
+  }
+
+
 determinisation_acc_cond::determinisation_acc_cond(const spot::acc_cond::acc_code& acc_cond, unsigned disjuncts) {
   auto template_code = acc_cond;
   auto max_col = template_code.used_sets().max_set();
@@ -108,19 +173,9 @@ spot::acc_cond::mark_t determinisation_acc_cond::get_all_discontinuation_colours
 
 complement_init_almost_det::complement_init_almost_det(const cmpl_info& info, unsigned part_index)
   : abstract_complement_alg(info, part_index)
-  , runs_bound_(count_part_states(info, part_index))
+  , runs_bound_(max_runs_in_partition(info, part_index))
   , acc_cond_(info.aut_->get_acceptance(), runs_bound_)
 { }
-
-unsigned complement_init_almost_det::count_part_states(const cmpl_info& info, unsigned part_index) {
-  unsigned count = 0;
-  for (unsigned i = 0; i < info.aut_->num_states(); ++i) {
-    if (info.st_to_part_map_.at(i) == static_cast<int>(part_index)) {
-      ++count;
-    }
-  }
-  return count;
-}
 
 mstate_set complement_init_almost_det::get_init()
 { // {{{
