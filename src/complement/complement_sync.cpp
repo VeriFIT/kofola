@@ -1113,7 +1113,7 @@ namespace helpers {
                                                                               // so we can use the number of SCCs as a heuristic for the number of 
                                                                               // extra colors needed in the worst case
 
-            if(SPOT_MAX_ACCSETS < compl_cols + extra_colors_heuristic) {
+            if(SPOT_MAX_ACCSETS > compl_cols + extra_colors_heuristic) {
                 return std::make_unique<kofola::complement_init_almost_det>(*(this->info_.get()), partition_index, bound);
             } else {
                 return std::make_unique<kofola::complement_sd_tela>(*(this->info_.get()), partition_index);
