@@ -409,6 +409,9 @@ namespace helpers
         /// creates algorithm for nondeterministic partition
         abs_cmpl_alg_p create_nondeterministic_algorithm(size_t partition_index);
 
+        /// Determines the maximum number of runs in a given partition, which can be used to set bounds for certain algorithms (e.g., the initial almost deterministic algorithm).
+        unsigned max_runs_in_partition(const kofola::cmpl_info& info, unsigned part_index);
+
         ///
         unsigned int get_cnt_state_();
 

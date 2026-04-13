@@ -1100,12 +1100,95 @@ namespace helpers {
      */
     helpers::tnba_complement::abs_cmpl_alg_p 
     helpers::tnba_complement::create_initial_almost_deterministic_algorithm(size_t partition_index) { // {{{
+        
+        auto bound = max_runs_in_partition(*(this->info_.get()), partition_index);
         if(kofola::has_value("det_based_on_iadac", "yes", kofola::OPTIONS.params)) {
-            return std::make_unique<kofola::complement_init_almost_det>(*(this->info_.get()), partition_index);
+            return std::make_unique<kofola::complement_init_almost_det>(*(this->info_.get()), partition_index, bound);
         } else {
-            return std::make_unique<kofola::complement_sd_tela>(*(this->info_.get()), partition_index);
+            auto acc = this->info_->part_to_acc_map_.at(partition_index);
+            auto acc_sets_num = acc.num_sets();
+            auto compl_cols = bound * (acc_sets_num + 1); // +1 for discontinuation colour introduces in IADACs determinization-based complementation
+
+            auto extra_colors_heuristic = this->info_->scc_info_.scc_count(); // most of our algorithms introduce at most 1 extra color per SCC, 
+                                                                              // so we can use the number of SCCs as a heuristic for the number of 
+                                                                              // extra colors needed in the worst case
+
+            if(SPOT_MAX_ACCSETS < compl_cols + extra_colors_heuristic) {
+                return std::make_unique<kofola::complement_init_almost_det>(*(this->info_.get()), partition_index, bound);
+            } else {
+                return std::make_unique<kofola::complement_sd_tela>(*(this->info_.get()), partition_index);
+            }
         }
     } // create_initial_almost_deterministic_algorithm() }}}
+
+    unsigned helpers::tnba_complement::max_runs_in_partition(const kofola::cmpl_info& info, unsigned part_index) {
+        auto scc_types = helpers::get_scc_types(info.scc_info_);
+        auto si = info.scc_info_;
+
+        unsigned nc = si.scc_count();
+        std::vector<unsigned> scc_max_runs(nc, 0);
+
+        auto initial_scc = si.initial();
+        scc_max_runs[initial_scc] = 1;
+
+        // traversing in topological order
+        for (unsigned i = nc; i > 0; --i) {
+            unsigned curr_scc = i - 1;
+
+            std::set<unsigned> processed; // in case of multiple jumps into the same successors (from different state within current SCC)
+
+            if(!(scc_types[curr_scc] & SCC_INITIAL_ALMOST_DETERMINISTIC_TYPE)) {
+                continue;
+            }
+
+            // iterate over all nondet jumps from current SCC and add the number of runs to the successor SCCs
+            // invariant: when we process the current SCC, we already know the number of runs to reach it from the initial SCC, 
+            //            so we can add this number to all successor SCCs reachable by a nondet jump
+            for(auto s: si.states_of(curr_scc)) {
+                for (auto& t: si.get_aut()->out(s)) {
+                auto dst_scc = si.scc_of(t.dst);
+                if (dst_scc == curr_scc) {
+                    continue;
+                }
+
+                if(processed.find(dst_scc) != processed.end()) { // already processed this successor
+                    continue;
+                }
+                
+                processed.insert(dst_scc);
+                scc_max_runs[dst_scc] += scc_max_runs[curr_scc];
+                }
+            }
+        }
+
+        // now we know the number of runs to reach each SCC from the initial SCC, we can calculate the number of runs in the partition 
+        // as the sum of runs to reach terminal init.almost-det. SCCs in the partition
+        unsigned max_runs = 0;
+        for(unsigned scc = 0; scc < nc; ++scc) {
+            auto succ_sccs = si.succ(scc);
+            unsigned initial_almost_det_succs = 0;
+
+            auto in_partition = info.part_to_scc_map_.at(part_index).find(scc) != info.part_to_scc_map_.at(part_index).end();
+            if(!in_partition) {
+                continue;
+            }
+            
+            for(unsigned succ_scc: succ_sccs) {
+                auto in_partition = info.part_to_scc_map_.at(part_index).find(succ_scc) != info.part_to_scc_map_.at(part_index).end();
+
+                if(in_partition) {
+                initial_almost_det_succs++;
+                }
+            }
+            if(initial_almost_det_succs == 0) { // terminal init.almost-det. SCC
+                max_runs += scc_max_runs[scc];
+            }
+        }
+
+        DEBUG_PRINT_LN("Max runs in partition " + std::to_string(part_index) + ": " + std::to_string(max_runs));
+
+        return max_runs;
+    }
 
     bdd helpers::tnba_complement::get_support_at(unsigned s) {
         return support_[s];

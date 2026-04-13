@@ -35,7 +35,7 @@ class complement_init_almost_det : public abstract_complement_alg
 public: // METHODS
 
   /// constructor
-  complement_init_almost_det(const cmpl_info& info, unsigned part_index);
+  complement_init_almost_det(const cmpl_info& info, unsigned part_index, unsigned runs_bound);
 
   virtual mstate_set get_init() override;
 
@@ -61,8 +61,6 @@ public: // METHODS
   { return acc_cond_.get_acc_cond().get_acceptance().complement(); }
 
   virtual unsigned get_min_colour() const override { return acc_cond_.get_min_colour(); }
-
-  static unsigned count_part_states(const cmpl_info& info, unsigned part_index);
 
   virtual ~complement_init_almost_det() override;
 
