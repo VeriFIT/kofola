@@ -1100,7 +1100,11 @@ namespace helpers {
      */
     helpers::tnba_complement::abs_cmpl_alg_p 
     helpers::tnba_complement::create_initial_almost_deterministic_algorithm(size_t partition_index) { // {{{
-        return std::make_unique<kofola::complement_init_almost_det>(*(this->info_.get()), partition_index);
+        if(kofola::has_value("det_based_on_iadac", "yes", kofola::OPTIONS.params)) {
+            return std::make_unique<kofola::complement_init_almost_det>(*(this->info_.get()), partition_index);
+        } else {
+            return std::make_unique<kofola::complement_sd_tela>(*(this->info_.get()), partition_index);
+        }
     } // create_initial_almost_deterministic_algorithm() }}}
 
     bdd helpers::tnba_complement::get_support_at(unsigned s) {
