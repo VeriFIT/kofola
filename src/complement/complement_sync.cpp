@@ -1107,7 +1107,7 @@ namespace helpers {
         } else {
             auto acc = this->info_->part_to_acc_map_.at(partition_index);
             auto acc_sets_num = acc.num_sets();
-            auto compl_cols = bound * (acc_sets_num + 1); // +1 for discontinuation colour introduces in IADACs determinization-based complementation
+            auto compl_cols = bound * (acc_sets_num + 1); // +1 for discontinuation colour introduced in IADACs determinization-based complementation
 
             auto extra_colors_heuristic = this->info_->scc_info_.scc_count(); // most of our algorithms introduce at most 1 extra color per SCC, 
                                                                               // so we can use the number of SCCs as a heuristic for the number of 
