@@ -1109,9 +1109,9 @@ namespace helpers {
             auto acc_sets_num = acc.num_sets();
             auto compl_cols = bound * (acc_sets_num + 1); // +1 for discontinuation colour introduced in IADACs determinization-based complementation
 
-            auto extra_colors_heuristic = this->info_->scc_info_.scc_count(); // most of our algorithms introduce at most 1 extra color per SCC, 
-                                                                              // so we can use the number of SCCs as a heuristic for the number of 
-                                                                              // extra colors needed in the worst case
+            auto extra_colors_heuristic = this->info_->num_partitions_; // most of our algorithms introduce at most 1 extra color per partition, 
+                                                                        // so we can use the number of SCCs as a heuristic for the number of 
+                                                                        // extra colors needed in the worst case
 
             if(SPOT_MAX_ACCSETS > compl_cols + extra_colors_heuristic) {
                 return std::make_unique<kofola::complement_init_almost_det>(*(this->info_.get()), partition_index, bound);
