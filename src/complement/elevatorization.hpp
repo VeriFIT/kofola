@@ -30,9 +30,9 @@ namespace kofola
     // limit determinism macrostates
     struct RBL
     {
-        std::set<unsigned> R;
-        std::set<unsigned> B;
-        unsigned l;
+        std::set<unsigned> R{};
+        std::set<unsigned> B{};
+        unsigned l = 0;
 
         bool operator==(const RBL& other) const {
             return R == other.R && B == other.B && l == other.l;

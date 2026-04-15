@@ -59,9 +59,6 @@ void validate_partition_to_acc_map(const kofola::PartitionToAccMap& part_to_acc_
         // Partition index should be reasonable
         CHECK(partition < num_partitions);
         
-        // Acceptance condition should be valid
-        CHECK(acc_cond.num_sets() >= 0);
-        
         // The acceptance condition should use a subset of the original acceptance sets
         CHECK(acc_cond.num_sets() <= aut->acc().num_sets());
         
@@ -168,8 +165,6 @@ TEST_CASE("create_partitions produces valid PartitionToAccMap", "[create_partiti
         
         // For Streett automata, check that partitions preserve the structure
         for (const auto& [partition, acc_cond] : part_to_acc_map) {
-            // Each partition should have a valid acceptance condition
-            CHECK(acc_cond.num_sets() >= 0);
             // The acceptance condition should be a restriction of the original
             CHECK(acc_cond.num_sets() <= aut->acc().num_sets());
         }
@@ -337,8 +332,6 @@ TEST_CASE("create_partitions with multiple SCCs", "[create_partitions][multi_scc
         
         // Verify acceptance condition consistency for complex acceptance
         for (const auto& [partition, acc_cond] : part_to_acc_map) {
-            // Complex acceptance conditions should be properly handled
-            CHECK(acc_cond.num_sets() >= 0);
             CHECK(acc_cond.num_sets() <= aut->acc().num_sets());
         }
     }
@@ -368,8 +361,6 @@ TEST_CASE("PartitionToAccMap specific validation", "[create_partitions][acc_vali
             for (const auto& [partition, acc_cond] : part_to_acc_map) {
                 INFO("Testing partition " << partition << " with acc condition " << acc_cond);
                 
-                // Basic validity checks
-                CHECK(acc_cond.num_sets() >= 0);
                 CHECK(acc_cond.num_sets() <= aut->acc().num_sets());
                 
                 // Check that the acceptance condition is not trivially false

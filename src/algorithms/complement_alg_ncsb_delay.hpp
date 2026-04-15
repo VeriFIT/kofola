@@ -7,8 +7,6 @@ namespace kofola { // {{{
 
 class complement_ncsb_delay;
 
-namespace { // anonymous namespace {{{
-
 /// partial macrostate for the given component
 class mstate_ncsb : public abstract_complement_alg::mstate
 { // {{{
@@ -45,9 +43,7 @@ public: // METHODS
   friend class kofola::complement_ncsb_delay;
 }; // mstate_ncsb }}}
 
-} // anonymous namespace }}}
-
-std::string mstate_ncsb::to_string() const
+inline std::string mstate_ncsb::to_string() const
 {
   std::string res = std::string("[NCSB(") + ((this->active_)? "A" : "T") + "): ";
   res += "C=" + std::to_string(this->check_);
@@ -59,7 +55,7 @@ std::string mstate_ncsb::to_string() const
   return res;
 }
 
-bool mstate_ncsb::eq(const mstate& rhs) const
+inline bool mstate_ncsb::eq(const mstate& rhs) const
 {
   const mstate_ncsb* rhs_ncsb = dynamic_cast<const mstate_ncsb*>(&rhs);
   assert(rhs_ncsb);
@@ -70,7 +66,7 @@ bool mstate_ncsb::eq(const mstate& rhs) const
 }
 
 
-bool mstate_ncsb::lt(const mstate& rhs) const
+inline bool mstate_ncsb::lt(const mstate& rhs) const
 { // {{{
   const mstate_ncsb* rhs_ncsb = dynamic_cast<const mstate_ncsb*>(&rhs);
   assert(rhs_ncsb);

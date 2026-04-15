@@ -32,7 +32,10 @@ bool contains_accepting_outgoing_transitions_in_scc(
 }
 
 complement_ncsb_delay::complement_ncsb_delay(const cmpl_info& info, unsigned part_index)
-  : complement_ncsb(info, part_index)
+  : complement_ncsb(info, part_index),
+    active_mstates_(),
+    successors_(),
+    succ_ncsb_()
 { }
 
 mstate_set complement_ncsb_delay::get_init()

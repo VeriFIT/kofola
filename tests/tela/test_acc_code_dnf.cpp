@@ -181,13 +181,8 @@ TEST_CASE("acc_code_dnf with edge cases", "[acc_code_dnf]") {
             auto code = spot::acc_cond::acc_code(condition_str.c_str());
             auto dnf_result = cmpl_info::acc_code_dnf(code);
             
-            // Each should produce a valid result
-            REQUIRE(dnf_result.size() >= 0);
-            
             // If non-empty, verify structure
             for (const auto& clause : dnf_result) {
-                REQUIRE(clause.fins.size() >= 0);
-                REQUIRE(clause.infs.size() >= 0);
                 // At least one of fins or infs should be non-empty for a valid clause
                 if (!dnf_result.empty()) {
                     REQUIRE(((clause.fins.size() > 0) || (clause.infs.size() > 0)));
@@ -250,10 +245,6 @@ TEST_CASE("acc_code_dnf DNF structure validation", "[acc_code_dnf]") {
             // Verify that the DNF structure is well-formed
             for (size_t i = 0; i < dnf_result.size(); ++i) {
                 const auto& clause = dnf_result[i];
-                
-                // Each clause should have valid fins and infs vectors
-                REQUIRE(clause.fins.size() >= 0);
-                REQUIRE(clause.infs.size() >= 0);
                 
                 // Verify that the marks are valid (non-negative)
                 for (const auto& mark : clause.fins) {
@@ -389,13 +380,8 @@ TEST_CASE("acc_code_dnf error handling and robustness", "[acc_code_dnf]") {
             auto code = spot::acc_cond::acc_code(condition_str.c_str());
             auto dnf_result = cmpl_info::acc_code_dnf(code);
             
-            // Should handle all complex conditions without throwing
-            REQUIRE(dnf_result.size() >= 0);
-            
             // Verify structure integrity
             for (const auto& clause : dnf_result) {
-                REQUIRE(clause.fins.size() >= 0);
-                REQUIRE(clause.infs.size() >= 0);
                 // Verify marks are valid
                 for (const auto& mark : clause.fins) {
                     REQUIRE(mark >= spot::acc_cond::mark_t{0});

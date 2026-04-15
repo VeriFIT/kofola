@@ -45,6 +45,8 @@ struct options
 	std::string operation;                ///< operation to perform with the inputs
 	std::string output_type;              ///< desired automaton on the output
 	string_to_string_dict params;         ///< generic parameters
+
+	options() : filenames{}, operation{}, output_type{}, params{} {}
 }; // options }}}
 
 extern options OPTIONS;

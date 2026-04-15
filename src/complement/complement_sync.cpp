@@ -74,12 +74,27 @@ namespace helpers {
     tnba_complement::tnba_complement(const spot::twa_graph_ptr &aut, spot::scc_info &si)
             : aut_(aut),
               non_const_aut_(aut),
+              dir_sim_(),
+              reachable_vector_(),
               si_(si),
+              info_(nullptr),
+              alg_vec_(),
+              num_colours_(0),
+              final_code_(),
+              used_infs_(),
+              vec_acc_code_(),
+              part_col_offset_(),
+              sink_acc_code_(),
+              partitions_(),
               nb_states_(aut->num_states()),
+              res_(nullptr),
               support_(nb_states_),
               compat_(nb_states_),
               is_accepting_(aut->num_states(), false),
-              show_names_() {
+              scc_types_(),
+              show_names_(),
+              uberstate_to_num_map_(),
+              num_to_uberstate_map_() {
         // Generate bdd supports and compatible options for each state.
         // Also check if all its transitions are accepting.
         for (unsigned i = 0; i < nb_states_; ++i) {

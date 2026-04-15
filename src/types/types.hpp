@@ -61,16 +61,4 @@ struct outgoing_trans_hash
   }
 };
 
-// not sure whether we should keep this
-struct
-{
-  size_t
-  operator()(state_rank &p1, state_rank &p2) const noexcept
-  {
-    if (p1.second == p2.second)
-    {
-      return p1.first < p2.first;
-    }
-    return p1.second < p2.second;
-  }
-} rank_compare;
+

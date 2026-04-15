@@ -71,7 +71,7 @@ public: // METHODS
   	virtual void set_breakpoint(const std::set<unsigned>& breakpoint) override { this->breakpoint_ = breakpoint; }
 
 	/// checks whether internal invariants hold
-	bool invariants_hold() const;
+	[[maybe_unused]] bool invariants_hold() const;
 
 	static mstate_rank create_waiting_ms(
 		const std::set<unsigned>&  states,

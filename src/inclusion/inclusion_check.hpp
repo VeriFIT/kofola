@@ -35,10 +35,12 @@ namespace kofola {
         bdd trans_cond_; /// transition condition to come to this state
         bool encountered_ = false;
     public:
-        inclusion_mstate() {
-            acc_ = spot::acc_cond::mark_t{};
-            accumulator_ = spot::acc_cond::mark_t{};
-        }
+        inclusion_mstate()
+            : state_{}
+            , acc_{}
+            , accumulator_{}
+            , trans_cond_(bddfalse)
+        {}
 
         spot::acc_cond::mark_t get_acc() {return acc_; }
         void set_acc(spot::acc_cond::mark_t new_acc) {acc_ = new_acc; }
