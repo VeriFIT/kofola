@@ -1023,7 +1023,6 @@ mstate_col_set complement_sd_inductive::get_succ_active(
 
       // For the FALSE acceptance condition we generate accepting mark only if we reachable set of states is empty. 
       // Because for non-complete automata the FALSE condition satisfies runs that are not in the automaton structure.
-  
   if(src_mst->check_.empty() && forward_br && (inf_leaf == nullptr || src_mst->check_tree_.find_next_inf_leaf(*inf_leaf) == std::nullopt)) {
 
     std::set<unsigned> colors = {0};
@@ -1033,6 +1032,7 @@ mstate_col_set complement_sd_inductive::get_succ_active(
         full_scc_reach.insert(s);
       }
     }
+
     if(!this->acc_cond_.is_f() || full_scc_reach.empty()) {
       for(const auto& tree : succ_trees) {
         // OR-FIN opt: discard results with unhandled violating predecessor states
@@ -1092,7 +1092,6 @@ mstate_col_set complement_sd_inductive::get_succ_active(
       std::shared_ptr<sd_inductive::mstate_sd_inductive> derived_ms(
               new sd_inductive::mstate_sd_inductive(empty, tree.first));
 
-            
               derived_ms->current_active_inf_ = derived_ms->check_tree_.find_first_inf_leaf();
               derived_ms->breakpoint_ = derived_ms->current_active_inf_.has_value() ? derived_ms->current_active_inf_.value().track : std::set<unsigned>{};
         
@@ -1109,13 +1108,18 @@ mstate_col_set complement_sd_inductive::get_succ_active(
     
     std::shared_ptr<sd_inductive::mstate_sd_inductive> derived_ms(
               new sd_inductive::mstate_sd_inductive(empty, tree.first));
-        if(forward_br) {  
-          auto inf_in_new_tree = derived_ms->check_tree_.find_inf_leaf_by_id(inf_leaf->id);
-          derived_ms->current_active_inf_ = derived_ms->check_tree_.find_next_inf_leaf(inf_in_new_tree.value());
-          derived_ms->breakpoint_ = derived_ms->current_active_inf_.has_value() ? derived_ms->current_active_inf_.value().track : std::set<unsigned>{};
+        if(inf_leaf == nullptr) {
+          derived_ms->current_active_inf_ = {};
+          derived_ms->breakpoint_ = {};
         } else {
-          derived_ms->current_active_inf_ = derived_ms->check_tree_.find_inf_leaf_by_id(inf_leaf->id);
-          derived_ms->breakpoint_ = succ_breakpoint;
+          if(forward_br) { 
+            auto inf_in_new_tree = derived_ms->check_tree_.find_inf_leaf_by_id(inf_leaf->id);
+            derived_ms->current_active_inf_ = derived_ms->check_tree_.find_next_inf_leaf(inf_in_new_tree.value());
+            derived_ms->breakpoint_ = derived_ms->current_active_inf_.has_value() ? derived_ms->current_active_inf_.value().track : std::set<unsigned>{};
+          } else {
+            derived_ms->current_active_inf_ = derived_ms->check_tree_.find_inf_leaf_by_id(inf_leaf->id);
+            derived_ms->breakpoint_ = succ_breakpoint;
+          }
         }
         
         std::shared_ptr<mstate> new_ms = derived_ms;
