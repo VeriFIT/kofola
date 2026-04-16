@@ -562,6 +562,74 @@ check_macrostate check_macrostate::reduce() const {
   throw std::logic_error("check_macrostate::reduce: unexpected internal node type");
 }
 
+namespace {
+
+/**
+ * Recursively collect all `inf_leaf` payloads from the tree in in-order traversal.
+ *
+ * @param tree The check tree (or subtree) to traverse.
+ * @param out  Output vector to append leaf copies into.
+ */
+void collect_inf_leaves_inorder(const check_macrostate& tree, std::vector<inf_leaf>& out) {
+  if (tree.is_leaf()) {
+    if (tree.type() == TreeType::Inf) {
+      out.push_back(std::get<inf_leaf>(tree.leaf_value()));
+    }
+    return;
+  }
+
+  const check_macrostate left_ms(tree.get_options_ptr(), base_tree(tree.left()));
+  const check_macrostate right_ms(tree.get_options_ptr(), base_tree(tree.right()));
+
+  collect_inf_leaves_inorder(left_ms, out);
+  collect_inf_leaves_inorder(right_ms, out);
+}
+
+} // namespace
+
+std::optional<inf_leaf> check_macrostate::find_first_inf_leaf() const {
+  std::vector<inf_leaf> inf_leaves;
+  collect_inf_leaves_inorder(*this, inf_leaves);
+
+  if (inf_leaves.empty()) {
+    return std::nullopt;
+  }
+
+  return inf_leaves.front();
+}
+
+std::optional<inf_leaf> check_macrostate::find_next_inf_leaf(const inf_leaf& current) const {  
+  std::vector<inf_leaf> inf_leaves;
+  collect_inf_leaves_inorder(*this, inf_leaves);
+
+  // Find the current leaf in the collected list
+  for (size_t i = 0; i < inf_leaves.size(); ++i) {
+    if (inf_leaves[i].id == current.id) {
+      // Found it; check if there's a next one
+      if (i + 1 < inf_leaves.size()) {
+        return inf_leaves[i + 1];
+      }
+      // current is the last inf_leaf
+
+      return std::nullopt;
+    }
+  }
+
+  // current leaf not found in this tree
+  return std::nullopt;
+}
+
+std::optional<inf_leaf> check_macrostate::find_inf_leaf_by_id(unsigned id) const {
+  auto first = find_first_inf_leaf();
+  while (first.has_value()) {
+    if (first.value().id == id) {
+      return first;
+    }
+    first = find_next_inf_leaf(first.value());
+  }
+  return std::nullopt;
+}
+
 /**
  * Fold a sequence of acceptance code parts into a single
  * `check_macrostate` tree using the specified binary operator.
@@ -783,65 +851,36 @@ std::vector<std::pair<check_macrostate, NodeContext>> inf_leaf::get_succ(
   options_ptr                       opts,
   const bdd&                        bdd,
   bool                              resample,
-  NodeContext                      context) const {
+  NodeContext                      context
+) const {
 
   std::set<unsigned> st = get_set_union(this->track, check_states);
   std::set<unsigned> succs = kofola::get_all_successors_in_scc(aut, scc_info, st, bdd);
   std::set<unsigned> succ_break {};
 
+  return {{check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id), context}};
+}
 
-  if (opts && opts->use_shared_breakpoint && context.is_shared_breakpoint()) {
-    if (!context.targets_leaf(this->id)) {
-      return {{check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id), NodeContext{}}};
-    }
-    assert(!resample || context.state == NodeContextState::RESAMPLE_LEAF);
-    if (context.state == NodeContextState::GLOBAL_WAIT) {
-      return {{check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id), NodeContext{}}};
-    } else if (context.state == NodeContextState::RESAMPLE_LEAF) {
-      succ_break = succs;
-      if (context.targets_leaf(this->id)) {
-        context.state = NodeContextState::PROCESS_LEAF;
-      }
-    } else {
-      // PROCESS_LEAF: advance the breakpoint via the stored shared breakpoint set
-      for (unsigned s : context.breakpoint) {
-        for (const auto& t : aut->out(s)) {
-          if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
-            if (t.acc & this->color) {
-              continue;
-            }
-            succ_break.insert(t.dst);
-          }
+std::set<unsigned> inf_leaf::get_succ_breakpoint(
+  const spot::const_twa_graph_ptr&  aut,
+  const spot::scc_info&             scc_info,
+  const bdd&                        bdd,
+  const std::set<unsigned>&         breakpoint
+) const {
+
+  std::set<unsigned> succ_break {};
+
+  for (unsigned s : breakpoint)
+    for (const auto& t : aut->out(s)) {
+      if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
+        if (t.acc & this->color) {
+          continue;
         }
+        succ_break.insert(t.dst);
       }
     }
 
-    if (context.targets_leaf(this->id)) {
-      // Store the new breakpoint in the shared context; the leaf's own breakpoint field stays clear.
-      context.breakpoint = succ_break;
-      succ_break.clear();
-    }
-
-    return {{check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id), context}};
-  }
-
-  if (!resample) {
-    for (unsigned s : this->breakpoint) {
-      for (const auto& t : aut->out(s)) {
-        if (scc_info.scc_of(s) == scc_info.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
-          if (t.acc & this->color) {
-            continue;
-          }
-          succ_break.insert(t.dst);
-        }
-      }
-    }
-
-    return {{check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id), context}};
-  }
-
-  auto succs_copy = succs;
-  return {{check_macrostate::inf(std::move(opts), std::move(succs), std::move(succs_copy), this->color, this->id), context}};
+  return succ_break;
 }
 
 bool inf_leaf::is_satisfied() const {
@@ -860,7 +899,9 @@ bool mstate_sd_inductive::eq(const mstate& rhs) const {
   const auto* rhs_sd = dynamic_cast<const mstate_sd_inductive*>(&rhs);
   assert(rhs_sd);
   return (this->check_ == rhs_sd->check_) &&
-         (this->check_tree_ == rhs_sd->check_tree_);
+         (this->check_tree_ == rhs_sd->check_tree_) &&
+         (this->current_active_inf_ == rhs_sd->current_active_inf_) &&
+         (this->breakpoint_ == rhs_sd->breakpoint_);
 }
 
 bool mstate_sd_inductive::lt(const mstate& rhs) const {
@@ -872,6 +913,12 @@ bool mstate_sd_inductive::lt(const mstate& rhs) const {
   }
   if (this->check_tree_ != rhs_sd->check_tree_) {
     return this->check_tree_ < rhs_sd->check_tree_;
+  }
+  if (this->current_active_inf_ != rhs_sd->current_active_inf_) {
+    return this->current_active_inf_ < rhs_sd->current_active_inf_;
+  }
+  if (this->breakpoint_ != rhs_sd->breakpoint_) {
+    return this->breakpoint_ < rhs_sd->breakpoint_;
   }
 
   return false;
@@ -906,10 +953,15 @@ mstate_set complement_sd_inductive::get_init() { // {{
   DEBUG_PRINT_LN("init SD-INDUCTIVE for partition " + std::to_string(this->part_index_));
   std::set<unsigned> init_state {};
 
-  std::shared_ptr<mstate> ms(new sd_inductive::mstate_sd_inductive(
-    init_state,
-    sd_inductive::check_macrostate::from_acc_code(this->opts_, this->acc_cond_)));
-  mstate_set result = {ms};
+  std::shared_ptr<sd_inductive::mstate_sd_inductive> derived_ms(
+                                                                new sd_inductive::mstate_sd_inductive(
+                                                                init_state,
+                                                                sd_inductive::check_macrostate::from_acc_code(this->opts_, this->acc_cond_)));
+          derived_ms->current_active_inf_ = derived_ms->check_tree_.find_first_inf_leaf();
+          derived_ms->breakpoint_ = derived_ms->current_active_inf_.has_value() ? derived_ms->current_active_inf_.value().track : std::set<unsigned>{};
+
+        std::shared_ptr<mstate> new_ms = derived_ms;
+  mstate_set result = {new_ms};
   return result;
 } // get_init() }}}
 
@@ -949,6 +1001,7 @@ mstate_col_set complement_sd_inductive::get_succ_active(
   (void)resample; // it should be true as shared breakpoint is not used
   DEBUG_PRINT_LN("computing successor for glob_reached = " + std::to_string(glob_reached) +
     ", " + std::to_string(*src) + " over " + std::to_string(symbol));
+
   const sd_inductive::mstate_sd_inductive* src_mst = dynamic_cast<const sd_inductive::mstate_sd_inductive*>(src);
   assert(src_mst);
 
@@ -961,9 +1014,18 @@ mstate_col_set complement_sd_inductive::get_succ_active(
   auto succ_trees = src_mst->check_tree_.get_succ(this->info_.aut_, 
       this->info_.scc_info_, empty, symbol, false, context);
 
-  // For the FALSE acceptance condition we generate accepting mark only if we reachable set of states is empty. 
-  // Because for non-complete automata the FALSE condition satisfies runs that are not in the automaton structure.
-  if(src_mst->check_.empty() && src_mst->check_tree_.is_satisfied()) {
+      const kofola::sd_inductive::inf_leaf* inf_leaf = src_mst->current_active_inf_.has_value() ? &src_mst->current_active_inf_.value() : nullptr;
+
+
+      auto succ_breakpoint = inf_leaf ? inf_leaf->get_succ_breakpoint(this->info_.aut_, this->info_.scc_info_, symbol, src_mst->breakpoint_) : std::set<unsigned>{};
+      
+      bool forward_br = succ_breakpoint.empty();
+
+      // For the FALSE acceptance condition we generate accepting mark only if we reachable set of states is empty. 
+      // Because for non-complete automata the FALSE condition satisfies runs that are not in the automaton structure.
+  
+  if(src_mst->check_.empty() && forward_br && (inf_leaf == nullptr || src_mst->check_tree_.find_next_inf_leaf(*inf_leaf) == std::nullopt)) {
+
     std::set<unsigned> colors = {0};
     std::set<unsigned> full_scc_reach = {};
     for (unsigned s : glob_reached) {
@@ -975,8 +1037,13 @@ mstate_col_set complement_sd_inductive::get_succ_active(
       for(const auto& tree : succ_trees) {
         // OR-FIN opt: discard results with unhandled violating predecessor states
         if (!tree.second.violating_predecessors.empty()) continue;
-        std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
-            full_scc_reach, tree.first));
+        std::shared_ptr<sd_inductive::mstate_sd_inductive> derived_ms(
+          new sd_inductive::mstate_sd_inductive(full_scc_reach, tree.first));
+          derived_ms->current_active_inf_ = derived_ms->check_tree_.find_first_inf_leaf();
+
+          derived_ms->breakpoint_ = derived_ms->current_active_inf_.has_value() ? derived_ms->current_active_inf_.value().track : std::set<unsigned>{};
+        std::shared_ptr<mstate> new_ms = derived_ms;
+
         result.push_back({new_ms, colors});
       }
       return result;
@@ -1000,18 +1067,37 @@ mstate_col_set complement_sd_inductive::get_succ_active(
     }
     std::vector<std::pair<sd_inductive::check_macrostate, sd_inductive::NodeContext>> succ_check_trees = src_mst->check_tree_.get_succ(this->info_.aut_,
       this->info_.scc_info_, relevant_check, symbol, true, context);
+    
     for(const auto& tree : succ_trees) {
       // OR-FIN opt: discard results with unhandled violating predecessor states
       if (!tree.second.violating_predecessors.empty()) continue;
-      std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
-          succ_check, tree.first));
+
+      std::shared_ptr<sd_inductive::mstate_sd_inductive> derived_ms(
+              new sd_inductive::mstate_sd_inductive(succ_check, tree.first));
+        // if(forward_br) {
+          derived_ms->current_active_inf_ = derived_ms->check_tree_.find_first_inf_leaf();
+          derived_ms->breakpoint_ = derived_ms->current_active_inf_.has_value() ? derived_ms->current_active_inf_.value().track : std::set<unsigned>{};
+        // } else {
+        //   derived_ms->breakpoint_ = succ_breakpoint;
+        // }
+        
+        std::shared_ptr<mstate> new_ms = derived_ms;
+
       result.push_back({new_ms, {}});
     }
     for(const auto& tree : succ_check_trees) {
       // OR-FIN opt: discard results with unhandled violating predecessor states
       if (!tree.second.violating_predecessors.empty()) continue;
-      std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
-          empty, tree.first));
+      
+      std::shared_ptr<sd_inductive::mstate_sd_inductive> derived_ms(
+              new sd_inductive::mstate_sd_inductive(empty, tree.first));
+
+            
+              derived_ms->current_active_inf_ = derived_ms->check_tree_.find_first_inf_leaf();
+              derived_ms->breakpoint_ = derived_ms->current_active_inf_.has_value() ? derived_ms->current_active_inf_.value().track : std::set<unsigned>{};
+        
+        std::shared_ptr<mstate> new_ms = derived_ms;
+
       result.push_back({new_ms, {}});
     }
     return result;
@@ -1020,8 +1106,20 @@ mstate_col_set complement_sd_inductive::get_succ_active(
   for(const auto& tree : succ_trees) {
     // OR-FIN opt: discard results with unhandled violating predecessor states
     if (!tree.second.violating_predecessors.empty()) continue;
-    std::shared_ptr<mstate> new_ms(new sd_inductive::mstate_sd_inductive(
-      empty, tree.first));
+    
+    std::shared_ptr<sd_inductive::mstate_sd_inductive> derived_ms(
+              new sd_inductive::mstate_sd_inductive(empty, tree.first));
+        if(forward_br) {  
+          auto inf_in_new_tree = derived_ms->check_tree_.find_inf_leaf_by_id(inf_leaf->id);
+          derived_ms->current_active_inf_ = derived_ms->check_tree_.find_next_inf_leaf(inf_in_new_tree.value());
+          derived_ms->breakpoint_ = derived_ms->current_active_inf_.has_value() ? derived_ms->current_active_inf_.value().track : std::set<unsigned>{};
+        } else {
+          derived_ms->current_active_inf_ = derived_ms->check_tree_.find_inf_leaf_by_id(inf_leaf->id);
+          derived_ms->breakpoint_ = succ_breakpoint;
+        }
+        
+        std::shared_ptr<mstate> new_ms = derived_ms;
+
     result.push_back({new_ms, {}});
   }
   return result;

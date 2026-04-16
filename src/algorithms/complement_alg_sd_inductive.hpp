@@ -138,7 +138,7 @@ namespace sd_inductive {
         }
         // else stay in GLOBAL_WAIT
       } else if (this->state == NodeContextState::RESAMPLE_LEAF) {
-        assert(false);
+        // assert(false);
         return succ;
       } else {
         // PROCESS_LEAF: advance the cyclic leaf pointer when breakpoint drains
@@ -390,6 +390,16 @@ namespace sd_inductive {
       bool                              resample,
       NodeContext                       context) const;
 
+      std::set<unsigned> get_succ_breakpoint(
+      const spot::const_twa_graph_ptr&  aut,
+      const spot::scc_info&             scc_info,
+      const bdd&                        bdd,
+      const std::set<unsigned>&         breakpoint
+    ) const {
+      // For Fin leaves, the breakpoint is not relevant; return empty.
+      return {};
+    }
+
     bool is_satisfied() const;
   };
 
@@ -452,7 +462,15 @@ namespace sd_inductive {
       options_ptr                        opts,
       const bdd&                        bdd,
       bool                              resample,
-      NodeContext                       context) const;
+      NodeContext                       context
+    ) const;
+
+    std::set<unsigned> get_succ_breakpoint(
+      const spot::const_twa_graph_ptr&  aut,
+      const spot::scc_info&             scc_info,
+      const bdd&                        bdd,
+      const std::set<unsigned>&         breakpoint
+    ) const;
 
     bool is_satisfied() const;
 
@@ -670,6 +688,34 @@ namespace sd_inductive {
     /// - `Inf` leaf: removes from `track` and `breakpoint`
     check_macrostate reduce() const;
 
+    /// Find the first `inf_leaf` in this check tree (in-order traversal).
+    ///
+    /// Performs an in-order traversal of the tree and returns a copy of
+    /// the first encountered `inf_leaf`, or an empty optional if no `inf_leaf`
+    /// exists in the tree.
+    ///
+    /// @return Optional copy of the first `inf_leaf` found, or empty if none.
+    std::optional<inf_leaf> find_first_inf_leaf() const;
+
+    /// Find the successor of an `inf_leaf` in in-order traversal.
+    ///
+    /// Given an `inf_leaf` in this check tree, returns a copy of the next
+    /// `inf_leaf` in in-order traversal order, or an empty optional if the given
+    /// leaf is the last one or if it does not exist in this tree.
+    ///
+    /// @param current The `inf_leaf` to find the successor of.
+    /// @return Optional copy of the next `inf_leaf`, or empty if current is last or not found.
+    std::optional<inf_leaf> find_next_inf_leaf(const inf_leaf& current) const;
+
+    /// Find an `inf_leaf` by its ID in this check tree.
+    ///
+    /// Searches through all `inf_leaf` nodes in in-order traversal and returns
+    /// the one with matching ID, or an empty optional if no such leaf exists.
+    ///
+    /// @param id The ID of the `inf_leaf` to find.
+    /// @return Optional copy of the `inf_leaf` with the given ID, or empty if not found.
+    std::optional<inf_leaf> find_inf_leaf_by_id(unsigned id) const;
+
   private:
 
     static check_macrostate fold(options_ptr opts, TreeType op, const std::vector<spot::acc_cond::acc_code>& parts);
@@ -767,7 +813,8 @@ public: // DATA MEMBERS
 
   std::set<unsigned> check_ {};       // states for runs that need to be checked
   check_macrostate check_tree_; // check macrostate tree
-  
+  std::set<unsigned> breakpoint_ {};
+  std::optional<inf_leaf> current_active_inf_;
 
 public: // METHODS
 
@@ -776,7 +823,8 @@ public: // METHODS
     const std::set<unsigned>&  check,
     const check_macrostate&  check_tree
   ) : check_(check),
-    check_tree_(check_tree)
+    check_tree_(check_tree),
+    current_active_inf_(std::nullopt)
   { }
 
   virtual std::string to_string() const override;
@@ -828,6 +876,7 @@ public: // METHODS
       src_ms->check_,
       src_ms->check_tree_
     ));
+    
     return {cp};
   };
 
