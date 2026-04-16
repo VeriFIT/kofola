@@ -1,7 +1,6 @@
 # Algorithms module
 set(ALGORITHMS_SOURCES
     abstract_complement_alg.cpp
-    complement_alg_init_det.cpp
     complement_alg_mh.cpp
     complement_alg_ncsb.cpp
     complement_alg_ncsb_delay.cpp
@@ -11,11 +10,11 @@ set(ALGORITHMS_SOURCES
     complement_alg_sd_inductive.cpp
     complement_alg_sd_tela.cpp
     complement_alg_subs_tuple.cpp
+    complement_alg_iadacs.cpp
 )
 
 set(ALGORITHMS_HEADERS
     abstract_complement_alg.hpp
-    complement_alg_init_det.hpp
     complement_alg_mh.hpp
     complement_alg_ncsb.hpp
     complement_alg_ncsb_delay.hpp
@@ -26,6 +25,7 @@ set(ALGORITHMS_HEADERS
     complement_alg_sd_tela.hpp
     complement_alg_subs_tuple.hpp
     complement_mh.hpp
+    complement_alg_iadacs.hpp
 )
 
 # Make the sources available to parent scope

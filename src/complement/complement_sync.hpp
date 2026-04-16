@@ -30,7 +30,6 @@
 #include "../algorithms/complement_alg_safra.hpp"
 // #include "../algorithms/complement_alg_rank.hpp"
 #include "../algorithms/complement_alg_rank2.hpp"
-#include "../algorithms/complement_alg_init_det.hpp"
 #include "../algorithms/complement_alg_subs_tuple.hpp"
 
 #include <deque>
@@ -395,6 +394,9 @@ namespace helpers
         /// selects the algorithms to run on the SCCs
         void select_algorithms();
 
+        /// creates algorithm for initial almost deterministic partition
+        abs_cmpl_alg_p create_initial_almost_deterministic_algorithm(size_t partition_index);
+
         /// creates algorithm for inherently weak partition
         abs_cmpl_alg_p create_inherently_weak_algorithm(size_t partition_index);
 
@@ -407,8 +409,8 @@ namespace helpers
         /// creates algorithm for nondeterministic partition
         abs_cmpl_alg_p create_nondeterministic_algorithm(size_t partition_index);
 
-        /// creates algorithm for initial deterministic partition
-        abs_cmpl_alg_p create_initial_deterministic_algorithm(size_t partition_index);
+        /// Determines the maximum number of runs in a given partition, which can be used to set bounds for certain algorithms (e.g., the initial almost deterministic algorithm).
+        unsigned max_runs_in_partition(const kofola::cmpl_info& info, unsigned part_index);
 
         ///
         unsigned int get_cnt_state_();

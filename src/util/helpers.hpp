@@ -30,7 +30,7 @@ static const char SCC_WEAK_TYPE = 1;
 static const char SCC_INSIDE_DET_TYPE = 2;
 static const char SCC_DET_TYPE = 4;
 static const char SCC_ACC = 8;
-static const char SCC_INITIAL_DET_TYPE = 16;
+static const char SCC_INITIAL_ALMOST_DETERMINISTIC_TYPE = 16;
 static const char SCC_DET_BORDER_NONDET_TYPE = 32;
 
 namespace kofola
@@ -145,7 +145,7 @@ namespace kofola
     DETERMINISTIC,
     STRONGLY_DETERMINISTIC,
     NONDETERMINISTIC,
-    INITIAL_DETERMINISTIC,
+    INITIAL_ALMOST_DETERMINISTIC,
   };
 
   /// output stream overloaded operator
@@ -344,7 +344,7 @@ namespace helpers
   is_accepting_nondetscc(const std::string& scc_types, unsigned scc);
 
   bool
-  is_accepting_initial_detscc(const std::string& scc_types, unsigned scc);
+  is_accepting_initial_almost_detscc(const std::string& scc_types, unsigned scc);
 
   bool
   is_deterministic_scc(unsigned scc, const spot::scc_info& si,

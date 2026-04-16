@@ -32,10 +32,10 @@ set(KOFOLA_SOURCES
     ${CMAKE_SOURCE_DIR}/src/complement/complement_sync.cpp
     ${CMAKE_SOURCE_DIR}/src/complement/elevatorization.cpp
     ${CMAKE_SOURCE_DIR}/src/complement/decomposer.cpp
-    ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_init_det.cpp
     ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_mh.cpp
     ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_ncsb.cpp
     ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_ncsb_delay.cpp
+    ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_iadacs.cpp
     # Excluding rank algorithms due to compilation issues
     # ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_rank.cpp
     # ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_rank2.cpp

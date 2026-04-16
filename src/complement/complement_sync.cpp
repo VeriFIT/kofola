@@ -31,10 +31,10 @@
 #include "complement_alg_safra.hpp"
 // #include "complement_alg_rank.hpp"
 #include "complement_alg_rank2.hpp"
-#include "complement_alg_init_det.hpp"
 #include "complement_alg_subs_tuple.hpp"
 #include "complement_alg_sd_tela.hpp"
 #include "complement_alg_sd_inductive.hpp"
+#include "complement_alg_iadacs.hpp"
 
 #include <deque>
 #include <map>
@@ -824,7 +824,7 @@ namespace helpers {
 
         int iwa_index = -1;
         int dac_index = -1;
-        int init_det_index = -1;
+        int iadac_index = -1;
 
         bool merge_iwa = kofola::has_value("merge_iwa", "yes", options.params);
         bool merge_det = kofola::has_value("merge_det", "yes", options.params);
@@ -847,7 +847,7 @@ namespace helpers {
         if (merge_det) {
             DEBUG_PRINT_LN("Merge DET");
             for (size_t i = 0; i < scc_inf.scc_count(); ++i) {
-                if (helpers::is_accepting_detscc(scc_types, i) && !helpers::is_accepting_initial_detscc(scc_types, i)) { // if there is some DAC
+                if (helpers::is_accepting_detscc(scc_types, i) && !helpers::is_accepting_initial_almost_detscc(scc_types, i)) { // if there is some DAC
                     dac_index = part_index;
                     ++part_index;
                     part_to_type_map[dac_index] = PartitionType::DETERMINISTIC;
@@ -880,22 +880,22 @@ namespace helpers {
                     scc_to_part_map[i] = part_index;
                     ++part_index;
                 }
-            } else if (kofola::OPTIONS.operation != "inclusion" && helpers::is_accepting_initial_detscc(scc_types, i)) {
-                // for inclusion we treat initial deterministic SCCs as DACs --> we don't have 
+            } else if (kofola::OPTIONS.operation != "inclusion" && helpers::is_accepting_initial_almost_detscc(scc_types, i)) {
+                // for inclusion we treat IADAC SCCs as DACs --> we don't have 
                 // emptiness checking for general TELA
-                DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is INIT DET");
+                DEBUG_PRINT_LN("SCC " + std::to_string(i) + " initial almost deterministic");
                 if(merge_det) {
-                    if (-1 == init_det_index) {
-                        init_det_index = part_index;
-                        part_to_type_map[init_det_index] = PartitionType::INITIAL_DETERMINISTIC;
+                    if (-1 == iadac_index) {
+                        iadac_index = part_index;
+                        part_to_type_map[iadac_index] = PartitionType::INITIAL_ALMOST_DETERMINISTIC;
                         ++part_index;
                     }
-                    scc_to_part_map[i] = init_det_index;
+                    scc_to_part_map[i] = iadac_index;
                 } else {
-                    part_to_type_map[part_index] = PartitionType::INITIAL_DETERMINISTIC;
+                    part_to_type_map[part_index] = PartitionType::INITIAL_ALMOST_DETERMINISTIC;
                     ++part_index;
                 }
-            } else if (helpers::is_accepting_detscc(scc_types, i) || (kofola::OPTIONS.operation == "inclusion" && helpers::is_accepting_initial_detscc(scc_types, i))) {
+            }else if (helpers::is_accepting_detscc(scc_types, i) || (kofola::OPTIONS.operation == "inclusion" && helpers::is_accepting_initial_almost_detscc(scc_types, i))) {
                 DEBUG_PRINT_LN("SCC " + std::to_string(i) + " is DAC");
                 if (merge_det) { // merging DACs
                     if (-1 == dac_index) {
@@ -971,8 +971,8 @@ namespace helpers {
                 case PartitionType::NONDETERMINISTIC:
                     alg = create_nondeterministic_algorithm(i);
                     break;
-                case PartitionType::INITIAL_DETERMINISTIC:
-                    alg = create_initial_deterministic_algorithm(i);
+                case PartitionType::INITIAL_ALMOST_DETERMINISTIC:
+                    alg = create_initial_almost_deterministic_algorithm(i);
                     break;
                 default:
                     throw std::runtime_error("Strange SCC type found!");
@@ -1089,29 +1089,106 @@ namespace helpers {
     } // create_nondeterministic_algorithm() }}}
 
     /**
-     * Creates the complementation algorithm for the initial deterministic partition.
+     * Creates the complementation algorithm for a initial almost deterministic partition.
      *
-     * This function returns a unique pointer to the `complement_init_det` algorithm instance
-     * configured for the specified partition index. It is used for the initial deterministic
-     * component in the modular complementation procedure.
+     * This function returns a unique pointer to a `complement_init_almost_det` algorithm instance
+     * configured for the specified partition index. The initial almost deterministic algorithm is
+     * used for SCCs (strongly connected components) that are classified as initial almost deterministic (IADACs).
      *
      * @param partition_index Index of the partition for which the algorithm is created.
-     * @return Unique pointer to the abstract complementation algorithm for the initial deterministic SCC.
+     * @return Unique pointer to the abstract complementation algorithm for IADACs.
      */
     helpers::tnba_complement::abs_cmpl_alg_p 
-    helpers::tnba_complement::create_initial_deterministic_algorithm(size_t partition_index) { // {{{
-        // initial deterministic component
-        bool is_buchi = this->info_->part_to_acc_map_.at(partition_index).is_buchi();
-        if (is_buchi) {
-            return std::make_unique<kofola::complement_init_det>(*(this->info_.get()), partition_index);
+    helpers::tnba_complement::create_initial_almost_deterministic_algorithm(size_t partition_index) { // {{{
+        
+        auto bound = max_runs_in_partition(*(this->info_.get()), partition_index);
+        if(kofola::has_value("det_based_on_iadac", "yes", kofola::OPTIONS.params)) {
+            return std::make_unique<kofola::complement_init_almost_det>(*(this->info_.get()), partition_index, bound);
         } else {
-            if (kofola::has_value("tela_det_alg", "inductive", kofola::OPTIONS.params)) {
-                return std::make_unique<kofola::complement_sd_inductive>(*(this->info_.get()), partition_index);
+            auto acc = this->info_->part_to_acc_map_.at(partition_index);
+            auto acc_sets_num = acc.num_sets();
+            auto compl_cols = bound * (acc_sets_num + 1); // +1 for discontinuation colour introduced in IADACs determinization-based complementation
+
+            auto extra_colors_heuristic = this->info_->num_partitions_; // most of our algorithms introduce at most 1 extra color per partition, 
+                                                                        // so we can use the number of SCCs as a heuristic for the number of 
+                                                                        // extra colors needed in the worst case
+
+            if(SPOT_MAX_ACCSETS > compl_cols + extra_colors_heuristic) {
+                return std::make_unique<kofola::complement_init_almost_det>(*(this->info_.get()), partition_index, bound);
             } else {
                 return std::make_unique<kofola::complement_sd_tela>(*(this->info_.get()), partition_index);
             }
         }
-    } // create_initial_deterministic_algorithm() }}}
+    } // create_initial_almost_deterministic_algorithm() }}}
+
+    unsigned helpers::tnba_complement::max_runs_in_partition(const kofola::cmpl_info& info, unsigned part_index) {
+        auto scc_types = helpers::get_scc_types(info.scc_info_);
+        auto si = info.scc_info_;
+
+        unsigned nc = si.scc_count();
+        std::vector<unsigned> scc_max_runs(nc, 0);
+
+        auto initial_scc = si.initial();
+        scc_max_runs[initial_scc] = 1;
+
+        // traversing in topological order
+        for (unsigned i = nc; i > 0; --i) {
+            unsigned curr_scc = i - 1;
+
+            std::set<unsigned> processed; // in case of multiple jumps into the same successors (from different state within current SCC)
+
+            if(!(scc_types[curr_scc] & SCC_INITIAL_ALMOST_DETERMINISTIC_TYPE)) {
+                continue;
+            }
+
+            // iterate over all nondet jumps from current SCC and add the number of runs to the successor SCCs
+            // invariant: when we process the current SCC, we already know the number of runs to reach it from the initial SCC, 
+            //            so we can add this number to all successor SCCs reachable by a nondet jump
+            for(auto s: si.states_of(curr_scc)) {
+                for (auto& t: si.get_aut()->out(s)) {
+                auto dst_scc = si.scc_of(t.dst);
+                if (dst_scc == curr_scc) {
+                    continue;
+                }
+
+                if(processed.find(dst_scc) != processed.end()) { // already processed this successor
+                    continue;
+                }
+                
+                processed.insert(dst_scc);
+                scc_max_runs[dst_scc] += scc_max_runs[curr_scc];
+                }
+            }
+        }
+
+        // now we know the number of runs to reach each SCC from the initial SCC, we can calculate the number of runs in the partition 
+        // as the sum of runs to reach terminal init.almost-det. SCCs in the partition
+        unsigned max_runs = 0;
+        for(unsigned scc = 0; scc < nc; ++scc) {
+            auto succ_sccs = si.succ(scc);
+            unsigned initial_almost_det_succs = 0;
+
+            auto in_partition = info.part_to_scc_map_.at(part_index).find(scc) != info.part_to_scc_map_.at(part_index).end();
+            if(!in_partition) {
+                continue;
+            }
+            
+            for(unsigned succ_scc: succ_sccs) {
+                auto in_partition = info.part_to_scc_map_.at(part_index).find(succ_scc) != info.part_to_scc_map_.at(part_index).end();
+
+                if(in_partition) {
+                initial_almost_det_succs++;
+                }
+            }
+            if(initial_almost_det_succs == 0) { // terminal init.almost-det. SCC
+                max_runs += scc_max_runs[scc];
+            }
+        }
+
+        DEBUG_PRINT_LN("Max runs in partition " + std::to_string(part_index) + ": " + std::to_string(max_runs));
+
+        return max_runs;
+    }
 
     bdd helpers::tnba_complement::get_support_at(unsigned s) {
         return support_[s];
