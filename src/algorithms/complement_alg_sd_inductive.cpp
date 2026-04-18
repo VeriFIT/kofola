@@ -928,21 +928,6 @@ std::string mstate_sd_inductive::to_string() const {
 bool mstate_sd_inductive::eq(const mstate& rhs) const {
   const auto* rhs_sd = dynamic_cast<const mstate_sd_inductive*>(&rhs);
   assert(rhs_sd);
-  // auto res = (this->check_ == rhs_sd->check_) &&
-  //        (this->check_tree_ == rhs_sd->check_tree_) ;
-
-  // auto res2 = (this->check_ == rhs_sd->check_) &&
-  //        (this->check_tree_ == rhs_sd->check_tree_) &&
-  //        (this->current_active_inf_id_ == rhs_sd->current_active_inf_id_) &&
-  //        (this->breakpoint_ == rhs_sd->breakpoint_);
-  // if(res) {
-  //   auto eq = res2 ? "EQUAL" : "NOT EQUAL";
-  //   std::cerr << eq  << "\n";
-  //   std::cerr << this->to_string() << "\n";
-  //   std::cerr << rhs.to_string() << "\n";
-  //   std::cerr << "============================================================\n";
-  // }
-
 
   return (this->check_ == rhs_sd->check_) &&
          (this->check_tree_ == rhs_sd->check_tree_) &&
@@ -1183,29 +1168,19 @@ mstate_col_set complement_sd_inductive::get_succ_active(
     std::shared_ptr<sd_inductive::mstate_sd_inductive> derived_ms(
               new sd_inductive::mstate_sd_inductive(empty, tree.first));
 
-    std::set<unsigned> colors = {0};
+    std::set<unsigned> colors = {};
     if(forward_br && this->is_inf_leaf_) { 
       auto next_id = derived_ms->check_tree_.find_next_inf_leaf(src_mst->current_active_inf_id_).value();
       auto next_leaf = derived_ms->check_tree_.find_inf_leaf_by_id(next_id);
       derived_ms->current_active_inf_id_ = next_id;
       derived_ms->breakpoint_ = next_leaf.value().track;
-
-      std::shared_ptr<mstate> new_ms = derived_ms;
-      if(next_id == this->first_inf_leaf_id_)
-        result.push_back({new_ms, colors});
-      else
-        result.push_back({new_ms, {}});
-
     } else {
       derived_ms->current_active_inf_id_ = src_mst->current_active_inf_id_;
       derived_ms->breakpoint_ = succ_breakpoint;
-
-      std::shared_ptr<mstate> new_ms = derived_ms;
-      if(!this->is_inf_leaf_)
-        result.push_back({new_ms, colors});
-      else 
-        result.push_back({new_ms, {}});
     }
+    
+    std::shared_ptr<mstate> new_ms = derived_ms;
+    result.push_back({new_ms, {}});
   }
   return result;
 }
