@@ -587,7 +587,7 @@ void collect_inf_leaves_inorder(const check_macrostate& tree, std::vector<inf_le
 
 } // namespace
 
-std::optional<inf_leaf> check_macrostate::find_first_inf_leaf() const {
+std::optional<unsigned> check_macrostate::find_first_inf_leaf() const {
   std::vector<inf_leaf> inf_leaves;
   collect_inf_leaves_inorder(*this, inf_leaves);
 
@@ -595,37 +595,63 @@ std::optional<inf_leaf> check_macrostate::find_first_inf_leaf() const {
     return std::nullopt;
   }
 
-  return inf_leaves.front();
+  return inf_leaves.front().id;
 }
 
-std::optional<inf_leaf> check_macrostate::find_next_inf_leaf(const inf_leaf& current) const {  
+std::optional<unsigned> check_macrostate::find_next_inf_leaf(unsigned current_id) const {  
   std::vector<inf_leaf> inf_leaves;
   collect_inf_leaves_inorder(*this, inf_leaves);
 
-  // Find the current leaf in the collected list
-  for (size_t i = 0; i < inf_leaves.size(); ++i) {
-    if (inf_leaves[i].id == current.id) {
-      // Found it; check if there's a next one
-      if (i + 1 < inf_leaves.size()) {
-        return inf_leaves[i + 1];
-      }
-      // current is the last inf_leaf
+  if (inf_leaves.empty()) {
+    return std::nullopt;
+  }
 
-      return std::nullopt;
+  // Find the current leaf in the collected list
+  int current_idx = -1;
+  for (size_t i = 0; i < inf_leaves.size(); ++i) {
+    if (inf_leaves[i].id == current_id) {
+      current_idx = i;
+      break;
     }
   }
 
-  // current leaf not found in this tree
-  return std::nullopt;
+  // If current not found, return first leaf
+  if (current_idx == -1) {
+    for (const auto& leaf : inf_leaves) {
+      if (!leaf.track.empty()) {
+        return leaf.id;
+      }
+    }
+    // No leaf with nonempty track found, return first leaf anyway
+    return inf_leaves.front().id;
+  }
+
+  // Look for next leaf after current with nonempty track set
+  for (size_t j = current_idx + 1; j < inf_leaves.size(); ++j) {
+    if (!inf_leaves[j].track.empty()) {
+      return inf_leaves[j].id;
+    }
+  }
+
+  // No next leaf with nonempty track set found; wrap around and return first leaf
+  for (const auto& leaf : inf_leaves) {
+    if (!leaf.track.empty()) {
+      return leaf.id;
+    }
+  }
+
+  // No leaf with nonempty track found, return first leaf
+  return inf_leaves.front().id;
 }
 
 std::optional<inf_leaf> check_macrostate::find_inf_leaf_by_id(unsigned id) const {
-  auto first = find_first_inf_leaf();
-  while (first.has_value()) {
-    if (first.value().id == id) {
-      return first;
+  std::vector<inf_leaf> inf_leaves;
+  collect_inf_leaves_inorder(*this, inf_leaves);
+  
+  for (const auto& leaf : inf_leaves) {
+    if (leaf.id == id) {
+      return leaf;
     }
-    first = find_next_inf_leaf(first.value());
   }
   return std::nullopt;
 }
@@ -891,6 +917,10 @@ std::string mstate_sd_inductive::to_string() const {
   std::string res = "[SD-INDUCTIVE: ";
   res += "C=" + std::to_string(this->check_);
   res += ", Tree=" + this->check_tree_.to_string();
+  res += " | ";
+  res += std::to_string(this->breakpoint_);
+  res += ", ";
+  res += "inf_id:" + std::to_string(this->current_active_inf_id_);
   res += "]";
   return res;
 }
@@ -898,9 +928,25 @@ std::string mstate_sd_inductive::to_string() const {
 bool mstate_sd_inductive::eq(const mstate& rhs) const {
   const auto* rhs_sd = dynamic_cast<const mstate_sd_inductive*>(&rhs);
   assert(rhs_sd);
+  // auto res = (this->check_ == rhs_sd->check_) &&
+  //        (this->check_tree_ == rhs_sd->check_tree_) ;
+
+  // auto res2 = (this->check_ == rhs_sd->check_) &&
+  //        (this->check_tree_ == rhs_sd->check_tree_) &&
+  //        (this->current_active_inf_id_ == rhs_sd->current_active_inf_id_) &&
+  //        (this->breakpoint_ == rhs_sd->breakpoint_);
+  // if(res) {
+  //   auto eq = res2 ? "EQUAL" : "NOT EQUAL";
+  //   std::cerr << eq  << "\n";
+  //   std::cerr << this->to_string() << "\n";
+  //   std::cerr << rhs.to_string() << "\n";
+  //   std::cerr << "============================================================\n";
+  // }
+
+
   return (this->check_ == rhs_sd->check_) &&
          (this->check_tree_ == rhs_sd->check_tree_) &&
-         (this->current_active_inf_ == rhs_sd->current_active_inf_) &&
+         (this->current_active_inf_id_ == rhs_sd->current_active_inf_id_) &&
          (this->breakpoint_ == rhs_sd->breakpoint_);
 }
 
@@ -914,8 +960,8 @@ bool mstate_sd_inductive::lt(const mstate& rhs) const {
   if (this->check_tree_ != rhs_sd->check_tree_) {
     return this->check_tree_ < rhs_sd->check_tree_;
   }
-  if (this->current_active_inf_ != rhs_sd->current_active_inf_) {
-    return this->current_active_inf_ < rhs_sd->current_active_inf_;
+  if (this->current_active_inf_id_ != rhs_sd->current_active_inf_id_) {
+    return this->current_active_inf_id_ < rhs_sd->current_active_inf_id_;
   }
   if (this->breakpoint_ != rhs_sd->breakpoint_) {
     return this->breakpoint_ < rhs_sd->breakpoint_;
@@ -929,9 +975,16 @@ bool mstate_sd_inductive::lt(const mstate& rhs) const {
 
 complement_sd_inductive::complement_sd_inductive(const cmpl_info& info, unsigned part_index)
   : abstract_complement_alg(info, part_index) { 
+
+  this->first_inf_leaf_id_ = 0;
   
   spot::acc_cond::acc_code acc = this->info_.part_to_acc_map_.at(part_index_).get_acceptance();
   this->acc_cond_ = acc.complement();
+  
+  this->is_inf_leaf_ = true;
+  if(acc.fin_one() == -1) // fin is inf_leaf in complement, it is easier to obtain this info before complementation of the acc condition
+    is_inf_leaf_ = false;
+
   this->opts_ = std::make_shared<sd_inductive::options>(sd_inductive::options{
     .use_shared_breakpoint = (kofola::OPTIONS.params["sd_ind_sh_break"] == "yes"),
     .use_or_fin_opt = (kofola::OPTIONS.params["sd_ind_or_opt"] == "yes")
@@ -957,10 +1010,16 @@ mstate_set complement_sd_inductive::get_init() { // {{
                                                                 new sd_inductive::mstate_sd_inductive(
                                                                 init_state,
                                                                 sd_inductive::check_macrostate::from_acc_code(this->opts_, this->acc_cond_)));
-          derived_ms->current_active_inf_ = derived_ms->check_tree_.find_first_inf_leaf();
-          derived_ms->breakpoint_ = derived_ms->current_active_inf_.has_value() ? derived_ms->current_active_inf_.value().track : std::set<unsigned>{};
+  derived_ms->current_active_inf_id_ = 0;
+  derived_ms->breakpoint_ = std::set<unsigned>{};
+  if(this->is_inf_leaf_) {
+    this->first_inf_leaf_id_ = derived_ms->check_tree_.find_first_inf_leaf().value();
+    derived_ms->current_active_inf_id_ = this->first_inf_leaf_id_;
+    auto first_leaf = derived_ms->check_tree_.find_inf_leaf_by_id(this->first_inf_leaf_id_);
+    derived_ms->breakpoint_ = first_leaf.value().track;
+  }
 
-        std::shared_ptr<mstate> new_ms = derived_ms;
+  std::shared_ptr<mstate> new_ms = derived_ms;
   mstate_set result = {new_ms};
   return result;
 } // get_init() }}}
@@ -1009,21 +1068,22 @@ mstate_col_set complement_sd_inductive::get_succ_active(
   std::set<unsigned> empty{};
   sd_inductive::NodeContext context{};
 
-  std::set<unsigned> succ_check = kofola::get_all_successors_in_scc(
-      this->info_.aut_, this->info_.scc_info_, src_mst->check_, symbol);
-  auto succ_trees = src_mst->check_tree_.get_succ(this->info_.aut_, 
-      this->info_.scc_info_, empty, symbol, false, context);
+  std::set<unsigned> succ_check = kofola::get_all_successors_in_scc(this->info_.aut_, this->info_.scc_info_, src_mst->check_, symbol);
+  auto succ_trees = src_mst->check_tree_.get_succ(this->info_.aut_, this->info_.scc_info_, empty, symbol, false, context);
 
-      const kofola::sd_inductive::inf_leaf* inf_leaf = src_mst->current_active_inf_.has_value() ? &src_mst->current_active_inf_.value() : nullptr;
+  kofola::sd_inductive::inf_leaf inf_leaf;
+  std::set<unsigned> succ_breakpoint = {};
+  if(this->is_inf_leaf_) {
+    inf_leaf = src_mst->check_tree_.find_inf_leaf_by_id(src_mst->current_active_inf_id_).value();
+    succ_breakpoint = inf_leaf.get_succ_breakpoint(this->info_.aut_, this->info_.scc_info_, symbol, src_mst->breakpoint_);
+  }
+  bool forward_br = succ_breakpoint.empty();
 
-
-      auto succ_breakpoint = inf_leaf ? inf_leaf->get_succ_breakpoint(this->info_.aut_, this->info_.scc_info_, symbol, src_mst->breakpoint_) : std::set<unsigned>{};
-      
-      bool forward_br = succ_breakpoint.empty();
-
-      // For the FALSE acceptance condition we generate accepting mark only if we reachable set of states is empty. 
-      // Because for non-complete automata the FALSE condition satisfies runs that are not in the automaton structure.
-  if(src_mst->check_.empty() && forward_br && (inf_leaf == nullptr || src_mst->check_tree_.find_next_inf_leaf(*inf_leaf) == std::nullopt)) {
+  // For the FALSE acceptance condition we generate accepting mark only if we reachable set of states is empty. 
+  // Because for non-complete automata the FALSE condition satisfies runs that are not in the automaton structure.
+  bool completed_rr_cycle = !this->is_inf_leaf_  || (forward_br && src_mst->check_tree_.find_next_inf_leaf(src_mst->current_active_inf_id_).value() == this->first_inf_leaf_id_);
+  
+  if(src_mst->check_.empty() && completed_rr_cycle) {
 
     std::set<unsigned> colors = {0};
     std::set<unsigned> full_scc_reach = {};
@@ -1039,13 +1099,20 @@ mstate_col_set complement_sd_inductive::get_succ_active(
         if (!tree.second.violating_predecessors.empty()) continue;
         std::shared_ptr<sd_inductive::mstate_sd_inductive> derived_ms(
           new sd_inductive::mstate_sd_inductive(full_scc_reach, tree.first));
-          derived_ms->current_active_inf_ = derived_ms->check_tree_.find_first_inf_leaf();
 
-          derived_ms->breakpoint_ = derived_ms->current_active_inf_.has_value() ? derived_ms->current_active_inf_.value().track : std::set<unsigned>{};
+        if (this->is_inf_leaf_) {
+          derived_ms->current_active_inf_id_ = this->first_inf_leaf_id_;
+          auto first_leaf = derived_ms->check_tree_.find_inf_leaf_by_id(this->first_inf_leaf_id_);
+          derived_ms->breakpoint_ = first_leaf.value().track;
+        } else {
+          derived_ms->current_active_inf_id_ = 0;
+          derived_ms->breakpoint_ = std::set<unsigned>{};
+        }
+
         std::shared_ptr<mstate> new_ms = derived_ms;
-
         result.push_back({new_ms, colors});
       }
+
       return result;
     }
   }
@@ -1074,17 +1141,16 @@ mstate_col_set complement_sd_inductive::get_succ_active(
 
       std::shared_ptr<sd_inductive::mstate_sd_inductive> derived_ms(
               new sd_inductive::mstate_sd_inductive(succ_check, tree.first));
-        // if(forward_br) {
-          derived_ms->current_active_inf_ = derived_ms->check_tree_.find_first_inf_leaf();
-          derived_ms->breakpoint_ = derived_ms->current_active_inf_.has_value() ? derived_ms->current_active_inf_.value().track : std::set<unsigned>{};
-        // } else {
-        //   derived_ms->breakpoint_ = succ_breakpoint;
-        // }
+
+      // check phase does not matter
+      derived_ms->current_active_inf_id_ = this->first_inf_leaf_id_;
+      derived_ms->breakpoint_ = std::set<unsigned>{};
         
-        std::shared_ptr<mstate> new_ms = derived_ms;
+      std::shared_ptr<mstate> new_ms = derived_ms;
 
       result.push_back({new_ms, {}});
     }
+
     for(const auto& tree : succ_check_trees) {
       // OR-FIN opt: discard results with unhandled violating predecessor states
       if (!tree.second.violating_predecessors.empty()) continue;
@@ -1092,12 +1158,20 @@ mstate_col_set complement_sd_inductive::get_succ_active(
       std::shared_ptr<sd_inductive::mstate_sd_inductive> derived_ms(
               new sd_inductive::mstate_sd_inductive(empty, tree.first));
 
-              derived_ms->current_active_inf_ = derived_ms->check_tree_.find_first_inf_leaf();
-              derived_ms->breakpoint_ = derived_ms->current_active_inf_.has_value() ? derived_ms->current_active_inf_.value().track : std::set<unsigned>{};
+      std::set<unsigned> colors = {};
+      if (this->is_inf_leaf_) {
+        derived_ms->current_active_inf_id_ = this->first_inf_leaf_id_;
+        auto first_leaf = derived_ms->check_tree_.find_inf_leaf_by_id(this->first_inf_leaf_id_);
+        derived_ms->breakpoint_ = first_leaf.value().track;
+      } else {
+        derived_ms->current_active_inf_id_ = 0;
+        derived_ms->breakpoint_ = std::set<unsigned>{};
+        colors.insert(0);
+      }
         
-        std::shared_ptr<mstate> new_ms = derived_ms;
+      std::shared_ptr<mstate> new_ms = derived_ms;
 
-      result.push_back({new_ms, {}});
+      result.push_back({new_ms, colors});
     }
     return result;
   }
@@ -1108,23 +1182,30 @@ mstate_col_set complement_sd_inductive::get_succ_active(
     
     std::shared_ptr<sd_inductive::mstate_sd_inductive> derived_ms(
               new sd_inductive::mstate_sd_inductive(empty, tree.first));
-        if(inf_leaf == nullptr) {
-          derived_ms->current_active_inf_ = {};
-          derived_ms->breakpoint_ = {};
-        } else {
-          if(forward_br) { 
-            auto inf_in_new_tree = derived_ms->check_tree_.find_inf_leaf_by_id(inf_leaf->id);
-            derived_ms->current_active_inf_ = derived_ms->check_tree_.find_next_inf_leaf(inf_in_new_tree.value());
-            derived_ms->breakpoint_ = derived_ms->current_active_inf_.has_value() ? derived_ms->current_active_inf_.value().track : std::set<unsigned>{};
-          } else {
-            derived_ms->current_active_inf_ = derived_ms->check_tree_.find_inf_leaf_by_id(inf_leaf->id);
-            derived_ms->breakpoint_ = succ_breakpoint;
-          }
-        }
-        
-        std::shared_ptr<mstate> new_ms = derived_ms;
 
-    result.push_back({new_ms, {}});
+    std::set<unsigned> colors = {0};
+    if(forward_br && this->is_inf_leaf_) { 
+      auto next_id = derived_ms->check_tree_.find_next_inf_leaf(src_mst->current_active_inf_id_).value();
+      auto next_leaf = derived_ms->check_tree_.find_inf_leaf_by_id(next_id);
+      derived_ms->current_active_inf_id_ = next_id;
+      derived_ms->breakpoint_ = next_leaf.value().track;
+
+      std::shared_ptr<mstate> new_ms = derived_ms;
+      if(next_id == this->first_inf_leaf_id_)
+        result.push_back({new_ms, colors});
+      else
+        result.push_back({new_ms, {}});
+
+    } else {
+      derived_ms->current_active_inf_id_ = src_mst->current_active_inf_id_;
+      derived_ms->breakpoint_ = succ_breakpoint;
+
+      std::shared_ptr<mstate> new_ms = derived_ms;
+      if(!this->is_inf_leaf_)
+        result.push_back({new_ms, colors});
+      else 
+        result.push_back({new_ms, {}});
+    }
   }
   return result;
 }

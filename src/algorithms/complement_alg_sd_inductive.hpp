@@ -424,7 +424,7 @@ namespace sd_inductive {
      */
     std::string to_string() const {
       return "track=" + std::to_string(this->track) + ", breakpoint=" + std::to_string(this->breakpoint)
-             + ", color=" + fin_leaf::mark_to_string(this->color);
+             + ", color=" + fin_leaf::mark_to_string(this->color) + ", id=" + std::to_string(this->id);
     }
 
     /**
@@ -694,18 +694,18 @@ namespace sd_inductive {
     /// the first encountered `inf_leaf`, or an empty optional if no `inf_leaf`
     /// exists in the tree.
     ///
-    /// @return Optional copy of the first `inf_leaf` found, or empty if none.
-    std::optional<inf_leaf> find_first_inf_leaf() const;
+    /// @return Optional ID of the first `inf_leaf` found, or empty if none.
+    std::optional<unsigned> find_first_inf_leaf() const;
 
     /// Find the successor of an `inf_leaf` in in-order traversal.
     ///
-    /// Given an `inf_leaf` in this check tree, returns a copy of the next
+    /// Given an `inf_leaf` ID in this check tree, returns the ID of the next
     /// `inf_leaf` in in-order traversal order, or an empty optional if the given
-    /// leaf is the last one or if it does not exist in this tree.
+    /// leaf ID is the last one or if it does not exist in this tree.
     ///
-    /// @param current The `inf_leaf` to find the successor of.
-    /// @return Optional copy of the next `inf_leaf`, or empty if current is last or not found.
-    std::optional<inf_leaf> find_next_inf_leaf(const inf_leaf& current) const;
+    /// @param current_id The ID of the `inf_leaf` to find the successor of.
+    /// @return Optional ID of the next `inf_leaf`, or empty if current is last or not found.
+    std::optional<unsigned> find_next_inf_leaf(unsigned current_id) const;
 
     /// Find an `inf_leaf` by its ID in this check tree.
     ///
@@ -814,17 +814,18 @@ public: // DATA MEMBERS
   std::set<unsigned> check_ {};       // states for runs that need to be checked
   check_macrostate check_tree_; // check macrostate tree
   std::set<unsigned> breakpoint_ {};
-  std::optional<inf_leaf> current_active_inf_;
+  unsigned current_active_inf_id_ = 0;
 
 public: // METHODS
 
   /// constructor
   mstate_sd_inductive(
     const std::set<unsigned>&  check,
-    const check_macrostate&  check_tree
+    const check_macrostate&  check_tree,
+    unsigned current_active_inf_id = 0
   ) : check_(check),
     check_tree_(check_tree),
-    current_active_inf_(std::nullopt)
+    current_active_inf_id_(current_active_inf_id)
   { }
 
   virtual std::string to_string() const override;
@@ -874,9 +875,9 @@ public: // METHODS
 
     std::shared_ptr<mstate> cp(new sd_inductive::mstate_sd_inductive(
       src_ms->check_,
-      src_ms->check_tree_
+      src_ms->check_tree_,
+      this->first_inf_leaf_id_
     ));
-    
     return {cp};
   };
 
@@ -904,6 +905,8 @@ public:
 private:
   spot::acc_cond::acc_code acc_cond_ {};
   sd_inductive::options_ptr opts_ { nullptr };
+  bool is_inf_leaf_ = true;
+  unsigned first_inf_leaf_id_ = 0;
 }; // complement_sd_inductive }}}
 
 
