@@ -617,11 +617,6 @@ std::optional<unsigned> check_macrostate::find_next_inf_leaf(unsigned current_id
 
   // If current not found, return first leaf
   if (current_idx == -1) {
-    for (const auto& leaf : inf_leaves) {
-      if (!leaf.track.empty()) {
-        return leaf.id;
-      }
-    }
     // No leaf with nonempty track found, return first leaf anyway
     return inf_leaves.front().id;
   }
@@ -630,13 +625,6 @@ std::optional<unsigned> check_macrostate::find_next_inf_leaf(unsigned current_id
   for (size_t j = current_idx + 1; j < inf_leaves.size(); ++j) {
     if (!inf_leaves[j].track.empty()) {
       return inf_leaves[j].id;
-    }
-  }
-
-  // No next leaf with nonempty track set found; wrap around and return first leaf
-  for (const auto& leaf : inf_leaves) {
-    if (!leaf.track.empty()) {
-      return leaf.id;
     }
   }
 
@@ -1168,7 +1156,6 @@ mstate_col_set complement_sd_inductive::get_succ_active(
     std::shared_ptr<sd_inductive::mstate_sd_inductive> derived_ms(
               new sd_inductive::mstate_sd_inductive(empty, tree.first));
 
-    std::set<unsigned> colors = {};
     if(forward_br && this->is_inf_leaf_) { 
       auto next_id = derived_ms->check_tree_.find_next_inf_leaf(src_mst->current_active_inf_id_).value();
       auto next_leaf = derived_ms->check_tree_.find_inf_leaf_by_id(next_id);
