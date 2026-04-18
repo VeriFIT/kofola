@@ -971,7 +971,7 @@ complement_sd_inductive::complement_sd_inductive(const cmpl_info& info, unsigned
     is_inf_leaf_ = false;
 
   this->opts_ = std::make_shared<sd_inductive::options>(sd_inductive::options{
-    .use_shared_breakpoint = (kofola::OPTIONS.params["sd_ind_sh_break"] == "yes"),
+    .use_shared_breakpoint = false,
     .use_or_fin_opt = (kofola::OPTIONS.params["sd_ind_or_opt"] == "yes")
   });
 }
