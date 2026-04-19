@@ -804,7 +804,7 @@ std::vector<std::pair<check_macrostate, NodeContext>> inf_leaf::get_succ(
   std::set<unsigned> succ_break {};
 
 
-  if (opts && opts->use_shared_breakpoint) {
+  if (opts && opts->use_shared_breakpoint && context.is_shared_breakpoint()) {
     if (!context.targets_leaf(this->id)) {
       return {{check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id), NodeContext{}}};
     }
