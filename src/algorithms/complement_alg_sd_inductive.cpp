@@ -43,11 +43,37 @@ check_macrostate assign_leaf_ids(const check_macrostate& tree, unsigned& next_id
 }
 
 /**
+ * @brief Internal helper for initializing `NodeContext` payloads inside a check tree.
+ *
+ * @param tree   Check tree to update in-place.
+ * @param opts   Options controlling whether shared-breakpoint contexts are used.
+ * @param is_root Whether this node is the root of the entire tree.
+ *
+ * @warning Same caveats apply as in `init_contexts_in_tree()`.
+ */
+static void init_contexts_in_tree_impl(check_macrostate& tree, options_ptr opts, bool is_root) {
+  if (tree.is_leaf()) {
+    return;
+  }
+
+  auto& base = static_cast<base_tree&>(tree);
+  init_contexts_in_tree_impl(static_cast<check_macrostate&>(base.left()), opts, false);
+  init_contexts_in_tree_impl(static_cast<check_macrostate&>(base.right()), opts, false);
+
+  // Only apply shared breakpoint at root level
+  if (is_root && opts->use_shared_breakpoint) {
+    NodeContext ctx = NodeContext::create_subtree_sh_context(tree.type(), tree);
+    tree.node_value().set_context(ctx);
+  }
+}
+
+/**
  * @brief Initialize (or re-initialize) `NodeContext` payloads inside a check tree.
  *
  * When shared-breakpoint mode is enabled (`opts->use_shared_breakpoint == true`),
- * each internal node's `NodeContext` is recomputed from the subtree so that it
- * references the current set of `Inf` leaf IDs.
+ * the root internal node's `NodeContext` is recomputed from the subtree so that it
+ * references the current set of `Inf` leaf IDs. Non-root nodes do not receive
+ * shared-breakpoint contexts.
  *
  * @param tree Check tree to update in-place.
  * @param opts Options controlling whether shared-breakpoint contexts are used.
@@ -62,19 +88,7 @@ check_macrostate assign_leaf_ids(const check_macrostate& tree, unsigned& next_id
  *          traversal.
  */
 void init_contexts_in_tree(check_macrostate& tree, options_ptr opts) {
-  if (tree.is_leaf()) {
-    return;
-  }
-
-  auto& base = static_cast<base_tree&>(tree);
-  init_contexts_in_tree(static_cast<check_macrostate&>(base.left()), opts);
-  init_contexts_in_tree(static_cast<check_macrostate&>(base.right()), opts);
-
-  if (opts->use_shared_breakpoint) {
-    NodeContext ctx = NodeContext::create_subtree_sh_context(tree.type(), tree);
-    tree.node_value().set_context(ctx);
-  }
-  
+  init_contexts_in_tree_impl(tree, opts, true);
 }
 
 /**
@@ -790,7 +804,7 @@ std::vector<std::pair<check_macrostate, NodeContext>> inf_leaf::get_succ(
   std::set<unsigned> succ_break {};
 
 
-  if (opts && opts->use_shared_breakpoint && context.is_shared_breakpoint()) {
+  if (opts && opts->use_shared_breakpoint) {
     if (!context.targets_leaf(this->id)) {
       return {{check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id), NodeContext{}}};
     }

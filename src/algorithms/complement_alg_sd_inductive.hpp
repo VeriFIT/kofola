@@ -177,7 +177,7 @@ namespace sd_inductive {
     static NodeContext create_subtree_sh_context(TreeType t, const check_macrostate& subtree_) {
       NodeContext ctx;
       collect_inf_leaf_ids(subtree_, ctx.leaf_ids_);
-      if (t == TreeType::And && ctx.leaf_ids_.size() > 0) {
+      if ((t == TreeType::And || t == TreeType::Or) && ctx.leaf_ids_.size() > 0) {
         ctx.type = NodeContextType::SHARED_BREAKPOINT;
         ctx.leaf_id = ctx.leaf_ids_[ctx.leaf_index_ % ctx.leaf_ids_.size()];
       }
