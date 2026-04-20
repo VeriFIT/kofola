@@ -705,9 +705,7 @@ namespace sd_inductive {
       }
       return;
     }
-    // if(bt.type() != TreeType::And) {
-    //   return;
-    // }
+
     collect_inf_leaf_ids(check_macrostate(nullptr, base_tree(bt.left())), out);
     collect_inf_leaf_ids(check_macrostate(nullptr, base_tree(bt.right())), out);
   }
