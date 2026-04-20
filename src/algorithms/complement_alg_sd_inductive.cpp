@@ -380,12 +380,20 @@ std::vector<std::pair<check_macrostate, NodeContext>> check_macrostate::get_succ
 
         for (const auto& [right_tree, right_node_ctx] : right_succ) {
           // Propagate any further violations from right up to the parent.
-          NodeContext out_ctx{};
-          out_ctx.violating_states = right_node_ctx.violating_states;
-          out_ctx.violating_predecessors = right_node_ctx.violating_predecessors;
+          NodeContext local = actual_node_context;
+
+          NodeContext merge = left_node_ctx.union_contexts(right_node_ctx);
+          merge.violating_states = right_node_ctx.violating_states;
+          merge.violating_predecessors = right_node_ctx.violating_predecessors;
+
+          if (is_scope_root) {
+            if (!merge.is_none()) local = merge;
+            merge = NodeContext{};
+          }
+
           auto combined = check_macrostate::make(this->opts_, TreeType::Or,
-            left_restricted, right_tree, actual_node_context);
-          out.insert({combined.reduce(), out_ctx});
+            left_restricted, right_tree, local);
+          out.insert({combined.reduce(), merge});
         }
       }
       return std::vector<std::pair<check_macrostate, NodeContext>>(out.begin(), out.end());
