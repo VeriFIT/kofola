@@ -25,8 +25,17 @@ namespace kofola { // {{{
 namespace sd_inductive {
 
   struct options {
-    bool use_shared_breakpoint{false};
+    bool use_root_shared_breakpoint{false};
+    bool use_inf_tree_shared_breakpoint{false};
+    bool use_shared_breakpoint() const {
+      return use_root_shared_breakpoint || use_inf_tree_shared_breakpoint;
+    }
     bool use_or_fin_opt{false};
+    
+    /// Validation: both breakpoint types are mutually exclusive.
+    bool is_valid() const {
+      return !(use_root_shared_breakpoint && use_inf_tree_shared_breakpoint);
+    }
   };
 
   using options_ptr = std::shared_ptr<const options>;
@@ -174,10 +183,14 @@ namespace sd_inductive {
      * @param subtree_ Subtree to inspect for `Inf` leaf IDs.
      * @return A freshly initialized context for that subtree.
      */
-    static NodeContext create_subtree_sh_context(TreeType t, const check_macrostate& subtree_) {
+    static NodeContext create_subtree_sh_context(TreeType t, const check_macrostate& subtree_, bool inf_tree_shb) {
       NodeContext ctx;
       collect_inf_leaf_ids(subtree_, ctx.leaf_ids_);
-      if ((t == TreeType::And || t == TreeType::Or) && ctx.leaf_ids_.size() > 0) {
+      
+      bool not_leaf = (t == TreeType::And) || (t == TreeType::Or);
+      bool inf_tree_shb_then_and_node = (!inf_tree_shb) || (t == TreeType::And); // inf_tree_shb ==> (t == TreeType::And)
+
+      if (not_leaf && inf_tree_shb_then_and_node && ctx.leaf_ids_.size() > 0) {
         ctx.type = NodeContextType::SHARED_BREAKPOINT;
         ctx.leaf_id = ctx.leaf_ids_[ctx.leaf_index_ % ctx.leaf_ids_.size()];
       }
@@ -615,7 +628,7 @@ namespace sd_inductive {
      * @return String representation of this macrostate check tree.
      */
     std::string to_string() const {
-      return to_string_impl(static_cast<const base_tree&>(*this), opts_ && opts_->use_shared_breakpoint);
+      return to_string_impl(static_cast<const base_tree&>(*this), opts_ && opts_->use_shared_breakpoint());
     }
 
     /**
@@ -703,6 +716,11 @@ namespace sd_inductive {
       if (bt.type() == TreeType::Inf) {
         out.push_back(std::get<inf_leaf>(bt.leaf_value()).id);
       }
+      return;
+    }
+
+    auto opt_ptr = t.get_options_ptr();
+    if(opt_ptr->use_inf_tree_shared_breakpoint && (bt.type() != TreeType::And)) {
       return;
     }
 
