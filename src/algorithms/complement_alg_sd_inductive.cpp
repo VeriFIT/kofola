@@ -60,7 +60,7 @@ static void init_contexts_in_tree_impl(check_macrostate& tree, options_ptr opts,
   init_contexts_in_tree_impl(static_cast<check_macrostate&>(base.left()), opts, false);
   init_contexts_in_tree_impl(static_cast<check_macrostate&>(base.right()), opts, false);
 
-  // Only apply shared breakpoint at root level
+  // if root_shb, only root gets the shared-breakpoint context; if inf_tree_shb, every internal And-node gets a shared-breakpoint context
   if ( (opts->use_root_shared_breakpoint && is_root) || opts->use_inf_tree_shared_breakpoint ) {
     NodeContext ctx = NodeContext::create_subtree_sh_context(tree.type(), tree, opts->use_inf_tree_shared_breakpoint);
     tree.node_value().set_context(ctx);
