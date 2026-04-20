@@ -67,16 +67,21 @@ namespace sd_inductive {
   class check_macrostate;
 
   /**
-   * @brief Collect IDs of `Inf` leaves under `And` nodes.
+   * @brief Collect IDs of all `Inf` leaves (or only under AND nodes in case of inf_tree_shared_breakpoint).
    *
    * Traverses the check tree @p t and appends each encountered
-   * `inf_leaf::id` to @p out. For internal nodes, only `TreeType::And`
+   * `inf_leaf::id` to @p out. 
+   * 
+   * root_shared_breakpoint: For internal nodes, all subtrees are traversed and all `Inf` leaf IDs collected.
+   * 
+   * inf_tree_shared_breakpoint:For internal nodes, only `TreeType::And`
    * subtrees are traversed; `Or` subtrees are intentionally ignored.
    *
    * @param t   Check tree (subtree root) to traverse.
    * @param out Output vector to append leaf IDs into.
+   * @param use_inf_tree_shb Whether to use the Inf tree shared breakpoint optimization, root is default.
    */
-  inline void collect_inf_leaf_ids(const check_macrostate& t, std::vector<unsigned>& out);
+  inline void collect_inf_leaf_ids(const check_macrostate& t, std::vector<unsigned>& out, bool use_inf_tree_shb = false);
 
   struct NodeContext;
   std::ostream& operator<<(std::ostream& os, const NodeContext& ctx);
@@ -185,8 +190,8 @@ namespace sd_inductive {
      */
     static NodeContext create_subtree_sh_context(TreeType t, const check_macrostate& subtree_, bool inf_tree_shb) {
       NodeContext ctx;
-      collect_inf_leaf_ids(subtree_, ctx.leaf_ids_);
-      
+      collect_inf_leaf_ids(subtree_, ctx.leaf_ids_, inf_tree_shb);
+
       bool not_leaf = (t == TreeType::And) || (t == TreeType::Or);
       bool inf_tree_shb_then_and_node = (!inf_tree_shb) || (t == TreeType::And); // inf_tree_shb ==> (t == TreeType::And)
 
@@ -709,7 +714,7 @@ namespace sd_inductive {
     options_ptr opts_;
   };
 
-  inline void collect_inf_leaf_ids(const check_macrostate& t, std::vector<unsigned>& out) {
+  inline void collect_inf_leaf_ids(const check_macrostate& t, std::vector<unsigned>& out, bool use_inf_tree_shb) {
     using base_tree = kofola::types::binary_tree<TreeType, AndOrNode, fin_leaf, inf_leaf>;
     const base_tree& bt = static_cast<const base_tree&>(t);
     if (bt.is_leaf()) {
@@ -719,13 +724,12 @@ namespace sd_inductive {
       return;
     }
 
-    auto opt_ptr = t.get_options_ptr();
-    if(opt_ptr->use_inf_tree_shared_breakpoint && (bt.type() != TreeType::And)) {
+    if(use_inf_tree_shb && (bt.type() != TreeType::And)) {
       return;
     }
 
-    collect_inf_leaf_ids(check_macrostate(nullptr, base_tree(bt.left())), out);
-    collect_inf_leaf_ids(check_macrostate(nullptr, base_tree(bt.right())), out);
+    collect_inf_leaf_ids(check_macrostate(nullptr, base_tree(bt.left())), out, use_inf_tree_shb);
+    collect_inf_leaf_ids(check_macrostate(nullptr, base_tree(bt.right())), out, use_inf_tree_shb);
   }
 
   /**
