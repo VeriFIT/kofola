@@ -1135,8 +1135,6 @@ namespace helpers {
         for (unsigned i = nc; i > 0; --i) {
             unsigned curr_scc = i - 1;
 
-            std::set<unsigned> processed; // in case of multiple jumps into the same successors (from different state within current SCC)
-
             if(!(scc_types[curr_scc] & SCC_INITIAL_ALMOST_DETERMINISTIC_TYPE)) {
                 continue;
             }
@@ -1144,21 +1142,30 @@ namespace helpers {
             // iterate over all nondet jumps from current SCC and add the number of runs to the successor SCCs
             // invariant: when we process the current SCC, we already know the number of runs to reach it from the initial SCC, 
             //            so we can add this number to all successor SCCs reachable by a nondet jump
+            std::vector<unsigned> max_from_single_state(nc, 0);
             for(auto s: si.states_of(curr_scc)) {
+                std::vector<unsigned> curr_state_max_out(nc, 0);
                 for (auto& t: si.get_aut()->out(s)) {
-                auto dst_scc = si.scc_of(t.dst);
-                if (dst_scc == curr_scc) {
-                    continue;
-                }
+                    auto dst_scc = si.scc_of(t.dst);
+                    if (dst_scc == curr_scc) {
+                        continue;
+                    }
 
-                if(processed.find(dst_scc) != processed.end()) { // already processed this successor
-                    continue;
+                    curr_state_max_out[dst_scc]++;
+                    // scc_max_runs[dst_scc] += scc_max_runs[curr_scc];
                 }
-                
-                processed.insert(dst_scc);
-                scc_max_runs[dst_scc] += scc_max_runs[curr_scc];
+                for(unsigned dst_scc = 0; dst_scc < nc; ++dst_scc) {
+                    if(curr_state_max_out[dst_scc] > 0) {
+                        max_from_single_state[dst_scc] = std::max(max_from_single_state[dst_scc], curr_state_max_out[dst_scc]);
+                    }
                 }
             }
+            for(unsigned dst_scc = 0; dst_scc < nc; ++dst_scc) {
+                if(max_from_single_state[dst_scc] > 0) {
+                    scc_max_runs[dst_scc] += max_from_single_state[dst_scc];
+                }
+            }
+
         }
 
         // now we know the number of runs to reach each SCC from the initial SCC, we can calculate the number of runs in the partition 
