@@ -65,18 +65,7 @@ spot::twa_graph_ptr kofola::apply_postprocessing(const spot::twa_graph_ptr& aut,
 			if(result->num_states() < 2000) {
 				p_post.set_type(spot::postprocessor::GeneralizedBuchi);
 			}
-			
-			// Set postprocessor level based on postp_l parameter
-			auto pp_level = spot::postprocessor::Low;
-			auto level_it = kofola::OPTIONS.params.find("postp_l");
-			if (level_it != kofola::OPTIONS.params.end()) {
-				if (level_it->second == "high") {
-					pp_level = spot::postprocessor::High;
-				} else if (level_it->second == "medium") {
-					pp_level = spot::postprocessor::Medium;
-				}
-			}
-			p_post.set_level(pp_level);
+			p_post.set_level(spot::postprocessor::Low);
 			
 			result = p_post.run(result);
 		}
@@ -276,21 +265,6 @@ spot::twa_graph_ptr kofola::spot_complement(const spot::twa_graph_ptr& aut)
 
 	// Apply postprocessor to the dualized result if postp_l is specified
 	spot::twa_graph_ptr dualized = spot::dualize(det);
-
-	auto level_it = kofola::OPTIONS.params.find("postp_l");
-	if (level_it != kofola::OPTIONS.params.end()) {
-		spot::postprocessor p_post;
-		p_post.set_type(spot::postprocessor::Generic);
-
-		auto pp_level = spot::postprocessor::Low;
-		if (level_it->second == "high") {
-			pp_level = spot::postprocessor::High;
-		} else if (level_it->second == "medium") {
-			pp_level = spot::postprocessor::Medium;
-		}
-		p_post.set_level(pp_level);
-		dualized = p_post.run(dualized);
-	}
 
 	return dualized;
 }
