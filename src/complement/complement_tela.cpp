@@ -268,21 +268,29 @@ spot::twa_graph_ptr kofola::spot_complement(const spot::twa_graph_ptr& aut)
 	spot::postprocessor p(&m);
 	p.set_type(spot::postprocessor::Generic);
 	p.set_pref(spot::postprocessor::Deterministic);
+	p.set_level(spot::postprocessor::Low);
 	
-	// Set postprocessor level based on params
+	auto det = p.run(std::const_pointer_cast<spot::twa_graph>(aut));
+	if (!det || !spot::is_universal(det))
+		return nullptr;
+
+	// Apply postprocessor to the dualized result if postp_l is specified
+	spot::twa_graph_ptr dualized = spot::dualize(det);
+
 	auto level_it = kofola::OPTIONS.params.find("postp_l");
 	if (level_it != kofola::OPTIONS.params.end()) {
+		spot::postprocessor p_post;
+		p_post.set_type(spot::postprocessor::Generic);
+
 		auto pp_level = spot::postprocessor::Low;
 		if (level_it->second == "high") {
 			pp_level = spot::postprocessor::High;
 		} else if (level_it->second == "medium") {
 			pp_level = spot::postprocessor::Medium;
 		}
-		p.set_level(pp_level);
+		p_post.set_level(pp_level);
+		dualized = p_post.run(dualized);
 	}
-	auto det = p.run(std::const_pointer_cast<spot::twa_graph>(aut));
-	if (!det || !spot::is_universal(det))
-		return nullptr;
 
-	return spot::dualize(det);
+	return dualized;
 }
