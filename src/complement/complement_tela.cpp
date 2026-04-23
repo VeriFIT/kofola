@@ -25,6 +25,11 @@
 #include <spot/twaalgos/complete.hh>
 #include <spot/twaalgos/isdet.hh>
 #include <spot/twaalgos/complement.hh>
+#include <spot/twaalgos/dualize.hh>
+#include <spot/twaalgos/alternation.hh>
+#include <spot/twaalgos/strength.hh>
+#include <spot/twaalgos/sccinfo.hh>
+#include <spot/twaalgos/cleanacc.hh>
 
 // standard library
 #include <queue>
@@ -59,8 +64,19 @@ spot::twa_graph_ptr kofola::apply_postprocessing(const spot::twa_graph_ptr& aut,
 		if(is_post_reduction_suitable(original_aut)) {
 			if(result->num_states() < 2000) {
 				p_post.set_type(spot::postprocessor::GeneralizedBuchi);
-			} 
-			p_post.set_level(spot::postprocessor::Low);
+			}
+			
+			// Set postprocessor level based on postp_l parameter
+			auto pp_level = spot::postprocessor::Low;
+			auto level_it = kofola::OPTIONS.params.find("postp_l");
+			if (level_it != kofola::OPTIONS.params.end()) {
+				if (level_it->second == "high") {
+					pp_level = spot::postprocessor::High;
+				} else if (level_it->second == "medium") {
+					pp_level = spot::postprocessor::Medium;
+				}
+			}
+			p_post.set_level(pp_level);
 			
 			result = p_post.run(result);
 		}
@@ -213,4 +229,60 @@ bool kofola::is_post_reduction_suitable(const spot::twa_graph_ptr& aut) {
 		return false;
 	}
 	return true;
+}
+
+spot::twa_graph_ptr kofola::spot_complement(const spot::twa_graph_ptr& aut)
+{
+	spot::twa_graph_ptr result = spot::complement(aut);
+
+	if (!aut->is_existential() || is_universal(aut))
+	{
+		spot::twa_graph_ptr res = spot::dualize(aut);
+		// There are cases with "t" acceptance that get converted to
+		// Büchi during completion, then dualized to co-Büchi, but the
+		// acceptance is still not used.  Try to clean it up in this
+		// case.
+		if (aut->num_sets() == 0 ||
+			// Also dualize removes sink states, but doesn't simplify
+			// the acceptance condition.
+			res->num_states() < aut->num_states())
+		spot::cleanup_acceptance_here(res);
+
+		return result;
+	}
+	if (spot::is_very_weak_automaton(aut))
+		// Removing alternation may need more acceptance sets than Spot
+		// supports.  When this happens res==nullptr and we fall back to
+		// determinization-based complementation.
+		if (spot::twa_graph_ptr res = spot::remove_alternation(spot::dualize(aut), false,
+															nullptr, false)) {
+																return result;
+															}
+	// Determinize
+	spot::option_map m;
+	
+	// In addition to the above options, the simulation-based
+	// optimization of the determinization is already restricted by
+	// the default values of simul-max and simul-trans-pruning.
+	// (See spot-x(7) for details.)
+	spot::postprocessor p(&m);
+	p.set_type(spot::postprocessor::Generic);
+	p.set_pref(spot::postprocessor::Deterministic);
+	
+	// Set postprocessor level based on params
+	auto level_it = kofola::OPTIONS.params.find("postp_l");
+	if (level_it != kofola::OPTIONS.params.end()) {
+		auto pp_level = spot::postprocessor::Low;
+		if (level_it->second == "high") {
+			pp_level = spot::postprocessor::High;
+		} else if (level_it->second == "medium") {
+			pp_level = spot::postprocessor::Medium;
+		}
+		p.set_level(pp_level);
+	}
+	auto det = p.run(std::const_pointer_cast<spot::twa_graph>(aut));
+	if (!det || !spot::is_universal(det))
+		return nullptr;
+
+	return spot::dualize(det);
 }
