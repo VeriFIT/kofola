@@ -1152,7 +1152,6 @@ namespace helpers {
                     }
 
                     curr_state_max_out[dst_scc]++;
-                    // scc_max_runs[dst_scc] += scc_max_runs[curr_scc];
                 }
                 for(unsigned dst_scc = 0; dst_scc < nc; ++dst_scc) {
                     if(curr_state_max_out[dst_scc] > 0) {
@@ -1160,6 +1159,7 @@ namespace helpers {
                     }
                 }
             }
+
             for(unsigned dst_scc = 0; dst_scc < nc; ++dst_scc) {
                 if(max_from_single_state[dst_scc] > 0) {
                     scc_max_runs[dst_scc] += max_from_single_state[dst_scc];
@@ -1191,6 +1191,16 @@ namespace helpers {
                 max_runs += scc_max_runs[scc];
             }
         }
+
+        // Count the number of states in the partition
+        unsigned num_states_in_partition = 0;
+        for(unsigned state = 0; state < info.aut_->num_states(); ++state) {
+            if(info.st_to_part_map_.at(state) == part_index) {
+                num_states_in_partition++;
+            }
+        }
+
+        max_runs = std::min(max_runs, num_states_in_partition); // the number of runs cannot be larger than the number of states in the partition
 
         DEBUG_PRINT_LN("Max runs in partition " + std::to_string(part_index) + ": " + std::to_string(max_runs));
 
