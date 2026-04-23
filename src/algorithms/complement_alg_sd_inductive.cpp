@@ -317,7 +317,12 @@ std::vector<std::pair<check_macrostate, NodeContext>> check_macrostate::get_succ
 
   NodeContext context_sent = parent_context;
   NodeContext actual_node_context = this->node_value().get_context();
-  bool is_scope_root = actual_node_context.is_scope_root(parent_context);
+  // In inf_tree_shb mode every And-node with its own SHB context is an independent
+  // scope root, even when nested inside another SHB scope.  The standard
+  // is_scope_root() check prevents this because it requires the parent to be NONE.
+  bool is_scope_root = (this->opts_ && this->opts_->use_inf_tree_shared_breakpoint)
+    ? actual_node_context.is_shared_breakpoint()
+    : actual_node_context.is_scope_root(parent_context);
   if (is_scope_root) {
     context_sent = this->node_value().get_succ_context(resample);
     actual_node_context = context_sent;
@@ -352,6 +357,14 @@ std::vector<std::pair<check_macrostate, NodeContext>> check_macrostate::get_succ
   }
 
   if (node_type == TreeType::Or) {
+    // In inf_tree_shb mode, each And-node scope is independent.  SHB context must
+    // not bleed through Or nodes: Inf leaves under Or nodes need the standard
+    // per-leaf breakpoint mechanism, and nested And nodes must see NONE as their
+    // parent context so that is_scope_root fires correctly.
+    if (this->opts_ && this->opts_->use_inf_tree_shared_breakpoint) {
+      context_sent = NodeContext{};
+    }
+
     // OR-FIN optimization: when the left subtree contains only FIN leaves (no inner Or
     // nodes), send ALL check_states to the left subtree with collect_violating=true.
     // States that fire a Fin-colored transition are collected as "violating" and are
