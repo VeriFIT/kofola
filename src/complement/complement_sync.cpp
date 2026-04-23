@@ -1195,7 +1195,7 @@ namespace helpers {
         // Count the number of states in the partition
         unsigned num_states_in_partition = 0;
         for(unsigned state = 0; state < info.aut_->num_states(); ++state) {
-            if(info.st_to_part_map_.at(state) == part_index) {
+            if(info.st_to_part_map_.at(state) == static_cast<int>(part_index)) {
                 num_states_in_partition++;
             }
         }
