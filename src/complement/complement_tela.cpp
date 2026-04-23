@@ -64,7 +64,7 @@ spot::twa_graph_ptr kofola::apply_postprocessing(const spot::twa_graph_ptr& aut,
 		if(is_post_reduction_suitable(original_aut)) {
 			if(result->num_states() < 2000) {
 				p_post.set_type(spot::postprocessor::GeneralizedBuchi);
-			}
+			} 
 			p_post.set_level(spot::postprocessor::Low);
 			
 			result = p_post.run(result);

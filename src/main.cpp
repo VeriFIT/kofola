@@ -340,7 +340,6 @@ int main(int argc, char *argv[])
         return EXIT_SUCCESS;
     }
 
-	// kofola's complementation
 	for (const std::string& input_filename : options.filenames) {
 		spot::parsed_aut_ptr parsed_aut = nullptr;
 		try {
