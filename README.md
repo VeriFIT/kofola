@@ -85,6 +85,7 @@ The complementation and the inclusion checking might be adjusted by the followin
 | `sh-break` | `yes`,`no`  | Enable shared breakpoint across partial algorithms; when `yes` partial algorithms that support shared breakpoints propagate a common breakpoint across partitions |
 | `tela_det_alg` | `inductive`, `dnf-tela` | Algorithm selection for complementing deterministic TELA components (default `dnf-tela`) | 
 | `sd_ind_sh_break` | `yes`, `no` | Shared breakpoint for inductive TELA procedure (assumes `tela_det_alg=inductive`) |
+| `postp_l` | `low`, `medium`, `high` | postprocessing level applied to the result of complementation (used for both - spot's and kofola's implementation)
 
 ## Testing
 

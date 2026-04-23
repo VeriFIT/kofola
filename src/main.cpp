@@ -185,6 +185,7 @@ int process_args(int argc, char *argv[], kofola::options* params)
 	// command
 	args::Group operation_group(parser, "Operation:", args::Group::Validators::AtMostOne);
 	args::Flag complement_flag(operation_group, "complement", "complement the inputs (default)", {"complement"});
+	args::Flag spot_complement_flag(operation_group, "spot_complement", "complement the inputs using Spot", {"spot_complement"});
 	args::Flag det_flag(operation_group, "det", "determinize the inputs", {"det"});
 	args::Flag type_flag(operation_group, "type", "print out types of the inputs", {"type"});
 	args::Flag scc_types_flag(operation_group, "scc-types", "print out types of SCCs in the inputs", {"scc-types"});
@@ -199,8 +200,8 @@ int process_args(int argc, char *argv[], kofola::options* params)
 	args::Flag debug_flag(misc_group, "debug", "output debugging information", {'d', "debug"});
 	args::ValueFlag<std::string> params_flag(misc_group, "params",
 	                                         "string with ';'-separated parameters of the form 'key=value' "
-	                                         "(or just 'key' for yes/no flags), e.g. for inclusion, "
-	                                         "'early_sim=yes;early_plus_sim=yes;dir_sim=yes;gfee=yes;'",
+	                                         "(or just 'key' for yes/no flags), e.g. 'postp_l=high;' for postprocessor level, "
+	                                         "or for inclusion 'early_sim=yes;early_plus_sim=yes;dir_sim=yes;gfee=yes;'",
 	                                         {"params"});
 
     try {
@@ -249,6 +250,8 @@ int process_args(int argc, char *argv[], kofola::options* params)
         params->operation = "inclusion";
 	} else if (to_elev_flag) {
 		params->operation = "elevatorization";
+	} else if (spot_complement_flag) {
+		params->operation = "spot_complement";
     } else { // default
 		params->operation = "complement";
 	}
@@ -337,6 +340,7 @@ int main(int argc, char *argv[])
         return EXIT_SUCCESS;
     }
 
+	// kofola's complementation
 	for (const std::string& input_filename : options.filenames) {
 		spot::parsed_aut_ptr parsed_aut = nullptr;
 		try {
@@ -358,6 +362,13 @@ int main(int argc, char *argv[])
 
 					spot::print_hoa(std::cout, result);
 					std::cout << "\n";
+				} else if(options.operation == "spot_complement") {
+					spot::twa_graph_ptr result = kofola::spot_complement(aut);
+					
+					if (result) {
+						spot::print_hoa(std::cout, result);
+						std::cout << "\n";
+					}
 				} else if (options.operation == "type") {
 					assert(false);
 				} else if (options.operation == "determinize") {
