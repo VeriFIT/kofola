@@ -67,6 +67,45 @@ def bdd_to_str(bdd_val, d) -> str:
     return str(spot.bdd_to_formula(bdd_val, d))
 
 
+def condition_to_str(cond, d) -> str:
+    """Convert a trace condition to text, preserving pre-rendered labels."""
+    if isinstance(cond, str):
+        return cond
+    return bdd_to_str(cond, d)
+
+
+def _parse_product_state(product_aut, state) -> tuple:
+    """Return the integer component-state numbers encoded in a Spot product state."""
+    formatted = product_aut.format_state(state)
+    parts = [part.strip() for part in formatted.split(",")]
+    if len(parts) != 2:
+        raise RuntimeError(f"Unexpected product state format: {formatted!r}")
+
+    try:
+        return (int(parts[0]), int(parts[1]))
+    except ValueError as exc:
+        raise RuntimeError(f"Could not parse product state numbers from {formatted!r}") from exc
+
+
+def project_product_run(product_aut, run) -> tuple:
+    """Project a product accepting run to the first component automaton trace."""
+    d = product_aut.get_dict()
+    prefix_trace = [
+        (_parse_product_state(product_aut, step.s)[0], condition_to_str(step.label, d), step.acc)
+        for step in run.prefix
+    ]
+    cycle_trace = [
+        (_parse_product_state(product_aut, step.s)[0], condition_to_str(step.label, d), step.acc)
+        for step in run.cycle
+    ]
+
+    if not cycle_trace:
+        raise RuntimeError("Accepting product run has an empty cycle.")
+
+    cycle_entry = cycle_trace[0][0]
+    return prefix_trace, cycle_trace, cycle_entry
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Word replay
 # ──────────────────────────────────────────────────────────────────────────────
@@ -162,28 +201,32 @@ def find_violation(kofola_comp, spot_comp, original_aut):
 
     Returns
     -------
-    (direction, word)
+    (direction, word, projected_trace)
         direction : "over_approx"  – kofola over-approximates the correct language
                                      (accepts a word in L(original_aut))
                     "under_approx" – kofola under-approximates the correct language
                                      (rejects a word not in L(original_aut))
         word      : spot.twa_word for the violating word
+        projected_trace : projected kofola-side run trace for over-approx, else None
     """
-    # Case 1: kofola_comp ∩ L(aut) ≠ ∅ → complement over-approximates
+    # Case 1: kofola_comp ∩ L(aut) ≠ ∅ → complement over-approximates.
+    # Ask Spot for a witness from the actual intersection language, not from an
+    # automaton derived from one accepting run of the product.
     prod = spot.product(kofola_comp, original_aut)
     if not prod.is_empty():
-        # Get a word via accepting run in the product
         run = prod.accepting_run()
-        if run:
-            word = run.as_twa().exclusive_word(spot.complement(original_aut))
-            if word is None:
-                # Fallback: use exclusive_word between the two complements
-                word = kofola_comp.exclusive_word(spot_comp)
-            return ("over_approx", word)
+        if run is not None:
+            word = run.as_twa().accepting_word()
+            return ("over_approx", word, project_product_run(prod, run))
 
-    # Case 2: kofola_comp rejects a word in the complement → under-approximates
-    word = kofola_comp.exclusive_word(spot_comp)
-    return ("under_approx", word)
+        word = prod.accepting_word()
+        if word is not None:
+            return ("over_approx", word, None)
+
+    # Case 2: kofola_comp misses a word from the correct complement →
+    # under-approximates.  The witness must come from L(spot_comp) \ L(kofola).
+    word = spot_comp.exclusive_word(kofola_comp)
+    return ("under_approx", word, None)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -218,7 +261,7 @@ def print_text_visualization(aut, prefix_trace, cycle_trace, cycle_entry, direct
     col_w = 6  # column width for step index
 
     def fmt_step(idx, kind, src, bdd_cond, acc):
-        label   = bdd_to_str(bdd_cond, d)
+        label   = condition_to_str(bdd_cond, d)
         msname  = get_state_name(aut, src)
         acc_str = str(acc) if acc else "{}"
         return (
@@ -303,11 +346,15 @@ def generate_dot(aut, prefix_trace, cycle_trace, cycle_entry) -> str:
     init = aut.get_init_state_number()
     lines.append(f'  I -> s{init};')
 
-    # Emit prefix transitions
-    for (src, bdd_cond, acc) in prefix_trace:
-        # find dst from the aut
-        dst = _find_transition(aut, src, bdd_cond)[0]
-        cond_str = bdd_to_str(bdd_cond, d).replace('"', '\\"')
+    # Emit prefix transitions.
+    # The trace order already determines destinations, which keeps projected
+    # product runs stable even when the kofola automaton is nondeterministic.
+    for i, (src, bdd_cond, acc) in enumerate(prefix_trace):
+        if i + 1 < len(prefix_trace):
+            dst = prefix_trace[i + 1][0]
+        else:
+            dst = cycle_trace[0][0] if cycle_trace else cycle_entry
+        cond_str = condition_to_str(bdd_cond, d).replace('"', '\\"')
         edge_lbl = f"{cond_str}{acc_label(acc)}"
         lines.append(f'  s{src} -> s{dst} [label="{edge_lbl}", color=blue];')
 
@@ -317,7 +364,7 @@ def generate_dot(aut, prefix_trace, cycle_trace, cycle_entry) -> str:
             dst = cycle_trace[i + 1][0]
         else:
             dst = cycle_entry  # loop back
-        cond_str = bdd_to_str(bdd_cond, d).replace('"', '\\"')
+        cond_str = condition_to_str(bdd_cond, d).replace('"', '\\"')
         edge_lbl = f"{cond_str}{acc_label(acc)}"
         lines.append(f'  s{src} -> s{dst} [label="{edge_lbl}", color=red];')
 
@@ -417,7 +464,7 @@ def main() -> int:
     # ── Find violation ─────────────────────────────────────────────────────────
     print("\nSearching for a violating word…")
     try:
-        direction, word = find_violation(kofola_comp, spot_comp, original_aut)
+        direction, word, projected_trace = find_violation(kofola_comp, spot_comp, original_aut)
     except Exception as e:
         print(f"ERROR finding violation: {e}", file=sys.stderr)
         return 2
@@ -429,40 +476,44 @@ def main() -> int:
     print(f"Violating word : {word}")
 
     # ── Replay on kofola automaton ─────────────────────────────────────────────
-    print("Replaying word on kofola raw automaton…")
-    try:
-        prefix_trace, cycle_trace, cycle_entry = replay_word(kofola_comp, word)
-    except RuntimeError as e:
-        print(f"ERROR replaying word: {e}", file=sys.stderr)
-        print(
-            "This usually means the kofola complement did not actually accept "
-            "the word—check that the direction detection is correct.",
-            file=sys.stderr,
-        )
-        # Fall back: try finding run directly in kofola_comp
-        print("Attempting to find any accepting run in kofola_comp as fallback…")
+    if direction == "over_approx" and projected_trace is not None:
+        print("Projecting accepting product run to kofola raw automaton…")
+        prefix_trace, cycle_trace, cycle_entry = projected_trace
+    else:
+        print("Replaying word on kofola raw automaton…")
         try:
-            run = kofola_comp.accepting_run()
-            if run is None:
-                print("No accepting run found (automaton may be empty).", file=sys.stderr)
-                return 2
-            # Build artificial word from this run
-            print("Visualizing a generic accepting run in kofola complement:")
-            prefix_trace = [
-                (kofola_comp.state_number(s.s), s.label, s.acc)
-                for s in run.prefix
-            ]
-            cycle_trace = [
-                (kofola_comp.state_number(s.s), s.label, s.acc)
-                for s in run.cycle
-            ]
-            cycle_entry = kofola_comp.state_number(list(run.cycle)[0].s) if run.cycle else 0
+            prefix_trace, cycle_trace, cycle_entry = replay_word(kofola_comp, word)
+        except RuntimeError as e:
+            print(f"ERROR replaying word: {e}", file=sys.stderr)
+            print(
+                "This usually means the kofola complement did not actually accept "
+                "the word—check that the direction detection is correct.",
+                file=sys.stderr,
+            )
+            # Fall back: try finding run directly in kofola_comp
+            print("Attempting to find any accepting run in kofola_comp as fallback…")
+            try:
+                run = kofola_comp.accepting_run()
+                if run is None:
+                    print("No accepting run found (automaton may be empty).", file=sys.stderr)
+                    return 2
+                # Build artificial word from this run
+                print("Visualizing a generic accepting run in kofola complement:")
+                prefix_trace = [
+                    (kofola_comp.state_number(s.s), s.label, s.acc)
+                    for s in run.prefix
+                ]
+                cycle_trace = [
+                    (kofola_comp.state_number(s.s), s.label, s.acc)
+                    for s in run.cycle
+                ]
+                cycle_entry = kofola_comp.state_number(list(run.cycle)[0].s) if run.cycle else 0
 
-            # In fallback mode the BDD columns are already proper BDDs from the run
-            print_text_visualization(kofola_comp, prefix_trace, cycle_trace, cycle_entry, direction)
-        except Exception as e2:
-            print(f"Fallback also failed: {e2}", file=sys.stderr)
-        return 2
+                # In fallback mode the BDD columns are already proper BDDs from the run
+                print_text_visualization(kofola_comp, prefix_trace, cycle_trace, cycle_entry, direction)
+            except Exception as e2:
+                print(f"Fallback also failed: {e2}", file=sys.stderr)
+            return 2
 
     # ── Visualize ──────────────────────────────────────────────────────────────
     print_text_visualization(kofola_comp, prefix_trace, cycle_trace, cycle_entry, direction)
