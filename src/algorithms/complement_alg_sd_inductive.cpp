@@ -43,15 +43,44 @@ check_macrostate assign_leaf_ids(const check_macrostate& tree, unsigned& next_id
 }
 
 /**
+ * @brief Internal helper for initializing `NodeContext` payloads inside a check tree.
+ *
+ * @param tree   Check tree to update in-place.
+ * @param opts   Options controlling whether shared-breakpoint contexts are used.
+ * @param is_root Whether this node is the root of the entire tree.
+ *
+ * @warning Same caveats apply as in `init_contexts_in_tree()`.
+ */
+static void init_contexts_in_tree_impl(check_macrostate& tree, options_ptr opts, bool is_root) {
+  if (tree.is_leaf()) {
+    return;
+  }
+
+  auto& base = static_cast<base_tree&>(tree);
+  init_contexts_in_tree_impl(static_cast<check_macrostate&>(base.left()), opts, false);
+  init_contexts_in_tree_impl(static_cast<check_macrostate&>(base.right()), opts, false);
+
+  // if root_shb, only root gets the shared-breakpoint context; if inf_tree_shb, every internal And-node gets a shared-breakpoint context
+  if ( (opts->use_root_shared_breakpoint && is_root) || opts->use_inf_tree_shared_breakpoint ) {
+    NodeContext ctx = NodeContext::create_subtree_sh_context(tree.type(), tree, opts->use_inf_tree_shared_breakpoint);
+    tree.node_value().set_context(ctx);
+  }
+}
+
+/**
  * @brief Initialize (or re-initialize) `NodeContext` payloads inside a check tree.
  *
- * When shared-breakpoint mode is enabled (`opts->use_shared_breakpoint == true`),
- * each internal node's `NodeContext` is recomputed from the subtree so that it
- * references the current set of `Inf` leaf IDs.
+ * Supports two mutually exclusive shared-breakpoint modes:
+ * - **Root-only mode** (`opts->use_root_shared_breakpoint == true`): computes the 
+ *   root internal node's `NodeContext` from the subtree to reference the current 
+ *   set of `Inf` leaf IDs. Non-root nodes do not receive shared-breakpoint contexts.
+ * - **Inf-tree mode** (`opts->use_inf_tree_shared_breakpoint == true`): computes 
+ *   `NodeContext` for every internal And-node in the tree, enabling per-subtree 
+ *   shared-breakpoint tracking.
  *
  * @param tree Check tree to update in-place.
- * @param opts Options controlling whether shared-breakpoint contexts are used.
- *             Must be non-null.
+ * @param opts Options controlling whether, and which shared-breakpoint strategy is used.
+ *             Must be non-null and valid (both modes cannot be enabled simultaneously).
  *
  * @warning This function traverses children by casting `base_tree::left()/right()`
  *          to `check_macrostate&`. The underlying tree stores children as
@@ -62,19 +91,7 @@ check_macrostate assign_leaf_ids(const check_macrostate& tree, unsigned& next_id
  *          traversal.
  */
 void init_contexts_in_tree(check_macrostate& tree, options_ptr opts) {
-  if (tree.is_leaf()) {
-    return;
-  }
-
-  auto& base = static_cast<base_tree&>(tree);
-  init_contexts_in_tree(static_cast<check_macrostate&>(base.left()), opts);
-  init_contexts_in_tree(static_cast<check_macrostate&>(base.right()), opts);
-
-  if (opts->use_shared_breakpoint) {
-    NodeContext ctx = NodeContext::create_subtree_sh_context(tree.type(), tree);
-    tree.node_value().set_context(ctx);
-  }
-  
+  init_contexts_in_tree_impl(tree, opts, true);
 }
 
 /**
@@ -335,6 +352,14 @@ std::vector<std::pair<check_macrostate, NodeContext>> check_macrostate::get_succ
   }
 
   if (node_type == TreeType::Or) {
+    // In inf_tree_shb mode, each And-node scope is independent.  SHB context must
+    // not bleed through Or nodes: Inf leaves under Or nodes need the standard
+    // per-leaf breakpoint mechanism, and nested And nodes must see NONE as their
+    // parent context so that is_scope_root fires correctly.
+    if (this->opts_ && this->opts_->use_inf_tree_shared_breakpoint) {
+      context_sent = NodeContext{};
+    }
+
     // OR-FIN optimization: when the left subtree contains only FIN leaves (no inner Or
     // nodes), send ALL check_states to the left subtree with collect_violating=true.
     // States that fire a Fin-colored transition are collected as "violating" and are
@@ -366,12 +391,20 @@ std::vector<std::pair<check_macrostate, NodeContext>> check_macrostate::get_succ
 
         for (const auto& [right_tree, right_node_ctx] : right_succ) {
           // Propagate any further violations from right up to the parent.
-          NodeContext out_ctx{};
-          out_ctx.violating_states = right_node_ctx.violating_states;
-          out_ctx.violating_predecessors = right_node_ctx.violating_predecessors;
+          NodeContext local = actual_node_context;
+
+          NodeContext merge = left_node_ctx.union_contexts(right_node_ctx);
+          merge.violating_states = right_node_ctx.violating_states;
+          merge.violating_predecessors = right_node_ctx.violating_predecessors;
+
+          if (is_scope_root) {
+            if (!merge.is_none()) local = merge;
+            merge = NodeContext{};
+          }
+
           auto combined = check_macrostate::make(this->opts_, TreeType::Or,
-            left_restricted, right_tree, actual_node_context);
-          out.insert({combined.reduce(), out_ctx});
+            left_restricted, right_tree, local);
+          out.insert({combined.reduce(), merge});
         }
       }
       return std::vector<std::pair<check_macrostate, NodeContext>>(out.begin(), out.end());
@@ -790,7 +823,7 @@ std::vector<std::pair<check_macrostate, NodeContext>> inf_leaf::get_succ(
   std::set<unsigned> succ_break {};
 
 
-  if (opts && opts->use_shared_breakpoint && context.is_shared_breakpoint()) {
+  if (opts && opts->use_shared_breakpoint() && context.is_shared_breakpoint()) {
     if (!context.targets_leaf(this->id)) {
       return {{check_macrostate::inf(std::move(opts), std::move(succs), std::move(succ_break), this->color, this->id), NodeContext{}}};
     }
@@ -886,9 +919,11 @@ complement_sd_inductive::complement_sd_inductive(const cmpl_info& info, unsigned
   spot::acc_cond::acc_code acc = this->info_.part_to_acc_map_.at(part_index_).get_acceptance();
   this->acc_cond_ = acc.complement();
   this->opts_ = std::make_shared<sd_inductive::options>(sd_inductive::options{
-    .use_shared_breakpoint = (kofola::OPTIONS.params["sd_ind_sh_break"] == "yes"),
+    .use_root_shared_breakpoint = (kofola::OPTIONS.params["sd_ind_sh_break"] == "root"),
+    .use_inf_tree_shared_breakpoint = (kofola::OPTIONS.params["sd_ind_sh_break"] == "inf_tree"),
     .use_or_fin_opt = (kofola::OPTIONS.params["sd_ind_or_opt"] == "yes")
   });
+  assert(this->opts_->is_valid() && "options: both breakpoint types cannot be enabled simultaneously");
 }
 
 /**
