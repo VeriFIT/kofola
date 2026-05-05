@@ -183,9 +183,9 @@ mstate_col_set complement_init_almost_det::get_succ_track(
 
       g[i] = t.dst;
       defined_runs.insert(t.dst);
+      i++;
       break; // only one successor in the same deterministic SCC
     }
-    i++; // always increase i to keep the order of runs in the mapping, even if some runs are disconnected
   }
 
   const auto& sccs_in_part = this->info_.part_to_scc_map_.at(this->part_index_);
