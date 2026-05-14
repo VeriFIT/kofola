@@ -69,12 +69,6 @@ namespace kofola
         /// used by gs_edited to guess no further exploration (based on thesis)
         bool check_simul_less(const std::shared_ptr<inclusion_mstate> &dst_mstate);
 
-        /// @brief 
-        /// @return 
-        bool is_sgra(spot::acc_cond code) {
-            return code.uses_fin_acceptance(); // this is enough for the KOFOLA
-        }
-
     private:
         inclusion_check *incl_checker_; /// instance of abstract_successor that provides states and transitions
         // unsigned cnt_ = 0; /// number of states, for benchmarks

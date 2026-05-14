@@ -68,7 +68,7 @@ namespace kofola {
                     empty = gs(entry, fin_mark);
                 if(!empty){
                     #ifdef ENABLE_COUNTER
-                        std::cout << cnt_ << "\n";
+                        std::cout << "States: " << cnt_ << "\n";
                     #endif
                     return false;
                 }
@@ -77,7 +77,7 @@ namespace kofola {
         }
 
         #ifdef ENABLE_COUNTER
-            std::cout << cnt_ << "\n";
+            std::cout << "States: " << cnt_ << "\n";
         #endif
         return true;
     }
@@ -106,7 +106,7 @@ namespace kofola {
 
     bool emptiness_check::gs_edited(std::shared_ptr<inclusion_mstate> src_mstate) {
         #ifdef ENABLE_COUNTER
-            cnt_ = 1;
+            cnt_++;
         #endif
         
         // stacks to replace recursion
@@ -230,7 +230,7 @@ namespace kofola {
 
     bool emptiness_check::gs(std::shared_ptr<inclusion_mstate> src_mstate, spot::acc_cond::mark_t fin_mark) {
         #ifdef ENABLE_COUNTER
-            cnt_ = 1;
+            cnt_++;
         #endif
         // stacks to replace recursion
         std::stack<std::shared_ptr<inclusion_mstate>> src_mstates;
