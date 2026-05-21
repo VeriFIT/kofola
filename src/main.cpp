@@ -54,6 +54,9 @@ void output_scc_info(spot::twa_graph_ptr aut)
   unsigned num_max_iwcs_states = 0;
   unsigned num_acciwcs_states = 0;
   unsigned num_max_acciwcs_states = 0;
+  unsigned num_iadacs = 0;
+  unsigned num_iadacs_states = 0;
+  unsigned num_max_iadacs_states = 0;
   unsigned num_dacs = 0;
   unsigned num_dacs_states = 0;
   unsigned num_max_dacs_states = 0;
@@ -78,21 +81,43 @@ void output_scc_info(spot::twa_graph_ptr aut)
       num_max_acciwcs_states = std::max(num_max_acciwcs_states, num);
     }
 
-    if (helpers::is_accepting_detscc(types, sc))
+	if (!helpers::is_accepting_scc(types, sc))
+	{
+		continue;
+	}
+
+	// Keep category checks in the same order as complement partitioning.
+	if (helpers::is_accepting_weakscc(types, sc))
+	{
+		continue;
+	}
+	if (helpers::is_accepting_initial_almost_detscc(types, sc))
+	{
+		num_iadacs_states += num;
+		num_iadacs++;
+		num_max_iadacs_states = std::max(num_max_iadacs_states, num);
+		continue;
+	}
+	if (helpers::is_accepting_detscc(types, sc))
     {
       num_dacs_states += num;
       num_dacs++;
       num_max_dacs_states = std::max(num_max_dacs_states, num);
+			continue;
     }
     if (helpers::is_accepting_nondetscc(types, sc))
     {
       num_nacs_states += num;
       num_nacs++;
       num_max_nacs_states = std::max(num_max_nacs_states, num);
+			continue;
     }
+
+	throw std::runtime_error("Invalid accepting SCC on the input");
   }
   std::cout << "Number of IWCs: " << num_iwcs << " with " << num_iwcs_states << " states, in which max IWC with " << num_max_iwcs_states << " states\n";
   std::cout << "Number of ACC_IWCs: " << num_acc_iwcs << " with " << num_acciwcs_states << " states, in which max IWC with " << num_max_acciwcs_states << " states\n";
+  std::cout << "Number of IADACs: " << num_iadacs << " with " << num_iadacs_states << " states, in which max IADAC with " << num_max_iadacs_states << " states\n";
   std::cout << "Number of DACs: " << num_dacs << " with " << num_dacs_states << " states, in which max DAC with " << num_max_dacs_states << " states\n";
   std::cout << "Number of NACs: " << num_nacs << " with " << num_nacs_states << " states, in which max NAC with " << num_max_nacs_states << " states\n";
 }
