@@ -359,7 +359,7 @@ int main(int argc, char *argv[])
 					spot::print_hoa(std::cout, result);
 					std::cout << "\n";
 				} else if (options.operation == "type") {
-					assert(false);
+					output_scc_info(aut);
 				} else if (options.operation == "determinize") {
 					spot::twa_graph_ptr result = kofola::determinize_tela(aut);
 
