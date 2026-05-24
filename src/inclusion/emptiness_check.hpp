@@ -42,15 +42,16 @@ namespace kofola
 
         void update_structures(const std::shared_ptr<inclusion_mstate>& src_mstate);
 
+
+        bool gen_rabin(std::shared_ptr<inclusion_mstate> src_mstate, spot::acc_cond::mark_t fin_mark);
+
         /// implements the edited Gaiser and Schwoon algorithm suggested in the thesis
         /// path_cond can be omitted
-        /// TODO too deep of a recursion can cause mem. problems, rewrite to iteration
         bool gs_edited(std::shared_ptr<inclusion_mstate> src_mstate);
 
         /// implements Gaiser and Schwoon algorithm, with the possibility of subsumptions usage
         /// path_cond can be omitted
-        /// TODO too deep of a recursion can cause mem. problems, rewrite to iteration
-        bool gs(std::shared_ptr<inclusion_mstate> src_mstate);
+        bool gs(std::shared_ptr<inclusion_mstate> src_mstate, spot::acc_cond::mark_t fin_mark);
 
         /// decides whether there is a state p on the searchpath such that src_mstate is simul. (early or +1) less than p,
         /// without seeing acc. trans. if yes => true
@@ -83,11 +84,16 @@ namespace kofola
 
         /// GS algorithm variables
         std::map<std::shared_ptr<inclusion_mstate>, signed, shared_ptr_comparator> dfs_num_;
+        std::map<std::shared_ptr<inclusion_mstate>, signed, shared_ptr_comparator> lowlink_;
         std::map<std::shared_ptr<inclusion_mstate>, bool, shared_ptr_comparator> on_stack_;
         signed index_ = 0;
         std::vector<std::shared_ptr<inclusion_mstate>> tarjan_stack_;
         std::stack<std::shared_ptr<inclusion_mstate>> SCCs_;
         /// end of GS algorithm variables
+
+        std::unordered_map<unsigned int, std::vector<unsigned int>> infs_pos_; 
+        std::vector<unsigned int> fin_pos_;
+        std::map<std::shared_ptr<inclusion_mstate>, spot::acc_cond::mark_t, shared_ptr_comparator> prefix_;
 
         std::vector<std::pair<std::shared_ptr<inclusion_mstate>, spot::acc_cond::mark_t>> dfs_acc_stack_; /// this stack could probably be omitted and use SCCs_ instead
 
@@ -97,6 +103,8 @@ namespace kofola
         /// to stop searching when counter-example
         bool decided_ = false;
         bool empty_ = true;
+
+        std::vector<std::shared_ptr<inclusion_mstate>> entry_states_; /// states to start the search from
 
         /// to know if early(+1) prunning should be used
         bool early_prune_ = false;
