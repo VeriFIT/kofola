@@ -36,6 +36,9 @@ spot::twa_graph_ptr complement_deterministic(const spot::twa_graph_ptr& aut);
 /// applies postprocessing to an automaton based on configuration parameters
 spot::twa_graph_ptr apply_postprocessing(const spot::twa_graph_ptr& aut, const spot::twa_graph_ptr& original_aut);
 
+/// complements using Spot's built-in complement algorithm (essentially copy-paste from spot)
+spot::twa_graph_ptr spot_complement(const spot::twa_graph_ptr& aut);
+
 /// complements a TELA using the synchronous algorithm (cf. paper)
 spot::twa_graph_ptr complement_sync(const spot::twa_graph_ptr& aut);
 

@@ -210,6 +210,7 @@ int process_args(int argc, char *argv[], kofola::options* params)
 	// command
 	args::Group operation_group(parser, "Operation:", args::Group::Validators::AtMostOne);
 	args::Flag complement_flag(operation_group, "complement", "complement the inputs (default)", {"complement"});
+	args::Flag spot_complement_flag(operation_group, "spot_complement", "complement the inputs using Spot", {"spot_complement"});
 	args::Flag det_flag(operation_group, "det", "determinize the inputs", {"det"});
 	args::Flag type_flag(operation_group, "type", "print out types of the inputs", {"type"});
 	args::Flag scc_types_flag(operation_group, "scc-types", "print out types of SCCs in the inputs", {"scc-types"});
@@ -274,6 +275,8 @@ int process_args(int argc, char *argv[], kofola::options* params)
         params->operation = "inclusion";
 	} else if (to_elev_flag) {
 		params->operation = "elevatorization";
+	} else if (spot_complement_flag) {
+		params->operation = "spot_complement";
     } else { // default
 		params->operation = "complement";
 	}
@@ -383,6 +386,13 @@ int main(int argc, char *argv[])
 
 					spot::print_hoa(std::cout, result);
 					std::cout << "\n";
+				} else if(options.operation == "spot_complement") {
+					spot::twa_graph_ptr result = kofola::spot_complement(aut);
+					
+					if (result) {
+						spot::print_hoa(std::cout, result);
+						std::cout << "\n";
+					}
 				} else if (options.operation == "type") {
 					output_scc_info(aut);
 				} else if (options.operation == "determinize") {
