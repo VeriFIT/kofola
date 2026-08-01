@@ -44,8 +44,20 @@ options kofola::OPTIONS;
 
 namespace helpers
 {
+
+namespace
+{
+  // Which notion of elevator automaton to check: the classical one
+  // only accepts SCCs that are deterministic or inherently weak; the
+  // Emerson-Lei one (ELEA) additionally accepts SCCs that are
+  // generalized co-Buchi.
+  enum class elevator_kind { classic, emerson_lei };
+
+  // Shared scaffolding for is_elevator_automaton() and
+  // is_emerson_lei_elevator_automaton().
   bool
-  is_elevator_automaton(const spot::const_twa_graph_ptr &aut)
+  is_elevator_automaton_aux(const spot::const_twa_graph_ptr &aut,
+                            elevator_kind kind)
   {
     // Universal branching is not handled by is_deterministic_scc(),
     // so alternating automata are never considered elevator automata
@@ -65,17 +77,26 @@ namespace helpers
     unsigned nc = si.scc_count();
     for (unsigned scc = 0; scc < nc; ++scc)
     {
-      if (is_deterministic_scc(scc, si) || spot::is_inherently_weak_scc(si, scc))
+      bool ok = is_deterministic_scc(scc, si)
+        || spot::is_inherently_weak_scc(si, scc);
+      if (!ok && kind == elevator_kind::emerson_lei)
       {
-          continue;
+          ok = is_generalized_co_buchi_scc(scc, si);
       }
-      return false;
+      if (!ok)
+      {
+          return false;
+      }
     }
     return true;
   }
 
+  // Same scaffolding as above, but working off a precomputed per-SCC
+  // type bitmask (see get_scc_types()) instead of computing
+  // properties directly from an scc_info.
   bool
-  is_elevator_automaton(const spot::scc_info &scc, std::string& scc_str)
+  is_elevator_automaton_aux(const spot::scc_info &scc, std::string& scc_str,
+                            elevator_kind kind)
   {
     // Same convention as the const_twa_graph_ptr overload above.
     if (!scc.get_aut()->is_existential())
@@ -85,14 +106,31 @@ namespace helpers
 
     for (unsigned sc = 0; sc < scc.scc_count(); ++sc)
     {
-      if ((scc_str[sc]&SCC_INSIDE_DET_TYPE) > 0
-      || (scc_str[sc]&SCC_WEAK_TYPE) > 0)
+      char type = scc_str[sc];
+      bool ok = (type & SCC_INSIDE_DET_TYPE) > 0 || (type & SCC_WEAK_TYPE) > 0;
+      if (!ok && kind == elevator_kind::emerson_lei)
       {
-          continue;
+          ok = (type & SCC_GEN_CO_BUCHI_TYPE) > 0;
       }
-      return false;
+      if (!ok)
+      {
+          return false;
+      }
     }
     return true;
+  }
+} // anonymous namespace
+
+  bool
+  is_elevator_automaton(const spot::const_twa_graph_ptr &aut)
+  {
+    return is_elevator_automaton_aux(aut, elevator_kind::classic);
+  }
+
+  bool
+  is_elevator_automaton(const spot::scc_info &scc, std::string& scc_str)
+  {
+    return is_elevator_automaton_aux(scc, scc_str, elevator_kind::classic);
   }
 
   bool
@@ -107,50 +145,13 @@ namespace helpers
   bool
   is_emerson_lei_elevator_automaton(const spot::const_twa_graph_ptr &aut)
   {
-    // Same convention as is_elevator_automaton() regarding
-    // alternation.
-    if (!aut->is_existential())
-    {
-        return false;
-    }
-
-    spot::scc_info si(aut);
-    // Same rationale as is_elevator_automaton(): resolve ambiguous
-    // Fin/Inf acceptance before checking inherent weakness.
-    si.determine_unknown_acceptance();
-    unsigned nc = si.scc_count();
-    for (unsigned scc = 0; scc < nc; ++scc)
-    {
-      if (is_deterministic_scc(scc, si) || spot::is_inherently_weak_scc(si, scc)
-      || is_generalized_co_buchi_scc(scc, si))
-      {
-          continue;
-      }
-      return false;
-    }
-    return true;
+    return is_elevator_automaton_aux(aut, elevator_kind::emerson_lei);
   }
 
   bool
   is_emerson_lei_elevator_automaton(const spot::scc_info &scc, std::string& scc_str)
   {
-    // Same convention as the const_twa_graph_ptr overload above.
-    if (!scc.get_aut()->is_existential())
-    {
-        return false;
-    }
-
-    for (unsigned sc = 0; sc < scc.scc_count(); ++sc)
-    {
-      if ((scc_str[sc]&SCC_INSIDE_DET_TYPE) > 0
-      || (scc_str[sc]&SCC_WEAK_TYPE) > 0
-      || (scc_str[sc]&SCC_GEN_CO_BUCHI_TYPE) > 0)
-      {
-          continue;
-      }
-      return false;
-    }
-    return true;
+    return is_elevator_automaton_aux(scc, scc_str, elevator_kind::emerson_lei);
   }
 
   bool
