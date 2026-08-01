@@ -56,6 +56,12 @@ namespace helpers
     }
 
     spot::scc_info si(aut);
+    // Resolve SCCs whose acceptance status is ambiguous under mixed
+    // Fin/Inf conditions before checking inherent weakness below;
+    // otherwise is_inherently_weak_scc() can under-report a fully
+    // rejecting SCC as not weak (its is_rejecting_scc() fast path
+    // relies on this being resolved first).
+    si.determine_unknown_acceptance();
     unsigned nc = si.scc_count();
     for (unsigned scc = 0; scc < nc; ++scc)
     {
