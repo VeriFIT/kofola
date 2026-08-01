@@ -208,6 +208,12 @@ namespace helpers
   get_scc_types(const spot::scc_info &si)
   {
     spot::scc_info si_copy = si;
+    // Resolve SCCs whose acceptance status is ambiguous under mixed
+    // Fin/Inf conditions before checking inherent weakness below;
+    // otherwise is_inherently_weak_scc() can under-report a fully
+    // rejecting SCC as not weak (its is_rejecting_scc() fast path
+    // relies on this being resolved first).
+    si_copy.determine_unknown_acceptance();
     unsigned nc = si.scc_count();
     std::string res(nc, 0);
     for (unsigned sc = 0; sc < nc; ++sc)
