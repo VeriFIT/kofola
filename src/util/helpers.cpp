@@ -96,6 +96,64 @@ namespace helpers
   }
 
   bool
+  is_generalized_co_buchi_scc(unsigned scc, const spot::scc_info& si)
+  {
+    spot::acc_cond::mark_t sets = si.acc_sets_of(scc);
+    spot::acc_cond acc = si.get_aut()->acc().restrict_to(sets);
+    acc = acc.remove(si.common_sets_of(scc), false);
+    return acc.is_generalized_co_buchi();
+  }
+
+  bool
+  is_emerson_lei_elevator_automaton(const spot::const_twa_graph_ptr &aut)
+  {
+    // Same convention as is_elevator_automaton() regarding
+    // alternation.
+    if (!aut->is_existential())
+    {
+        return false;
+    }
+
+    spot::scc_info si(aut);
+    // Same rationale as is_elevator_automaton(): resolve ambiguous
+    // Fin/Inf acceptance before checking inherent weakness.
+    si.determine_unknown_acceptance();
+    unsigned nc = si.scc_count();
+    for (unsigned scc = 0; scc < nc; ++scc)
+    {
+      if (is_deterministic_scc(scc, si) || spot::is_inherently_weak_scc(si, scc)
+      || is_generalized_co_buchi_scc(scc, si))
+      {
+          continue;
+      }
+      return false;
+    }
+    return true;
+  }
+
+  bool
+  is_emerson_lei_elevator_automaton(const spot::scc_info &scc, std::string& scc_str)
+  {
+    // Same convention as the const_twa_graph_ptr overload above.
+    if (!scc.get_aut()->is_existential())
+    {
+        return false;
+    }
+
+    for (unsigned sc = 0; sc < scc.scc_count(); ++sc)
+    {
+      if ((scc_str[sc]&SCC_INSIDE_DET_TYPE) > 0
+      || (scc_str[sc]&SCC_WEAK_TYPE) > 0
+      || (scc_str[sc]&SCC_GEN_CO_BUCHI_TYPE) > 0)
+      {
+          continue;
+      }
+      return false;
+    }
+    return true;
+  }
+
+  bool
   is_weak_automaton(const spot::const_twa_graph_ptr &aut)
   {
     spot::scc_info si(aut);
@@ -223,6 +281,7 @@ namespace helpers
       type |= is_deterministic_scc(sc, si, DeterminismScope::ALL) ? SCC_DET_TYPE : 0; // must also be deterministic for all transitions after accepting
       type |= is_deterministic_scc(sc, si, DeterminismScope::BORDER_NONDET) ? SCC_DET_BORDER_NONDET_TYPE : 0;
       type |=  spot::is_inherently_weak_scc(si_copy, sc) ? SCC_WEAK_TYPE : 0;
+      type |= is_generalized_co_buchi_scc(sc, si) ? SCC_GEN_CO_BUCHI_TYPE : 0;
       type |= si.is_accepting_scc(sc) ? SCC_ACC : 0;
       // other type is 0
       res[sc] = type;

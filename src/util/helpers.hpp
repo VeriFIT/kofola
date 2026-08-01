@@ -32,6 +32,7 @@ static const char SCC_DET_TYPE = 4;
 static const char SCC_ACC = 8;
 static const char SCC_INITIAL_ALMOST_DETERMINISTIC_TYPE = 16;
 static const char SCC_DET_BORDER_NONDET_TYPE = 32;
+static const char SCC_GEN_CO_BUCHI_TYPE = 64;
 
 namespace kofola
 { // {{{
@@ -300,6 +301,35 @@ namespace helpers
 
   bool
   is_elevator_automaton(const spot::const_twa_graph_ptr &aut);
+
+  /// \brief Whether SCC number 'scc' has a generalized co-Buchi
+  /// acceptance condition once restricted to the sets used in the
+  /// SCC and simplified.
+  ///
+  /// This is the third alternative (along with determinism and
+  /// inherent weakness) under which an SCC counts as an elevator
+  /// component of an Emerson-Lei elevator automaton (ELEA); see
+  /// is_emerson_lei_elevator_automaton().
+  bool
+  is_generalized_co_buchi_scc(unsigned scc, const spot::scc_info& si);
+
+  /// \brief Testing whether the input is an Emerson-Lei elevator
+  /// automaton (ELEA), i.e., every SCC is deterministic, inherently
+  /// weak, or generalized co-Buchi.
+  ///
+  /// This is the notion defined by Alexaj, Havlena, Lengal, Li, and
+  /// Mazzocchi, "Complementing Emerson-Lei Elevator Automata"
+  /// (CONCUR 2026).  It strictly generalizes is_elevator_automaton()
+  /// above (every automaton accepted by is_elevator_automaton() is
+  /// also accepted here, but not conversely); the two coincide on
+  /// automata with Buchi acceptance, since the generalized co-Buchi
+  /// alternative can then only ever hold on an SCC that is already
+  /// inherently weak.
+  bool
+  is_emerson_lei_elevator_automaton(const spot::scc_info &scc, std::string& scc_str);
+
+  bool
+  is_emerson_lei_elevator_automaton(const spot::const_twa_graph_ptr &aut);
 
   bool
   is_weak_automaton(const spot::const_twa_graph_ptr &aut);
