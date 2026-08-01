@@ -47,6 +47,14 @@ namespace helpers
   bool
   is_elevator_automaton(const spot::const_twa_graph_ptr &aut)
   {
+    // Universal branching is not handled by is_deterministic_scc(),
+    // so alternating automata are never considered elevator automata
+    // (same convention as spot::is_deterministic()).
+    if (!aut->is_existential())
+    {
+        return false;
+    }
+
     spot::scc_info si(aut);
     unsigned nc = si.scc_count();
     for (unsigned scc = 0; scc < nc; ++scc)
@@ -63,6 +71,12 @@ namespace helpers
   bool
   is_elevator_automaton(const spot::scc_info &scc, std::string& scc_str)
   {
+    // Same convention as the const_twa_graph_ptr overload above.
+    if (!scc.get_aut()->is_existential())
+    {
+        return false;
+    }
+
     for (unsigned sc = 0; sc < scc.scc_count(); ++sc)
     {
       if ((scc_str[sc]&SCC_INSIDE_DET_TYPE) > 0
@@ -275,6 +289,16 @@ namespace helpers
   is_deterministic_scc(unsigned scc, const spot::scc_info& si,
                      DeterminismScope scope)
   {
+    // For a universal-branching edge, t.dst does not hold a plain
+    // state number (it encodes an index into a destination-set
+    // vector instead), so si.scc_of(t.dst) below would read out of
+    // bounds.  Alternating automata are simply never considered
+    // deterministic here.
+    if (!si.get_aut()->is_existential())
+    {
+        return false;
+    }
+
     for (unsigned src: si.states_of(scc))
     {
       bdd available = bddtrue;
