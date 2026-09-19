@@ -34,6 +34,7 @@ set(KOFOLA_SOURCES
     ${CMAKE_SOURCE_DIR}/src/complement/elevatorization.cpp
     ${CMAKE_SOURCE_DIR}/src/complement/decomposer.cpp
     ${CMAKE_SOURCE_DIR}/src/determinization/abstract_determinize_alg.cpp
+    ${CMAKE_SOURCE_DIR}/src/determinization/determinize_alg_dac.cpp
     ${CMAKE_SOURCE_DIR}/src/determinization/determinize_alg_mh.cpp
     ${CMAKE_SOURCE_DIR}/src/determinization/determinize_tela.cpp
     ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_mh.cpp

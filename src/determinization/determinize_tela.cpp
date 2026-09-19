@@ -2,6 +2,7 @@
 
 #include "../complement/complement_sync.hpp"
 #include "../complement/complement_tela.hpp"
+#include "determinize_alg_dac.hpp"
 #include "determinize_alg_mh.hpp"
 
 #include <stack>
@@ -162,9 +163,13 @@ namespace kofola
     /// Picks one partial determinization algorithm per partition.  The partition
     /// types come from the very same analysis that drives complementation
     /// (helpers::tnba_complement::create_partitions), so both constructions
-    /// agree on how the input automaton is decomposed.  Only inherently weak
-    /// partitions are supported so far; the remaining factories fail loudly
-    /// rather than silently producing a wrong automaton.
+    /// agree on how the input automaton is decomposed.
+    ///
+    /// Together, the inherently weak and the deterministic algorithms cover
+    /// every accepting SCC of an *elevator* automaton.  A nondeterministic
+    /// accepting SCC is what makes an automaton non-elevator, and it is the only
+    /// case left unimplemented - the factory fails loudly rather than silently
+    /// producing a wrong automaton.
     void tela_determinize::select_algorithms() { // {{{
         using kofola::PartitionType;
 
@@ -204,14 +209,12 @@ namespace kofola
 
     tela_determinize::alg_p
     tela_determinize::create_deterministic_algorithm(size_t partition_index) {
-        (void)partition_index;
-        throw std::runtime_error("determinization of deterministic partitions is not implemented yet");
+        return std::make_unique<kofola::determinize_dac>(*(this->info_.get()), partition_index);
     }
 
     tela_determinize::alg_p
     tela_determinize::create_strongly_deterministic_algorithm(size_t partition_index) {
-        (void)partition_index;
-        throw std::runtime_error("determinization of strongly deterministic partitions is not implemented yet");
+        return std::make_unique<kofola::determinize_dac>(*(this->info_.get()), partition_index);
     }
 
     tela_determinize::alg_p
@@ -222,8 +225,10 @@ namespace kofola
 
     tela_determinize::alg_p
     tela_determinize::create_initial_almost_deterministic_algorithm(size_t partition_index) {
-        (void)partition_index;
-        throw std::runtime_error("determinization of initial almost deterministic partitions is not implemented yet");
+        // an initial almost deterministic SCC is in particular deterministic
+        // inside (that is what SCC_DET_BORDER_NONDET_TYPE requires), so the DAC
+        // algorithm applies to it as well
+        return std::make_unique<kofola::determinize_dac>(*(this->info_.get()), partition_index);
     }
 
     // ----------------------------------------------------------------------
@@ -343,6 +348,12 @@ namespace kofola
             alg_acc_code |= cond_code;
             part_col_offset_[i] = num_colours_;
             num_colours_ += cond.num_sets();
+        }
+
+        if (num_colours_ > SPOT_MAX_ACCSETS) {
+            throw std::runtime_error("the determinization needs " +
+                std::to_string(num_colours_) + " colours, more than the " +
+                std::to_string(SPOT_MAX_ACCSETS) + " supported by Spot");
         }
 
         final_code_ = alg_acc_code;
@@ -479,6 +490,14 @@ namespace kofola
                     const unsigned colour = part_col_pair.second;
 
                     unsigned shift = alg_vec_[part_index]->get_min_colour();
+                    if (colour < shift ||
+                        colour - shift >= vec_acc_code_[part_index].num_sets()) {
+                        // the colour is outside of the range the algorithm
+                        // finally declared, hence it occurs in no disjunct of
+                        // its acceptance condition - see the contract of
+                        // abstract_determinize_alg::get_acc_cond()
+                        continue;
+                    }
                     new_cols.push_back(part_col_offset_.at(part_index) + colour - shift);
                 }
                 spot::acc_cond::mark_t spot_cols(new_cols.begin(), new_cols.end());
@@ -523,17 +542,35 @@ namespace kofola
         //  (2) `st_to_part_map`     - state index -> partition index
         //  (3) `scc_to_part_map`    - SCC index -> partition index
         //  (4) `part_to_acc_map`    - partition index -> restricted acceptance condition
-        auto partitions = helpers::tnba_complement::create_partitions(*scc, kofola::OPTIONS);
+        // Unlike complementation, determinization does not benefit from merging
+        // all the DACs into a single partition: the DAC algorithm needs one
+        // block of colours per potentially live run, i.e. per state of the
+        // partition, so a merged partition burns the (very limited) colour
+        // budget of Spot for nothing.  Keep every DAC separate unless the user
+        // asked otherwise.
+        kofola::options det_options = kofola::OPTIONS;
+        if (0 == det_options.params.count("merge_det")) {
+            det_options.params["merge_det"] = "no";
+        }
+
+        auto partitions = helpers::tnba_complement::create_partitions(*scc, det_options);
 
         tela_determinize det(aut, scc, std::move(partitions));
         auto res = det.run_new();
 
-        // Spot's Deterministic preference is only a preference, so the reduction
-        // may still return a nondeterministic automaton; in that case we keep the
-        // (deterministic) result of the construction
-        auto post = kofola::apply_postprocessing(res, aut, spot::postprocessor::Deterministic);
-        if (!spot::is_deterministic(post)) { return res; }
+        // Postprocessing is an optimization, never a semantic step, so anything
+        // that goes wrong in it leaves the result of the construction untouched.
+        // Two things do go wrong in practice:
+        //  - Spot's Deterministic preference is only a preference, so the
+        //    reduction may hand back a nondeterministic automaton;
+        //  - the reduction may need more than the SPOT_MAX_ACCSETS colours Spot
+        //    can represent, even though the automaton we produced fits.
+        try {
+            auto post = kofola::apply_postprocessing(res, aut, spot::postprocessor::Deterministic);
+            if (spot::is_deterministic(post)) { return post; }
+        }
+        catch (const std::runtime_error&) { }
 
-        return post;
+        return res;
     }
 }

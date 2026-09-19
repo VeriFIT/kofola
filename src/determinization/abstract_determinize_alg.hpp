@@ -76,7 +76,17 @@ public: // METHODS
     const mstate*              src,           // partial macrostate
     const bdd&                 symbol) = 0;   // symbol
 
-  /// returns the acceptance condition of the partition (over local colours)
+  /// Returns the acceptance condition of the partition (over local colours).
+  ///
+  /// It is called only after the whole state space has been built, so an
+  /// algorithm that discovers its colour range during the construction may
+  /// report it here.  Colours emitted by get_succ() that fall outside of the
+  /// range finally declared - i.e. outside of
+  /// [get_min_colour(), get_min_colour() + get_acc_cond().num_sets()) - are
+  /// dropped when the automaton is assembled.  This lets an algorithm emit
+  /// colours for an over-approximated range and shrink it afterwards, which is
+  /// sound as long as the dropped colours occur in no disjunct of the condition
+  /// it finally returns.
   virtual spot::acc_cond get_acc_cond() = 0;
 
   /// returns the minimum colour used - allows colour reshuffle for algorithms

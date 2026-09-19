@@ -28,9 +28,47 @@ TEST_CASE("determinization of weak automata", "[determinize]")
             REQUIRE(aut != nullptr);
 
             INFO("determinizing " << filename);
-            CHECK(test_utils::test_determinize_equivalence(aut));
+            CHECK(test_utils::test_determinize_equivalence(aut) ==
+                  test_utils::determinize_check::passed);
         }
     }
+}
+
+TEST_CASE("determinization of every elevator automaton of test_data", "[determinize]")
+{
+    test_utils::setup_tela_options();
+
+    const std::vector<std::string> files = test_utils::list_test_data_automata();
+    REQUIRE(!files.empty());
+
+    unsigned checked = 0;
+    unsigned unverifiable = 0;
+    unsigned non_elevator = 0;
+
+    for (const std::string& filename : files) {
+        spot::twa_graph_ptr aut = test_utils::load_automaton_exact_path(filename);
+        if (!aut) { continue; }
+
+        // a nondeterministic accepting SCC makes the automaton non-elevator;
+        // there is no partial determinization algorithm for it yet
+        if (!test_utils::is_elevator_automaton(aut)) { ++non_elevator; continue; }
+
+        INFO("determinizing " << filename);
+        test_utils::determinize_check res = test_utils::test_determinize_equivalence(aut);
+
+        // Spot cannot complement a couple of the automata of the test data, so
+        // their equivalence cannot be decided; the determinization itself and
+        // the determinism of its result are still checked above
+        if (test_utils::determinize_check::unverifiable == res) { ++unverifiable; continue; }
+
+        CHECK(res == test_utils::determinize_check::passed);
+        ++checked;
+    }
+
+    std::cout << "determinized " << checked << " elevator automata of test_data ("
+              << unverifiable << " unverifiable, "
+              << non_elevator << " non-elevator ones skipped)" << std::endl;
+    CHECK(checked > 0);
 }
 
 TEST_CASE("determinization of a deterministic automaton is the identity", "[determinize]")

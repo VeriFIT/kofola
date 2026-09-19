@@ -67,8 +67,13 @@ resulting deterministic automaton to the standard output:
 The determinization uses a modular construction analogous to the complementation
 one: the accepting SCCs are split into partitions, a partial determinization
 algorithm is run on each of them, and the results are combined synchronously.
-So far only inherently weak partitions are supported; for other partition types
-Kofola reports that the corresponding algorithm is not implemented yet.
+Inherently weak partitions are determinized by a Miyano-Hayashi breakpoint
+construction and deterministic ones by a run-labelling construction (an
+Emerson-Lei generalization of the DAC part of the divide-and-conquer Büchi
+determinization of Li, Turrini, Feng, Vardi and Zhang, CAV'22). Together they
+cover every **elevator** automaton, i.e. every automaton whose accepting SCCs are
+inherently weak or deterministic. For a nondeterministic accepting SCC Kofola
+reports that the corresponding algorithm is not implemented yet.
 
 Additional parameters might be passed using `--params`, e.g., `--params='merge_iwa=yes'`. 
 In order to get a program help, run
