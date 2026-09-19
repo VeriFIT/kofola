@@ -11,10 +11,12 @@
 #include <spot/twaalgos/complement.hh>
 #include <spot/twaalgos/contains.hh>
 #include <spot/twaalgos/hoa.hh>
+#include <spot/twaalgos/isdet.hh>
 
 // Kofola headers
 #include "complement/complement_tela.hpp"
 #include "complement/elevatorization.hpp"
+#include "determinization/determinize_tela.hpp"
 #include "util/helpers.hpp"
 
 namespace test_utils {
@@ -237,6 +239,27 @@ bool test_complement_equivalence(const spot::twa_graph_ptr& aut, bool verbose = 
  * @return true if the resulting elevator automaton has the same language as aut
  */
 bool test_elevator_equivalence(const spot::twa_graph_ptr& aut, bool verbose = false);
+
+/**
+ * @brief Weak (nondeterministic) automata used by the determinization tests.
+ */
+const std::vector<std::string> WEAK_TEST_FILES = {
+    "tests/test_data/weak/weak_terminal.hoa",
+    "tests/test_data/weak/weak_single_scc.hoa",
+    "tests/test_data/weak/weak_multi_scc.hoa",
+    "tests/test_data/weak/weak_three_sccs.hoa",
+    "tests/test_data/weak/weak_tela.hoa",
+};
+
+/**
+ * @brief Check whether determinization produced a deterministic and
+ *        language-equivalent automaton.
+ *
+ * @param aut The input automaton to determinize
+ * @param verbose Whether to print detailed output during comparison
+ * @return true if determinize_tela(aut) is deterministic and equivalent to aut
+ */
+bool test_determinize_equivalence(const spot::twa_graph_ptr& aut, bool verbose = false);
 
 /**
  * @brief Test complement equivalence for a file with comprehensive output.

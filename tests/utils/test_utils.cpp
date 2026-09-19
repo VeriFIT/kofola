@@ -174,6 +174,41 @@ bool test_complement_equivalence(const spot::twa_graph_ptr& aut, bool verbose) {
     }
 }
 
+bool test_determinize_equivalence(const spot::twa_graph_ptr& aut, bool verbose) {
+    if (!aut) {
+        std::cerr << "Input automaton is null" << std::endl;
+        return false;
+    }
+
+    try {
+        spot::twa_graph_ptr det = kofola::determinize_tela(aut);
+        if (!det) {
+            std::cerr << "kofola::determinize_tela returned null" << std::endl;
+            return false;
+        }
+
+        if (verbose) {
+            std::cout << "Determinized automaton has " << det->num_states() << " states" << std::endl;
+        }
+
+        if (!spot::is_deterministic(det)) {
+            std::cerr << "kofola::determinize_tela returned a nondeterministic automaton" << std::endl;
+            return false;
+        }
+
+        bool equivalent = spot::are_equivalent(det, aut);
+        if (!equivalent) {
+            std::cerr << "The determinized automaton has a different language" << std::endl;
+        }
+
+        return equivalent;
+
+    } catch (const std::exception& ex) {
+        std::cerr << "Exception during determinization: " << ex.what() << std::endl;
+        return false;
+    }
+}
+
 bool test_file_complement_equivalence(const std::string& filename, bool verbose) {
     if (verbose) {
         std::cout << "Testing complement equivalence for file: " << filename << std::endl;

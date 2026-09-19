@@ -39,13 +39,15 @@ spot::twa_graph_ptr kofola::complement_deterministic(const spot::twa_graph_ptr& 
 	return apply_postprocessing(complete_aut, aut);
 }
 
-spot::twa_graph_ptr kofola::apply_postprocessing(const spot::twa_graph_ptr& aut, const spot::twa_graph_ptr& original_aut)
+spot::twa_graph_ptr kofola::apply_postprocessing(const spot::twa_graph_ptr& aut, const spot::twa_graph_ptr& original_aut,
+	spot::postprocessor::output_pref pref)
 {
 	spot::twa_graph_ptr result = aut;
 	
 	// postprocessing  TODO: should also consider other options
 	if (!kofola::has_value("raw", "yes", kofola::OPTIONS.params)) {
 		spot::postprocessor p_post;
+		p_post.set_pref(pref);
 		if ("buchi" == kofola::OPTIONS.output_type) {
 			p_post.set_type(spot::postprocessor::Buchi);
 		}

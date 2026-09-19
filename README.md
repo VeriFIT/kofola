@@ -57,6 +57,19 @@ is included in the language specified by `B.hoa` and prints the result to the st
 ./kofola A.hoa B.hoa --inclusion
 ```
 
+The following command determinizes the omega automaton `A.hoa` and prints the
+resulting deterministic automaton to the standard output:
+
+```
+./kofola A.hoa --det
+```
+
+The determinization uses a modular construction analogous to the complementation
+one: the accepting SCCs are split into partitions, a partial determinization
+algorithm is run on each of them, and the results are combined synchronously.
+So far only inherently weak partitions are supported; for other partition types
+Kofola reports that the corresponding algorithm is not implemented yet.
+
 Additional parameters might be passed using `--params`, e.g., `--params='merge_iwa=yes'`. 
 In order to get a program help, run
 
