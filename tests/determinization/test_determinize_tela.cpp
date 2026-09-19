@@ -1,8 +1,11 @@
 // Tests for the modular determinization of TELA (kofola::determinize_tela).
 //
-// Only inherently weak partitions are supported so far, so the test data are
-// weak (nondeterministic) automata.  For each of them we check that the result
-// is deterministic and language equivalent to the input.
+// Inherently weak and deterministic partitions are supported, which together
+// cover every elevator automaton; a nondeterministic accepting SCC is the one
+// case left unimplemented.  The first test case runs over a handful of weak
+// (nondeterministic) automata, the second one over every elevator automaton of
+// test_data.  In both cases we check that the result is deterministic and
+// language equivalent to the input.
 
 #include <catch2/catch_test_macros.hpp>
 #include <iostream>
