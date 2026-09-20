@@ -19,21 +19,38 @@ namespace kofola { // {{{
 ///
 /// # Run labelling
 ///
-/// Inside the partition the runs are deterministic, so they can only *merge*,
-/// never branch; new runs enter from the outside.  Every run alive in the
-/// partition carries a label (a natural number) maintained by two rules:
+/// Throughout, a *run* means a run of the transition relation followed by
+/// succ_in_scc(), i.e. one restricted to transitions that stay within a single
+/// SCC of the partition.  Along that relation the runs are deterministic, so
+/// they can only *merge*, never branch; new runs enter from the outside.
+///
+/// The restriction to one SCC (rather than merely to the partition) is what
+/// makes this true: when the partition holds several DACs, a state may have one
+/// successor in its own SCC and another in a sibling SCC of the partition.  That
+/// is not a branching of a run in the above sense - it is the continuation of
+/// one run and the birth of another, which (**) places after all the survivors.
+///
+/// Every run alive in the partition carries a label (a natural number)
+/// maintained by two rules:
 ///
 ///   (*)  the greatest dies first - when two runs merge, only the smaller label
 ///        survives and the larger one is discontinued;
-///   (**) the elder takes precedence - runs already inside the partition get
-///        smaller labels than the runs entering in the current step (ties among
-///        the entering ones are broken by the state number).
+///   (**) the elder takes precedence - runs already alive get smaller labels
+///        than the runs entering in the current step, be it from outside the
+///        partition or from a sibling SCC of it (ties among the entering ones
+///        are broken by the state number).
 ///
-/// Consequently the label of an infinite run staying in the partition is
-/// non-increasing, hence it stabilizes, and the stable label identifies the run.
-/// So "a run stays in the partition forever" is equivalent to "its label changes
-/// (or the run dies) only finitely often", which is turned into an acceptance
-/// condition by giving every label its own private block of colours.
+/// Consequently the label of an infinite run is non-increasing, hence it
+/// stabilizes, and the stable label identifies the run.  So "some run survives
+/// forever" is equivalent to "some label changes (or dies) only finitely often",
+/// which is turned into an acceptance condition by giving every label its own
+/// private block of colours.
+///
+/// Note this costs nothing in terms of the recognized language: the SCC graph is
+/// acyclic, so a path that stays in the partition forever changes SCC only
+/// finitely often and ends up inside a single SCC anyway.  It does make *the*
+/// label of a path well defined - a path hopping between sibling SCCs is a
+/// concatenation of several runs, and at each hop its label *increases*.
 ///
 /// # Macrostate
 ///
