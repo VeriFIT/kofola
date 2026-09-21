@@ -309,6 +309,13 @@ bool test_file_complement_equivalence(const std::string& filename, bool verbose)
 }
 
 void setup_tela_options() {
+    // kofola::OPTIONS is a global, and not every test case that writes to it
+    // cleans up after itself (setup_modular_options(), for one, leaves
+    // merge_det=yes behind).  Start from an empty map so that a test case gets
+    // the same options no matter which ones ran before it - a leaked merge_det
+    // is enough to push determinization over Spot's limit of 32 colours.
+    kofola::OPTIONS.params.clear();
+
     // Set the tela parameter to yes for TELA simplifications
     kofola::OPTIONS.params["tela"] = "yes";
 }

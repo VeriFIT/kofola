@@ -315,8 +315,10 @@ bool test_file_complement_equivalence(const std::string& filename, bool verbose 
 
 /**
  * @brief Set up common kofola options for TELA complementation.
- * 
- * This function sets standard options that are commonly used across tests.
+ *
+ * Resets the global kofola::OPTIONS parameters and then sets the standard
+ * options that are commonly used across tests, so that the outcome of a test
+ * case does not depend on which test cases ran before it.
  */
 void setup_tela_options();
 

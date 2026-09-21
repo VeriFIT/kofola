@@ -17,6 +17,7 @@
 
 #include "elevatorization.hpp"
 #include <queue>
+#include <tuple>
 #include "complement_sync.hpp"
 
 spot::acc_cond::mark_t get_all_fins_in_dnf(const kofola::CondDNF& dnf) {
@@ -116,13 +117,15 @@ std::set<unsigned> kofola::Elevatorization::get_succ_excluding_colors(
   DEBUG_PRINT_LN("states: " + std::to_string(states) + ", letter: " + std::to_string(bdd) + ", col: " + std::to_string(col));
   for (unsigned s : states) {
       for (const auto &t : aut_->out(s)) {
+          // states created by elevatorization are beyond si_'s range, so they
+          // have to be filtered out *before* asking scc_info_ about them
+          if (s >= old_aut_num_states_ || t.dst >= old_aut_num_states_)
+                continue;
           if (info_->scc_info_.scc_of(s) == info_->scc_info_.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
               if (t.acc & col)
                 continue;
-              if (t.dst < old_aut_num_states_) { // exclude colors
-                    DEBUG_PRINT_LN(std::to_string(s) + " --> " + std::to_string(t.dst) + ", acc: " + std::to_string(t.acc));
-                    succ_states.insert(t.dst);
-                }
+              DEBUG_PRINT_LN(std::to_string(s) + " --> " + std::to_string(t.dst) + ", acc: " + std::to_string(t.acc));
+              succ_states.insert(t.dst);
             }
         }
     }
@@ -142,11 +145,14 @@ std::set<unsigned> kofola::Elevatorization::get_succ_including_colors(
   DEBUG_PRINT_LN("states: " + std::to_string(states) + ", letter: " + std::to_string(bdd) + ", col: " + std::to_string(col));
     for (unsigned s : states) {
         for (const auto &t : aut_->out(s)) {
+            // see get_succ_excluding_colors: filter new states before scc_of
+            if (s >= old_aut_num_states_ || t.dst >= old_aut_num_states_)
+                continue;
             if (info_->scc_info_.scc_of(s) == info_->scc_info_.scc_of(t.dst) && bdd_implies(bdd, t.cond)) {
                 if (t.acc & without_cols)
                     continue;
 
-                if ((t.acc & col) == col && t.dst < old_aut_num_states_) { // include colors
+                if ((t.acc & col) == col) { // include colors
                     DEBUG_PRINT_LN(std::to_string(s) + " --> " + std::to_string(t.dst) + ", acc: " + std::to_string(t.acc));
                     succ_states.insert(t.dst);
                 }
@@ -174,22 +180,34 @@ void kofola::Elevatorization::create_deter_part(size_t scc_idx, kofola::AccClaus
     if(l_mod == 0)
         l_mod = 1;
 
+    // Collect the intra-SCC transitions before touching aut_: the loop below
+    // creates states and edges, which would extend the very successor lists we
+    // are iterating over.  Those new states also lie outside the range si_ was
+    // built for (limit_deter calls us once per DNF disjunct, so states added
+    // for an earlier disjunct are already present here), hence they have to be
+    // filtered out *before* scc_of is asked about them.
+    std::vector<std::tuple<unsigned, unsigned, bdd>> scc_trans;
     for(auto s : scc_states) {
-        for (auto &t : aut_->out(s)) {
-            if (info_->scc_info_.scc_of(s) != info_->scc_info_.scc_of(t.dst) || t.dst >= old_aut_num_states_)
+        if (s >= old_aut_num_states_)
+            continue;
+        for (const auto &t : aut_->out(s)) {
+            if (t.dst >= old_aut_num_states_
+                || info_->scc_info_.scc_of(s) != info_->scc_info_.scc_of(t.dst))
                 continue; // only transitions within the SCC
-
-            auto det_state = RBL{{t.dst}, {}, l_init};
-            
-            
-            if(det_state_to_spot_state.find(det_state) == det_state_to_spot_state.end()) {
-                auto new_state_num = aut_->new_state();
-                det_state_to_spot_state[det_state] = new_state_num;
-            }
-            
-            to_process.push(det_state);
-            aut_->new_edge(s, det_state_to_spot_state[det_state], t.cond, {});
+            scc_trans.emplace_back(s, t.dst, t.cond);
         }
+    }
+
+    for(const auto& [src, dst, cond] : scc_trans) {
+        auto det_state = RBL{{dst}, {}, l_init};
+
+        if(det_state_to_spot_state.find(det_state) == det_state_to_spot_state.end()) {
+            auto new_state_num = aut_->new_state();
+            det_state_to_spot_state[det_state] = new_state_num;
+        }
+
+        to_process.push(det_state);
+        aut_->new_edge(src, det_state_to_spot_state[det_state], cond, {});
     }
 
     while(!to_process.empty()) {
