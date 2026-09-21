@@ -2,6 +2,7 @@
 
 #include "../complement/complement_sync.hpp"
 #include "../complement/complement_tela.hpp"
+#include "../complement/elevatorization.hpp"
 #include "determinize_alg_dac.hpp"
 #include "determinize_alg_mh.hpp"
 
@@ -524,12 +525,50 @@ namespace kofola
 
     // ######################################################################
 
+    /// Does the automaton have an accepting SCC that is neither inherently weak
+    /// nor deterministic inside?  Those are exactly the partitions for which no
+    /// partial determinization algorithm exists.  Only accepting SCCs matter:
+    /// the partitions cover no other ones.
+    static bool has_nondet_acc_scc(const spot::twa_graph_ptr& aut)
+    { // {{{
+        spot::scc_info si(aut, spot::scc_info_options::ALL);
+        si.determine_unknown_acceptance();
+        std::string scc_types = helpers::get_scc_types(si);
+
+        for (unsigned scc = 0; scc < si.scc_count(); ++scc) {
+            if (helpers::is_accepting_nondetscc(scc_types, scc)) { return true; }
+        }
+
+        return false;
+    } // has_nondet_acc_scc() }}}
+
     spot::twa_graph_ptr determinize_tela(const spot::twa_graph_ptr& aut) {
         if (spot::is_deterministic(aut)) { // nothing to do
             return aut;
         }
 
-        auto scc = std::make_shared<spot::scc_info>(aut, spot::scc_info_options::ALL);
+        // There is no partial determinization algorithm for a nondeterministic
+        // accepting SCC, so a non-elevator automaton is first limit-determinized
+        // into an elevator one.  complement_tela() preprocesses the same way,
+        // but with only_non_buchi = true: complementation has NCSB for a Buchi
+        // NAC and only needs the other ones removed.  Here every NAC has to go,
+        // hence the default only_non_buchi = false.
+        //
+        // Elevatorization rewrites its automaton in place, so it is handed a
+        // copy - 'aut' is still needed as the reference for the postprocessing
+        // heuristic at the end.
+        spot::twa_graph_ptr input = aut;
+        if (has_nondet_acc_scc(aut)) {
+            spot::twa_graph_ptr copy =
+                spot::make_twa_graph(aut, spot::twa::prop_set::all());
+            kofola::Elevatorization elev(copy);
+            input = elev.elevatorize();
+
+            // limit-determinization may already have made it deterministic
+            if (spot::is_deterministic(input)) { return input; }
+        }
+
+        auto scc = std::make_shared<spot::scc_info>(input, spot::scc_info_options::ALL);
 
         // Spot's is_accepting_scc might say "unknown" for Fin conditions; without
         // this, create_partitions() would see no accepting SCC at all
@@ -548,6 +587,11 @@ namespace kofola
         // partition, so a merged partition burns the (very limited) colour
         // budget of Spot for nothing.  Keep every DAC separate unless the user
         // asked otherwise.
+        //
+        // When kofola is run from the command line, main() has already set this
+        // default (it is operation-aware), so the branch below only fires for
+        // callers that use this function as a library and never populate the
+        // parameter map - the unit tests, most notably.
         kofola::options det_options = kofola::OPTIONS;
         if (0 == det_options.params.count("merge_det")) {
             det_options.params["merge_det"] = "no";
@@ -555,7 +599,7 @@ namespace kofola
 
         auto partitions = helpers::tnba_complement::create_partitions(*scc, det_options);
 
-        tela_determinize det(aut, scc, std::move(partitions));
+        tela_determinize det(input, scc, std::move(partitions));
         auto res = det.run_new();
 
         // Postprocessing is an optimization, never a semantic step, so anything

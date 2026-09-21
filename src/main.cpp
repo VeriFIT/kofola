@@ -309,7 +309,11 @@ int main(int argc, char *argv[])
 	kofola::OPTIONS = options;   // set the global variable
 
 	if(kofola::OPTIONS.params.count("merge_iwa") == 0) kofola::OPTIONS.params["merge_iwa"] = "yes";
-	if(kofola::OPTIONS.params.count("merge_det") == 0) kofola::OPTIONS.params["merge_det"] = "yes";
+	// Determinization keeps every DAC in its own partition: the DAC algorithm needs
+	// one block of colours per potentially live run, i.e. per state of the partition,
+	// so a merged partition burns Spot's (very limited) colour budget for nothing.
+	if(kofola::OPTIONS.params.count("merge_det") == 0)
+		kofola::OPTIONS.params["merge_det"] = (options.operation == "determinize") ? "no" : "yes";
 	if(kofola::OPTIONS.params.count("tela") != 0 && kofola::OPTIONS.params["tela"] == "yes") {
 		// Default: dnf-tela for TELA complementation
 		if(kofola::OPTIONS.params.count("tela_det_alg") == 0) kofola::OPTIONS.params["tela_det_alg"] = "dnf-tela";
