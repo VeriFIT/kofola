@@ -89,7 +89,7 @@ The complementation and the inclusion checking might be adjusted by the followin
 | Key         | Value           | Description     |
 | :---        | :---            | :---            |
 | `merge_iwa` | `yes`,`no`  | Merge inherently weak components for the synchronous construction |
-| `merge_det` | `yes`,`no`  | Merge deterministic components for the synchronous construction |
+| `merge_det` | `yes`,`no`  | Merge deterministic components for the synchronous construction (default `yes`, but `no` for `--det`: the determinization needs one block of colours per state of a partition, so merging wastes Spot's colour budget) |
 | `preproc_incl_A` | `low`,`medium`,`high`  | Level of preprocessing applied on the first automaton (`--inclusion` only) |
 | `preproc_incl_B` | `low`,`medium`,`high`  | Level of preprocessing applied on the second automaton (`--inclusion` only) |
 | `nac-alg` | `subs_tup`  | Algorithm applied on nondeterministic accepting components. `subs_tup` = subset tuple construction (default for `--inclusion`). If not specified otherwise, complementation may use determinization-based construction. |
