@@ -22,7 +22,6 @@
 // spot
 #include <spot/twa/twa.hh>
 #include <spot/twaalgos/isdet.hh>
-#include <spot/twaalgos/postproc.hh>
 
 
 namespace kofola
@@ -34,10 +33,8 @@ spot::twa_graph_ptr complement_tela(const spot::twa_graph_ptr& aut);
 /// complements a deterministic automaton by making it complete and complementing acceptance
 spot::twa_graph_ptr complement_deterministic(const spot::twa_graph_ptr& aut);
 
-/// applies postprocessing to an automaton based on configuration parameters;
-/// 'pref' allows the caller to require e.g. a deterministic result
-spot::twa_graph_ptr apply_postprocessing(const spot::twa_graph_ptr& aut, const spot::twa_graph_ptr& original_aut,
-	spot::postprocessor::output_pref pref = spot::postprocessor::Small);
+/// applies postprocessing to an automaton based on configuration parameters
+spot::twa_graph_ptr apply_postprocessing(const spot::twa_graph_ptr& aut, const spot::twa_graph_ptr& original_aut);
 
 /// complements a TELA using the synchronous algorithm (cf. paper)
 spot::twa_graph_ptr complement_sync(const spot::twa_graph_ptr& aut);

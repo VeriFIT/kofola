@@ -10,6 +10,7 @@
 
 #include <spot/twaalgos/hoa.hh>
 #include <spot/twaalgos/isdet.hh>
+#include <spot/twaalgos/postproc.hh>
 
 namespace kofola
 {
@@ -542,6 +543,36 @@ namespace kofola
         return false;
     } // has_nondet_acc_scc() }}}
 
+    /// Spot-based reduction of the determinized automaton 'det'.  Unlike
+    /// apply_postprocessing() used by complementation, the requested output type
+    /// is respected (Generic, i.e. Emerson-Lei, by default) and the result is
+    /// never forced into a TGBA: that conversion only succeeds for DBA-
+    /// recognizable languages and otherwise wastes a whole run of Spot on a
+    /// nondeterministic automaton that is thrown away.  'orig' is the input of
+    /// the determinization, used by the heuristic deciding whether the
+    /// reduction is affordable.
+    static spot::twa_graph_ptr postprocess_det(const spot::twa_graph_ptr& det,
+                                               const spot::twa_graph_ptr& orig)
+    { // {{{
+        if (kofola::has_value("raw", "yes", kofola::OPTIONS.params) ||
+            !kofola::is_post_reduction_suitable(orig)) {
+            return det;
+        }
+
+        spot::postprocessor p;
+        p.set_pref(spot::postprocessor::Deterministic);
+        p.set_level(spot::postprocessor::Low);
+        if ("buchi" == kofola::OPTIONS.output_type) {
+            p.set_type(spot::postprocessor::Buchi);
+        } else if ("tgba" == kofola::OPTIONS.output_type) {
+            p.set_type(spot::postprocessor::GeneralizedBuchi);
+        } else {
+            p.set_type(spot::postprocessor::Generic);
+        }
+
+        return p.run(det);
+    } // postprocess_det() }}}
+
     spot::twa_graph_ptr determinize_tela(const spot::twa_graph_ptr& aut) {
         if (spot::is_deterministic(aut)) { // nothing to do
             return aut;
@@ -610,7 +641,7 @@ namespace kofola
         //  - the reduction may need more than the SPOT_MAX_ACCSETS colours Spot
         //    can represent, even though the automaton we produced fits.
         try {
-            auto post = kofola::apply_postprocessing(res, aut, spot::postprocessor::Deterministic);
+            auto post = postprocess_det(res, aut);
             if (spot::is_deterministic(post)) { return post; }
         }
         catch (const std::runtime_error&) { }
