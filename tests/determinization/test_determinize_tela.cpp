@@ -78,8 +78,7 @@ TEST_CASE("determinization of every elevator automaton of test_data", "[determin
 TEST_CASE("IADACs determinization of every elevator automaton with an IADAC", "[determinize]")
 {
     test_utils::setup_tela_options();
-    // by default, the IADACs algorithm gives way to the DAC one when its
-    // colours might not fit into Spot's budget; force it here
+    // the DAC algorithm is used for IADAC partitions by default; force IADACs
     kofola::OPTIONS.params["det_based_on_iadac"] = "yes";
 
     unsigned checked = 0;

@@ -228,23 +228,15 @@ namespace kofola
 
     tela_determinize::alg_p
     tela_determinize::create_initial_almost_deterministic_algorithm(size_t partition_index) { // {{{
-        // The same selection as in complementation (cf.
-        // helpers::tnba_complement::create_initial_almost_deterministic_algorithm()):
-        // the IADACs determinization, unless its colours - fixed upfront by the
-        // runs bound - do not fit into Spot's budget.  The fallback is the DAC
-        // algorithm, which applies as well since an initial almost
-        // deterministic SCC is in particular deterministic inside (that is what
-        // SCC_DET_BORDER_NONDET_TYPE requires).
-        auto bound = helpers::tnba_complement::max_runs_in_partition(*(this->info_.get()), partition_index);
+        // An initial almost deterministic SCC is in particular deterministic
+        // inside (that is what SCC_DET_BORDER_NONDET_TYPE requires), so the DAC
+        // algorithm applies to it.  It is the default: the IADACs
+        // determinization builds exactly the same macrostates (the same run
+        // labelling), but it fixes its colours upfront by the runs bound and
+        // over all the colours of the input, so it never needs fewer colours
+        // than DAC and often needs more.  It is kept for experiments.
         if (kofola::has_value("det_based_on_iadac", "yes", kofola::OPTIONS.params)) {
-            return std::make_unique<kofola::determinize_iadacs>(*(this->info_.get()), partition_index, bound);
-        }
-
-        auto acc = this->info_->part_to_acc_map_.at(partition_index);
-        auto det_cols = bound * (acc.num_sets() + 1); // +1 for the discontinuation colour of each run
-        auto extra_colors_heuristic = this->info_->num_partitions_; // the other partitions use about one colour each
-
-        if (0 < bound && SPOT_MAX_ACCSETS > det_cols + extra_colors_heuristic) {
+            auto bound = helpers::tnba_complement::max_runs_in_partition(*(this->info_.get()), partition_index);
             return std::make_unique<kofola::determinize_iadacs>(*(this->info_.get()), partition_index, bound);
         }
         return std::make_unique<kofola::determinize_dac>(*(this->info_.get()), partition_index);
