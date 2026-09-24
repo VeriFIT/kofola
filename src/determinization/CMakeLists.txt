@@ -1,9 +1,15 @@
 # Determinization module
 set(DETERMINIZATION_SOURCES
+    abstract_determinize_alg.cpp
+    determinize_alg_dac.cpp
+    determinize_alg_mh.cpp
     determinize_tela.cpp
 )
 
 set(DETERMINIZATION_HEADERS
+    abstract_determinize_alg.hpp
+    determinize_alg_dac.hpp
+    determinize_alg_mh.hpp
     determinize_tela.hpp
 )
 

@@ -57,6 +57,24 @@ is included in the language specified by `B.hoa` and prints the result to the st
 ./kofola A.hoa B.hoa --inclusion
 ```
 
+The following command determinizes the omega automaton `A.hoa` and prints the
+resulting deterministic automaton to the standard output:
+
+```
+./kofola A.hoa --det
+```
+
+The determinization uses a modular construction analogous to the complementation
+one: the accepting SCCs are split into partitions, a partial determinization
+algorithm is run on each of them, and the results are combined synchronously.
+Inherently weak partitions are determinized by a Miyano-Hayashi breakpoint
+construction and deterministic ones by a run-labelling construction (an
+Emerson-Lei generalization of the DAC part of the divide-and-conquer Büchi
+determinization of Li, Turrini, Feng, Vardi and Zhang, CAV'22). Together they
+cover every **elevator** automaton, i.e. every automaton whose accepting SCCs are
+inherently weak or deterministic. For a nondeterministic accepting SCC Kofola
+reports that the corresponding algorithm is not implemented yet.
+
 Additional parameters might be passed using `--params`, e.g., `--params='merge_iwa=yes'`. 
 In order to get a program help, run
 
@@ -71,7 +89,7 @@ The complementation and the inclusion checking might be adjusted by the followin
 | Key         | Value           | Description     |
 | :---        | :---            | :---            |
 | `merge_iwa` | `yes`,`no`  | Merge inherently weak components for the synchronous construction |
-| `merge_det` | `yes`,`no`  | Merge deterministic components for the synchronous construction |
+| `merge_det` | `yes`,`no`  | Merge deterministic components for the synchronous construction (default `yes`, but `no` for `--det`: the determinization needs one block of colours per state of a partition, so merging wastes Spot's colour budget) |
 | `preproc_incl_A` | `low`,`medium`,`high`  | Level of preprocessing applied on the first automaton (`--inclusion` only) |
 | `preproc_incl_B` | `low`,`medium`,`high`  | Level of preprocessing applied on the second automaton (`--inclusion` only) |
 | `nac-alg` | `subs_tup`  | Algorithm applied on nondeterministic accepting components. `subs_tup` = subset tuple construction (default for `--inclusion`). If not specified otherwise, complementation may use determinization-based construction. |

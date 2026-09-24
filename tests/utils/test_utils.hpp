@@ -11,10 +11,13 @@
 #include <spot/twaalgos/complement.hh>
 #include <spot/twaalgos/contains.hh>
 #include <spot/twaalgos/hoa.hh>
+#include <spot/twaalgos/isdet.hh>
+#include <spot/twaalgos/sccinfo.hh>
 
 // Kofola headers
 #include "complement/complement_tela.hpp"
 #include "complement/elevatorization.hpp"
+#include "determinization/determinize_tela.hpp"
 #include "util/helpers.hpp"
 
 namespace test_utils {
@@ -239,6 +242,66 @@ bool test_complement_equivalence(const spot::twa_graph_ptr& aut, bool verbose = 
 bool test_elevator_equivalence(const spot::twa_graph_ptr& aut, bool verbose = false);
 
 /**
+ * @brief Weak (nondeterministic) automata used by the determinization tests.
+ */
+const std::vector<std::string> WEAK_TEST_FILES = {
+    "tests/test_data/weak/weak_terminal.hoa",
+    "tests/test_data/weak/weak_single_scc.hoa",
+    "tests/test_data/weak/weak_multi_scc.hoa",
+    "tests/test_data/weak/weak_three_sccs.hoa",
+    "tests/test_data/weak/weak_tela.hoa",
+};
+
+/**
+ * @brief Check whether an automaton is an elevator automaton, i.e. whether each
+ *        of its accepting SCCs is inherently weak or deterministic inside.
+ *
+ * These are exactly the automata that kofola::determinize_tela can handle: a
+ * nondeterministic accepting SCC is the one partition type for which no partial
+ * determinization algorithm exists.
+ *
+ * @param aut The automaton to classify
+ * @return true if every accepting SCC is inherently weak or deterministic
+ */
+bool is_elevator_automaton(const spot::twa_graph_ptr& aut);
+
+/**
+ * @brief Collect the paths of all the automata stored under tests/test_data.
+ *
+ * The paths are absolute, so they are to be loaded with
+ * load_automaton_exact_path(); the result is sorted to keep the test output
+ * stable.
+ *
+ * @return Paths of all the .hoa / .autfilt files under tests/test_data
+ */
+std::vector<std::string> list_test_data_automata();
+
+/**
+ * @brief Outcome of checking a determinization.
+ */
+enum class determinize_check {
+    passed,        ///< the result is deterministic and language equivalent
+    failed,        ///< the result is nondeterministic, wrong, or could not be built
+    unverifiable   ///< Spot could not decide the equivalence (e.g. it refuses to
+                   ///< complement the input automaton)
+};
+
+/**
+ * @brief Check whether determinization produced a deterministic and
+ *        language-equivalent automaton.
+ *
+ * The two inclusions are checked separately, because Spot may be able to decide
+ * one of them and not the other; a direction it refuses to decide makes the
+ * check unverifiable rather than failed, but only if the direction it did decide
+ * holds.
+ *
+ * @param aut The input automaton to determinize
+ * @param verbose Whether to print detailed output during comparison
+ * @return the outcome of the check
+ */
+determinize_check test_determinize_equivalence(const spot::twa_graph_ptr& aut, bool verbose = false);
+
+/**
  * @brief Test complement equivalence for a file with comprehensive output.
  * 
  * This is a higher-level utility that loads an automaton from a file and
@@ -252,8 +315,10 @@ bool test_file_complement_equivalence(const std::string& filename, bool verbose 
 
 /**
  * @brief Set up common kofola options for TELA complementation.
- * 
- * This function sets standard options that are commonly used across tests.
+ *
+ * Resets the global kofola::OPTIONS parameters and then sets the standard
+ * options that are commonly used across tests, so that the outcome of a test
+ * case does not depend on which test cases ran before it.
  */
 void setup_tela_options();
 
