@@ -1194,8 +1194,10 @@ namespace helpers {
 
         // Count the number of states in the partition
         unsigned num_states_in_partition = 0;
+        // states in no SCC (unreachable ones, e.g. left behind by elevatorization) are not in the map
         for(unsigned state = 0; state < info.aut_->num_states(); ++state) {
-            if(info.st_to_part_map_.at(state) == static_cast<int>(part_index)) {
+            auto it = info.st_to_part_map_.find(state);
+            if(it != info.st_to_part_map_.end() && it->second == static_cast<int>(part_index)) {
                 num_states_in_partition++;
             }
         }

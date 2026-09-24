@@ -81,7 +81,10 @@ determinisation_acc_cond::determinisation_acc_cond(const spot::acc_cond::acc_cod
   template_code &= spot::acc_cond::acc_code::fin({max_col}); // add Fin() clause for discontinuation event
 
   acc_code_ = spot::acc_cond::acc_code::f(); // set to neutral element for disjunction
-  disj_size_ = template_code.used_sets().count();
+  // the block of a disjunct spans all the colours up to the discontinuation one;
+  // counting only the used colours would make neighbouring blocks overlap when
+  // some colour below max_col is unused
+  disj_size_ = max_col + 1;
   for(unsigned i = 0; i < disjuncts; ++i) {
     acc_code_ |= (template_code << (disj_size_ * i));
     additional_fins_.push_back(max_col + disj_size_ * i);

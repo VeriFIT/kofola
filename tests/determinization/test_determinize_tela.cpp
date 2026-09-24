@@ -75,6 +75,61 @@ TEST_CASE("determinization of every elevator automaton of test_data", "[determin
     CHECK(checked > 0);
 }
 
+TEST_CASE("IADACs determinization of every elevator automaton with an IADAC", "[determinize]")
+{
+    test_utils::setup_tela_options();
+    // by default, the IADACs algorithm gives way to the DAC one when its
+    // colours might not fit into Spot's budget; force it here
+    kofola::OPTIONS.params["det_based_on_iadac"] = "yes";
+
+    unsigned checked = 0;
+    for (const std::string& filename : test_utils::list_test_data_automata()) {
+        spot::twa_graph_ptr aut = test_utils::load_automaton_exact_path(filename);
+        if (!aut || !test_utils::is_elevator_automaton(aut)) { continue; }
+
+        spot::scc_info si(aut, spot::scc_info_options::ALL);
+        si.determine_unknown_acceptance();
+        std::string scc_types = helpers::get_scc_types(si);
+        bool has_iadac = false;
+        for (unsigned scc = 0; scc < si.scc_count(); ++scc) {
+            has_iadac |= helpers::is_accepting_initial_almost_detscc(scc_types, scc);
+        }
+        if (!has_iadac) { continue; }
+
+        INFO("determinizing " << filename);
+        test_utils::determinize_check res = test_utils::test_determinize_equivalence(aut);
+        if (test_utils::determinize_check::unverifiable == res) { continue; }
+
+        CHECK(res == test_utils::determinize_check::passed);
+        ++checked;
+    }
+
+    std::cout << "IADACs-determinized " << checked << " elevator automata of test_data" << std::endl;
+    CHECK(checked > 0);
+    kofola::OPTIONS.params.erase("det_based_on_iadac");
+}
+
+TEST_CASE("IADACs determinization with a gap in the colours", "[determinize]")
+{
+    test_utils::setup_tela_options();
+    kofola::OPTIONS.params["det_based_on_iadac"] = "yes";
+
+    // Regression test: the acceptance is Inf(0)&Inf(2), colour 1 is unused.
+    // determinisation_acc_cond used to size the colour block of a run by the
+    // number of used colours (3) rather than by the largest one (4), so the
+    // discontinuation colour of the first run coincided with colour 0 of the
+    // second one.  On c(ab)^w the first run is accepting and the second one
+    // sees colour 0 only, which then discontinued the first run infinitely
+    // often and the word was rejected.
+    spot::twa_graph_ptr aut =
+        test_utils::load_automaton_from_file("tests/test_data/iadac_colour_gap.hoa");
+    REQUIRE(aut != nullptr);
+
+    CHECK(test_utils::test_determinize_equivalence(aut) ==
+          test_utils::determinize_check::passed);
+    kofola::OPTIONS.params.erase("det_based_on_iadac");
+}
+
 TEST_CASE("determinization of a non-elevator automaton limit-determinizes first", "[determinize]")
 {
     test_utils::setup_tela_options();
