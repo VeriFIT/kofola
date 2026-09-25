@@ -4,6 +4,7 @@
 #include "../complement/complement_tela.hpp"
 #include "../complement/elevatorization.hpp"
 #include "determinize_alg_dac.hpp"
+#include "determinize_alg_iadacs.hpp"
 #include "determinize_alg_mh.hpp"
 
 #include <stack>
@@ -226,12 +227,26 @@ namespace kofola
     }
 
     tela_determinize::alg_p
-    tela_determinize::create_initial_almost_deterministic_algorithm(size_t partition_index) {
-        // an initial almost deterministic SCC is in particular deterministic
+    tela_determinize::create_initial_almost_deterministic_algorithm(size_t partition_index) { // {{{
+        // An initial almost deterministic SCC is in particular deterministic
         // inside (that is what SCC_DET_BORDER_NONDET_TYPE requires), so the DAC
-        // algorithm applies to it as well
+        // algorithm applies to it.  It is the default: the IADACs
+        // determinization builds exactly the same macrostates (the same run
+        // labelling), but it fixes its colours upfront by the runs bound and
+        // over all the colours of the input, so it never needs fewer colours
+        // than DAC and often needs more.  It is kept for experiments.
+        // When its colours do not fit into Spot's limit, DAC is used instead
+        // (it allocates labels on the fly and may need fewer of them).
+        if (kofola::has_value("det_based_on_iadac", "yes", kofola::OPTIONS.params)) {
+            auto bound = helpers::tnba_complement::max_runs_in_partition(*(this->info_.get()), partition_index);
+            auto needed = kofola::determinisation_acc_cond::colours_needed(
+                this->info_->aut_->get_acceptance(), bound);
+            if (needed <= SPOT_MAX_ACCSETS) {
+                return std::make_unique<kofola::determinize_iadacs>(*(this->info_.get()), partition_index, bound);
+            }
+        }
         return std::make_unique<kofola::determinize_dac>(*(this->info_.get()), partition_index);
-    }
+    } // create_initial_almost_deterministic_algorithm() }}}
 
     // ----------------------------------------------------------------------
     // uberstate bookkeeping
