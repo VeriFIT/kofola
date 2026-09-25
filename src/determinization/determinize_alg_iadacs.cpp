@@ -173,9 +173,7 @@ mstate_col determinize_iadacs::get_succ(
       if (!bdd_implies(symbol, t.cond)) { continue; }
       if (t.dst != succ_run) { continue; }
 
-      for (unsigned col : t.acc.sets()) {
-        cols.insert(this->acc_cond_.map_colour(col, matching_prefix_len));
-      }
+      this->acc_cond_.add_colours(t.acc, matching_prefix_len, cols);
       break;
     }
   }

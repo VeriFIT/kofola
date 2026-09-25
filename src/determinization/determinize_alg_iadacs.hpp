@@ -30,9 +30,9 @@ namespace kofola { // {{{
 /// # Acceptance
 ///
 /// The labels are the disjuncts of @p determinisation_acc_cond: the label i
-/// owns a copy of the colours of the input automaton plus a discontinuation
-/// colour, and its disjunct is the acceptance of the input automaton over that
-/// copy conjoined with Fin(discontinuation colour).  In a step, the label i
+/// owns a copy of the colours the acceptance of the input automaton mentions
+/// (compacted to start at 0) plus a discontinuation colour, and its disjunct is
+/// that acceptance over the copy conjoined with Fin(discontinuation colour).  In a step, the label i
 /// sees the colours of the transition taken by its run as long as every label
 /// up to i keeps carrying the same run; from the first label that does not, all
 /// the labels are discontinued.
@@ -40,7 +40,8 @@ namespace kofola { // {{{
 /// Unlike @p determinize_dac, which discovers the number of labels on the fly,
 /// the number of slots (and thus the colour range) is fixed upfront by
 /// helpers::tnba_complement::max_runs_in_partition(), exactly as in the
-/// complementation.
+/// complementation.  The constructor throws if the resulting colours do not fit
+/// into SPOT_MAX_ACCSETS; see determinisation_acc_cond::colours_needed().
 class determinize_iadacs : public abstract_determinize_alg
 { // {{{
 private: // DATA MEMBERS
@@ -65,8 +66,6 @@ public: // METHODS
 
   virtual spot::acc_cond get_acc_cond() override
   { return acc_cond_.get_acc_cond(); }
-
-  virtual unsigned get_min_colour() const override { return acc_cond_.get_min_colour(); }
 
   virtual ~determinize_iadacs() override;
 }; // determinize_iadacs }}}

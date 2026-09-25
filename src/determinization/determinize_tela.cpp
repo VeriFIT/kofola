@@ -235,9 +235,15 @@ namespace kofola
         // labelling), but it fixes its colours upfront by the runs bound and
         // over all the colours of the input, so it never needs fewer colours
         // than DAC and often needs more.  It is kept for experiments.
+        // When its colours do not fit into Spot's limit, DAC is used instead
+        // (it allocates labels on the fly and may need fewer of them).
         if (kofola::has_value("det_based_on_iadac", "yes", kofola::OPTIONS.params)) {
             auto bound = helpers::tnba_complement::max_runs_in_partition(*(this->info_.get()), partition_index);
-            return std::make_unique<kofola::determinize_iadacs>(*(this->info_.get()), partition_index, bound);
+            auto needed = kofola::determinisation_acc_cond::colours_needed(
+                this->info_->aut_->get_acceptance(), bound);
+            if (needed <= SPOT_MAX_ACCSETS) {
+                return std::make_unique<kofola::determinize_iadacs>(*(this->info_.get()), partition_index, bound);
+            }
         }
         return std::make_unique<kofola::determinize_dac>(*(this->info_.get()), partition_index);
     } // create_initial_almost_deterministic_algorithm() }}}
