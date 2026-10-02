@@ -139,6 +139,11 @@ namespace
     spot::acc_cond::mark_t sets = si.acc_sets_of(scc);
     spot::acc_cond acc = si.get_aut()->acc().restrict_to(sets);
     acc = acc.remove(si.common_sets_of(scc), false);
+    // Neither restrict_to() nor remove() lowers num_sets(), but
+    // is_generalized_co_buchi() expects Fin over all sets: drop
+    // the unused ones and renumber the rest.
+    acc = acc.strip(acc.all_sets() - acc.get_acceptance().used_sets(),
+                    false);
     return acc.is_generalized_co_buchi();
   }
 
