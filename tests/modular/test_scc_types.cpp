@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 
 #include <sstream>
 #include <spot/parseaut/public.hh>
@@ -300,4 +301,45 @@ TEST_CASE("kofola::get_scc_types - generalized initial deterministic", "[scc_typ
         REQUIRE(helpers::is_accepting_initial_almost_detscc(scc_types, 2) == false);
         REQUIRE(helpers::is_accepting_initial_almost_detscc(scc_types, 3) == false);
     }
+}
+
+TEST_CASE("cola::is_emerson_lei_elevator_automaton - SCC not using all sets", "[scc_types]") {
+    // One nondeterministic SCC (state 0 has two "t" edges) that is not
+    // inherently weak but whose acceptance, restricted to the SCC, is
+    // generalized co-Buchi.  The first variant declares only the set the
+    // SCC uses; the second declares an extra set the SCC never sees, so
+    // the restricted condition is Fin(1) over 2 declared sets.
+    auto acceptance = GENERATE(
+        std::make_pair(std::string("1 Fin(0)"), std::string("{0}")),
+        std::make_pair(std::string("2 Inf(0) | Fin(1)"), std::string("{1}")));
+
+    std::string hoa_str =
+        "HOA: v1\n"
+        "States: 2\n"
+        "Start: 0\n"
+        "AP: 0\n"
+        "Acceptance: " + acceptance.first + "\n"
+        "--BODY--\n"
+        "State: 0\n"
+        "[t] 0\n"
+        "[t] 1 " + acceptance.second + "\n"
+        "State: 1\n"
+        "[t] 0\n"
+        "--END--\n";
+    INFO("Acceptance: " << acceptance.first);
+
+    auto dict = spot::make_bdd_dict();
+    spot::automaton_stream_parser parser(hoa_str.c_str(), "test_string");
+    auto parsed_aut = parser.parse(dict);
+    REQUIRE(!parsed_aut->format_errors(std::cerr));
+    spot::twa_graph_ptr aut = parsed_aut->aut;
+    REQUIRE(aut != nullptr);
+
+    REQUIRE(helpers::is_elevator_automaton(aut) == false);
+    REQUIRE(helpers::is_emerson_lei_elevator_automaton(aut) == true);
+
+    spot::scc_info scc_info(aut);
+    std::string scc_types = helpers::get_scc_types(scc_info);
+    REQUIRE(helpers::is_elevator_automaton(scc_info, scc_types) == false);
+    REQUIRE(helpers::is_emerson_lei_elevator_automaton(scc_info, scc_types) == true);
 }

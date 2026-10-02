@@ -44,35 +44,119 @@ options kofola::OPTIONS;
 
 namespace helpers
 {
+
+namespace
+{
+  // Which notion of elevator automaton to check: the classical one
+  // only accepts SCCs that are deterministic or inherently weak; the
+  // Emerson-Lei one (ELEA) additionally accepts SCCs that are
+  // generalized co-Buchi.
+  enum class elevator_kind { classic, emerson_lei };
+
+  // Shared scaffolding for is_elevator_automaton() and
+  // is_emerson_lei_elevator_automaton().
   bool
-  is_elevator_automaton(const spot::const_twa_graph_ptr &aut)
+  is_elevator_automaton_aux(const spot::const_twa_graph_ptr &aut,
+                            elevator_kind kind)
   {
+    // Universal branching is not handled by is_deterministic_scc(),
+    // so alternating automata are never considered elevator automata
+    // (same convention as spot::is_deterministic()).
+    if (!aut->is_existential())
+    {
+        return false;
+    }
+
     spot::scc_info si(aut);
+    // Resolve SCCs whose acceptance status is ambiguous under mixed
+    // Fin/Inf conditions before checking inherent weakness below;
+    // otherwise is_inherently_weak_scc() can under-report a fully
+    // rejecting SCC as not weak (its is_rejecting_scc() fast path
+    // relies on this being resolved first).
+    si.determine_unknown_acceptance();
     unsigned nc = si.scc_count();
     for (unsigned scc = 0; scc < nc; ++scc)
     {
-      if (is_deterministic_scc(scc, si) || spot::is_inherently_weak_scc(si, scc))
+      bool ok = is_deterministic_scc(scc, si)
+        || spot::is_inherently_weak_scc(si, scc);
+      if (!ok && kind == elevator_kind::emerson_lei)
       {
-          continue;
+          ok = is_generalized_co_buchi_scc(scc, si);
       }
-      return false;
+      if (!ok)
+      {
+          return false;
+      }
     }
     return true;
+  }
+
+  // Same scaffolding as above, but working off a precomputed per-SCC
+  // type bitmask (see get_scc_types()) instead of computing
+  // properties directly from an scc_info.
+  bool
+  is_elevator_automaton_aux(const spot::scc_info &scc, std::string& scc_str,
+                            elevator_kind kind)
+  {
+    // Same convention as the const_twa_graph_ptr overload above.
+    if (!scc.get_aut()->is_existential())
+    {
+        return false;
+    }
+
+    for (unsigned sc = 0; sc < scc.scc_count(); ++sc)
+    {
+      char type = scc_str[sc];
+      bool ok = (type & SCC_INSIDE_DET_TYPE) > 0 || (type & SCC_WEAK_TYPE) > 0;
+      if (!ok && kind == elevator_kind::emerson_lei)
+      {
+          ok = (type & SCC_GEN_CO_BUCHI_TYPE) > 0;
+      }
+      if (!ok)
+      {
+          return false;
+      }
+    }
+    return true;
+  }
+} // anonymous namespace
+
+  bool
+  is_elevator_automaton(const spot::const_twa_graph_ptr &aut)
+  {
+    return is_elevator_automaton_aux(aut, elevator_kind::classic);
   }
 
   bool
   is_elevator_automaton(const spot::scc_info &scc, std::string& scc_str)
   {
-    for (unsigned sc = 0; sc < scc.scc_count(); ++sc)
-    {
-      if ((scc_str[sc]&SCC_INSIDE_DET_TYPE) > 0
-      || (scc_str[sc]&SCC_WEAK_TYPE) > 0)
-      {
-          continue;
-      }
-      return false;
-    }
-    return true;
+    return is_elevator_automaton_aux(scc, scc_str, elevator_kind::classic);
+  }
+
+  bool
+  is_generalized_co_buchi_scc(unsigned scc, const spot::scc_info& si)
+  {
+    spot::acc_cond::mark_t sets = si.acc_sets_of(scc);
+    spot::acc_cond acc = si.get_aut()->acc().restrict_to(sets);
+    acc = acc.remove(si.common_sets_of(scc), false);
+    // Neither restrict_to() nor remove() lowers num_sets(), but
+    // is_generalized_co_buchi() expects Fin over all sets: drop
+    // the unused ones and renumber the rest.
+    acc = acc.strip(acc.all_sets() - acc.get_acceptance().used_sets(),
+                    false);
+    return acc.is_generalized_co_buchi();
+  }
+
+  bool
+  is_emerson_lei_elevator_automaton(const spot::const_twa_graph_ptr &aut)
+  {
+    return is_elevator_automaton_aux(aut, elevator_kind::emerson_lei);
+  }
+
+  bool
+  is_emerson_lei_elevator_automaton(const spot::scc_info &scc, std::string& scc_str)
+  {
+    return is_elevator_automaton_aux(scc, scc_str, elevator_kind::emerson_lei);
   }
 
   bool
@@ -188,6 +272,12 @@ namespace helpers
   get_scc_types(const spot::scc_info &si)
   {
     spot::scc_info si_copy = si;
+    // Resolve SCCs whose acceptance status is ambiguous under mixed
+    // Fin/Inf conditions before checking inherent weakness below;
+    // otherwise is_inherently_weak_scc() can under-report a fully
+    // rejecting SCC as not weak (its is_rejecting_scc() fast path
+    // relies on this being resolved first).
+    si_copy.determine_unknown_acceptance();
     unsigned nc = si.scc_count();
     std::string res(nc, 0);
     for (unsigned sc = 0; sc < nc; ++sc)
@@ -197,6 +287,7 @@ namespace helpers
       type |= is_deterministic_scc(sc, si, DeterminismScope::ALL) ? SCC_DET_TYPE : 0; // must also be deterministic for all transitions after accepting
       type |= is_deterministic_scc(sc, si, DeterminismScope::BORDER_NONDET) ? SCC_DET_BORDER_NONDET_TYPE : 0;
       type |=  spot::is_inherently_weak_scc(si_copy, sc) ? SCC_WEAK_TYPE : 0;
+      type |= is_generalized_co_buchi_scc(sc, si) ? SCC_GEN_CO_BUCHI_TYPE : 0;
       type |= si.is_accepting_scc(sc) ? SCC_ACC : 0;
       // other type is 0
       res[sc] = type;
@@ -275,6 +366,16 @@ namespace helpers
   is_deterministic_scc(unsigned scc, const spot::scc_info& si,
                      DeterminismScope scope)
   {
+    // For a universal-branching edge, t.dst does not hold a plain
+    // state number (it encodes an index into a destination-set
+    // vector instead), so si.scc_of(t.dst) below would read out of
+    // bounds.  Alternating automata are simply never considered
+    // deterministic here.
+    if (!si.get_aut()->is_existential())
+    {
+        return false;
+    }
+
     for (unsigned src: si.states_of(scc))
     {
       bdd available = bddtrue;
