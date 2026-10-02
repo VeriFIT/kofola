@@ -318,6 +318,10 @@ namespace helpers
     return (scc_types[scc] & SCC_ACC) > 0 && (scc_types[scc] & SCC_INITIAL_ALMOST_DETERMINISTIC_TYPE) > 0;
   }
 
+  bool is_accepting_almost_initial_detscc(const std::string& scc_types, unsigned scc) {
+    return (scc_types[scc] & SCC_ACC) > 0 && (scc_types[scc] & SCC_ALMOST_INITIAL_DET_TYPE) > 0;
+  }
+
   bool
   is_accepting_weakscc(const std::string& scc_types, unsigned scc)
   {

@@ -47,30 +47,37 @@ namespace kofola {
     }
 
     bool emptiness_check::empty() {
-        auto init_states = incl_checker_->get_initial_states();
-        for (const auto& state: init_states) {
+        entry_states_ = incl_checker_->get_initial_states();
+        for (const auto& state: entry_states_) {
             dfs_num_.insert({state, UNDEFINED});
             on_stack_.insert({state, false});
         }
 
-        for(const auto& init: init_states) {
-            if (dfs_num_.at(init) == UNDEFINED) {
+        // Allow entry_states_ to be enriched by gs()/gs_edited
+        size_t i = 0;
+        auto intersect_aut_acc_cond = incl_checker_->get_acc_cond();
+        auto fin_mark = intersect_aut_acc_cond.fin_unit();
+
+        while (i < entry_states_.size()) {
+            const auto& entry = entry_states_[i];
+            if (dfs_num_.at(entry) == UNDEFINED) {
                 bool empty;
                 if(kofola::OPTIONS.params.count("gfee") != 0 && kofola::OPTIONS.params["gfee"] == "yes")
-                    empty = gs_edited(init);
+                    empty = gs_edited(entry);
                 else
-                    empty = gs(init);
+                    empty = gs(entry, fin_mark);
                 if(!empty){
                     #ifdef ENABLE_COUNTER
-                        std::cout << cnt_ << "\n";
+                        std::cout << "States: " << cnt_ << "\n";
                     #endif
                     return false;
                 }
             }
+            ++i;
         }
 
         #ifdef ENABLE_COUNTER
-            std::cout << cnt_ << "\n";
+            std::cout << "States: " << cnt_ << "\n";
         #endif
         return true;
     }
@@ -99,7 +106,7 @@ namespace kofola {
 
     bool emptiness_check::gs_edited(std::shared_ptr<inclusion_mstate> src_mstate) {
         #ifdef ENABLE_COUNTER
-            cnt_ = 1;
+            cnt_++;
         #endif
         
         // stacks to replace recursion
@@ -221,9 +228,9 @@ namespace kofola {
         on_stack_[src_mstate] = true;
     }
 
-    bool emptiness_check::gs(std::shared_ptr<inclusion_mstate> src_mstate) {
+    bool emptiness_check::gs(std::shared_ptr<inclusion_mstate> src_mstate, spot::acc_cond::mark_t fin_mark) {
         #ifdef ENABLE_COUNTER
-            cnt_ = 1;
+            cnt_++;
         #endif
         // stacks to replace recursion
         std::stack<std::shared_ptr<inclusion_mstate>> src_mstates;
@@ -258,6 +265,11 @@ namespace kofola {
                     on_stack_.insert({dst_mstate, false});
                 }
                 // dfs_num_ initialised for dst_mstate
+                if(fin_mark & dst_mstate->get_acc()) {
+                    entry_states_.push_back(dst_mstate);
+                    continue;
+                }
+
 
                 if (dfs_num_[dst_mstate] == UNDEFINED)
                 {

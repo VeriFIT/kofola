@@ -32,6 +32,7 @@ static const char SCC_DET_TYPE = 4;
 static const char SCC_ACC = 8;
 static const char SCC_INITIAL_ALMOST_DETERMINISTIC_TYPE = 16;
 static const char SCC_DET_BORDER_NONDET_TYPE = 32;
+static const char SCC_ALMOST_INITIAL_DET_TYPE = 64;
 
 namespace kofola
 { // {{{
