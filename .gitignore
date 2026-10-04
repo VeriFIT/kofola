@@ -5,3 +5,4 @@ tests/CMakeFiles
 build-release/
 .claude
 .DS_Store
+build-asan
