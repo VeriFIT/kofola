@@ -53,6 +53,36 @@ namespace
   // generalized co-Buchi.
   enum class elevator_kind { classic, emerson_lei };
 
+  // Spot's determine_unknown_acceptance() and is_inherently_weak_scc()
+  // swap the automaton's acceptance temporarily and restore it from the
+  // formula only, so num_sets() can drop below the colours the edges
+  // still carry.  Puts the original condition back when destroyed.
+  class acc_restorer
+  {
+    spot::twa_graph_ptr aut_;
+    spot::acc_cond acc_;
+  public:
+    explicit acc_restorer(const spot::const_twa_graph_ptr &aut)
+      : aut_(std::const_pointer_cast<spot::twa_graph>(aut)), acc_(aut->acc())
+    {}
+    ~acc_restorer() { aut_->set_acceptance(acc_); }
+  };
+
+  // Resolve SCCs whose acceptance status is ambiguous under mixed
+  // Fin/Inf conditions; otherwise is_inherently_weak_scc() can
+  // under-report a fully rejecting SCC as not weak (its
+  // is_rejecting_scc() fast path relies on this being resolved first).
+  // Spot does not support this on alternating automata, so those are
+  // left unresolved.
+  void
+  resolve_unknown_acceptance(spot::scc_info &si)
+  {
+    if (si.get_aut()->is_existential())
+    {
+        si.determine_unknown_acceptance();
+    }
+  }
+
   // Shared scaffolding for is_elevator_automaton() and
   // is_emerson_lei_elevator_automaton().
   bool
@@ -67,13 +97,9 @@ namespace
         return false;
     }
 
+    acc_restorer restore(aut);
     spot::scc_info si(aut);
-    // Resolve SCCs whose acceptance status is ambiguous under mixed
-    // Fin/Inf conditions before checking inherent weakness below;
-    // otherwise is_inherently_weak_scc() can under-report a fully
-    // rejecting SCC as not weak (its is_rejecting_scc() fast path
-    // relies on this being resolved first).
-    si.determine_unknown_acceptance();
+    resolve_unknown_acceptance(si);
     unsigned nc = si.scc_count();
     for (unsigned scc = 0; scc < nc; ++scc)
     {
@@ -162,7 +188,9 @@ namespace
   bool
   is_weak_automaton(const spot::const_twa_graph_ptr &aut)
   {
+    acc_restorer restore(aut);
     spot::scc_info si(aut);
+    resolve_unknown_acceptance(si);
     unsigned nc = si.scc_count();
     for (unsigned scc = 0; scc < nc; ++scc)
     {
@@ -271,13 +299,9 @@ namespace
   std::string
   get_scc_types(const spot::scc_info &si)
   {
+    acc_restorer restore(si.get_aut());
     spot::scc_info si_copy = si;
-    // Resolve SCCs whose acceptance status is ambiguous under mixed
-    // Fin/Inf conditions before checking inherent weakness below;
-    // otherwise is_inherently_weak_scc() can under-report a fully
-    // rejecting SCC as not weak (its is_rejecting_scc() fast path
-    // relies on this being resolved first).
-    si_copy.determine_unknown_acceptance();
+    resolve_unknown_acceptance(si_copy);
     unsigned nc = si.scc_count();
     std::string res(nc, 0);
     for (unsigned sc = 0; sc < nc; ++sc)
@@ -288,7 +312,7 @@ namespace
       type |= is_deterministic_scc(sc, si, DeterminismScope::BORDER_NONDET) ? SCC_DET_BORDER_NONDET_TYPE : 0;
       type |=  spot::is_inherently_weak_scc(si_copy, sc) ? SCC_WEAK_TYPE : 0;
       type |= is_generalized_co_buchi_scc(sc, si) ? SCC_GEN_CO_BUCHI_TYPE : 0;
-      type |= si.is_accepting_scc(sc) ? SCC_ACC : 0;
+      type |= si_copy.is_accepting_scc(sc) ? SCC_ACC : 0;
       // other type is 0
       res[sc] = type;
     }
