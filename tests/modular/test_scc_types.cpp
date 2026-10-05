@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 
 #include <sstream>
 #include <spot/parseaut/public.hh>
@@ -300,4 +301,170 @@ TEST_CASE("kofola::get_scc_types - generalized initial deterministic", "[scc_typ
         REQUIRE(helpers::is_accepting_initial_almost_detscc(scc_types, 2) == false);
         REQUIRE(helpers::is_accepting_initial_almost_detscc(scc_types, 3) == false);
     }
+}
+
+TEST_CASE("cola::is_emerson_lei_elevator_automaton - SCC not using all sets", "[scc_types]") {
+    // One nondeterministic SCC (state 0 has two "t" edges) that is not
+    // inherently weak but whose acceptance, restricted to the SCC, is
+    // generalized co-Buchi.  The first variant declares only the set the
+    // SCC uses; the second declares an extra set the SCC never sees, so
+    // the restricted condition is Fin(1) over 2 declared sets.
+    auto acceptance = GENERATE(
+        std::make_pair(std::string("1 Fin(0)"), std::string("{0}")),
+        std::make_pair(std::string("2 Inf(0) | Fin(1)"), std::string("{1}")));
+
+    std::string hoa_str =
+        "HOA: v1\n"
+        "States: 2\n"
+        "Start: 0\n"
+        "AP: 0\n"
+        "Acceptance: " + acceptance.first + "\n"
+        "--BODY--\n"
+        "State: 0\n"
+        "[t] 0\n"
+        "[t] 1 " + acceptance.second + "\n"
+        "State: 1\n"
+        "[t] 0\n"
+        "--END--\n";
+    INFO("Acceptance: " << acceptance.first);
+
+    auto dict = spot::make_bdd_dict();
+    spot::automaton_stream_parser parser(hoa_str.c_str(), "test_string");
+    auto parsed_aut = parser.parse(dict);
+    REQUIRE(!parsed_aut->format_errors(std::cerr));
+    spot::twa_graph_ptr aut = parsed_aut->aut;
+    REQUIRE(aut != nullptr);
+
+    REQUIRE(helpers::is_elevator_automaton(aut) == false);
+    REQUIRE(helpers::is_emerson_lei_elevator_automaton(aut) == true);
+
+    spot::scc_info scc_info(aut);
+    std::string scc_types = helpers::get_scc_types(scc_info);
+    REQUIRE(helpers::is_elevator_automaton(scc_info, scc_types) == false);
+    REQUIRE(helpers::is_emerson_lei_elevator_automaton(scc_info, scc_types) == true);
+}
+
+namespace {
+    spot::twa_graph_ptr parse_hoa(const std::string& hoa_str) {
+        auto dict = spot::make_bdd_dict();
+        spot::automaton_stream_parser parser(hoa_str.c_str(), "test_string");
+        auto parsed_aut = parser.parse(dict);
+        REQUIRE(!parsed_aut->format_errors(std::cerr));
+        REQUIRE(parsed_aut->aut != nullptr);
+        return parsed_aut->aut;
+    }
+}
+
+TEST_CASE("kofola::get_scc_types - alternating automaton with Fin", "[scc_types]") {
+    // Universal edge 0 -> 1&2.  Spot's determine_unknown_acceptance()
+    // throws on alternating automata, and scc_of() on a universal
+    // destination reads out of bounds.
+    spot::twa_graph_ptr aut = parse_hoa(
+        "HOA: v1\n"
+        "States: 3\n"
+        "Start: 0\n"
+        "AP: 1 \"a\"\n"
+        "Acceptance: 1 Fin(0)\n"
+        "--BODY--\n"
+        "State: 0\n"
+        "[0] 1&2 {0}\n"
+        "[!0] 1\n"
+        "State: 1\n"
+        "[t] 0\n"
+        "State: 2\n"
+        "[t] 2\n"
+        "--END--\n");
+    REQUIRE(!aut->is_existential());
+
+    spot::scc_info scc_info(aut);
+    std::string scc_types;
+    REQUIRE_NOTHROW(scc_types = helpers::get_scc_types(scc_info));
+    REQUIRE(scc_types.size() == scc_info.scc_count());
+
+    REQUIRE(helpers::is_elevator_automaton(aut) == false);
+    REQUIRE(helpers::is_emerson_lei_elevator_automaton(aut) == false);
+    REQUIRE(helpers::is_elevator_automaton(scc_info, scc_types) == false);
+    REQUIRE_NOTHROW(helpers::is_weak_automaton(aut));
+}
+
+TEST_CASE("kofola::get_scc_types - acceptance left untouched", "[scc_types]") {
+    // Colour 2 is declared but not used by the formula.  Resolving the
+    // unknown acceptance (and the weak-SCC check) makes Spot rebuild the
+    // condition from the formula alone, shrinking num_sets() to 2.
+    spot::twa_graph_ptr aut = parse_hoa(
+        "HOA: v1\n"
+        "States: 2\n"
+        "Start: 0\n"
+        "AP: 1 \"a\"\n"
+        "Acceptance: 3 Fin(0) & Inf(1)\n"
+        "--BODY--\n"
+        "State: 0\n"
+        "[0] 1 {0 2}\n"
+        "[0] 1 {1}\n"
+        "State: 1\n"
+        "[t] 0\n"
+        "--END--\n");
+    const spot::acc_cond orig_acc = aut->acc();
+    REQUIRE(orig_acc.num_sets() == 3);
+
+    helpers::is_elevator_automaton(aut);
+    CHECK(aut->acc() == orig_acc);
+    helpers::is_emerson_lei_elevator_automaton(aut);
+    CHECK(aut->acc() == orig_acc);
+    helpers::is_weak_automaton(aut);
+    CHECK(aut->acc() == orig_acc);
+    spot::scc_info scc_info(aut);
+    helpers::get_scc_types(scc_info);
+    CHECK(aut->acc() == orig_acc);
+}
+
+TEST_CASE("kofola::get_scc_types - accepting SCC under mixed Fin/Inf", "[scc_types]") {
+    // The cycle through the !a edge sees only colour 1, so the SCC is
+    // accepting, but scc_info cannot tell without an emptiness check.
+    spot::twa_graph_ptr aut = parse_hoa(
+        "HOA: v1\n"
+        "States: 2\n"
+        "Start: 0\n"
+        "AP: 1 \"a\"\n"
+        "Acceptance: 2 Fin(0) & Inf(1)\n"
+        "--BODY--\n"
+        "State: 0\n"
+        "[0] 1 {0}\n"
+        "[!0] 1 {1}\n"
+        "State: 1\n"
+        "[t] 0\n"
+        "--END--\n");
+
+    spot::scc_info scc_info(aut);
+    REQUIRE(scc_info.scc_count() == 1);
+    std::string scc_types = helpers::get_scc_types(scc_info);
+    REQUIRE((scc_types[0] & SCC_ACC) != 0);
+    REQUIRE((scc_types[0] & SCC_WEAK_TYPE) == 0);
+}
+
+TEST_CASE("kofola::is_weak_automaton - rejecting SCC under mixed Fin/Inf", "[scc_types]") {
+    // Every cycle is rejecting (the one through state 1 sees colour 0,
+    // the self-loop never sees colour 1), so the SCC is inherently weak.
+    spot::twa_graph_ptr aut = parse_hoa(
+        "HOA: v1\n"
+        "States: 2\n"
+        "Start: 0\n"
+        "AP: 1 \"a\"\n"
+        "Acceptance: 2 Fin(0) & Inf(1)\n"
+        "--BODY--\n"
+        "State: 0\n"
+        "[0] 0\n"
+        "[!0] 1 {1}\n"
+        "State: 1\n"
+        "[t] 0 {0}\n"
+        "--END--\n");
+
+    REQUIRE(helpers::is_weak_automaton(aut) == true);
+    REQUIRE(helpers::is_elevator_automaton(aut) == true);
+
+    spot::scc_info scc_info(aut);
+    std::string scc_types = helpers::get_scc_types(scc_info);
+    REQUIRE((scc_types[0] & SCC_WEAK_TYPE) != 0);
+    REQUIRE((scc_types[0] & SCC_ACC) == 0);
+    REQUIRE(helpers::is_weak_automaton(scc_info, scc_types) == true);
 }
