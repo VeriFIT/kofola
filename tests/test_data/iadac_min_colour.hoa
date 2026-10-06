@@ -1,0 +1,22 @@
+HOA: v1
+name: "IADAC whose acceptance does not mention colour 0; the second run is not accepting"
+States: 4
+Start: 0
+AP: 2 "x" "y"
+Acceptance: 2 Inf(1)
+properties: trans-labels explicit-labels trans-acc
+--BODY--
+State: 0
+[!0&!1 | 0&!1] 0
+[!0&1] 1
+[!0&1] 3
+State: 1
+[!0&!1] 2 {1}
+[!0&1] 3
+State: 2
+[0&!1] 1
+State: 3
+[!0&!1] 3
+[0&!1] 3
+[!0&1] 1
+--END--

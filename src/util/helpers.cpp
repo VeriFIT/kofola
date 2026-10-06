@@ -303,6 +303,14 @@ namespace
     spot::scc_info si_copy = si;
     resolve_unknown_acceptance(si_copy);
     unsigned nc = si.scc_count();
+
+    // spot::is_inherently_weak_scc() temporarily replaces the acceptance of the
+    // automaton and restores it from the formula alone, which shrinks
+    // num_sets() to the largest colour the formula mentions.  Transitions that
+    // carry a colour the formula does not mention would then refer to a
+    // non-existent set, so put the original condition back afterwards.
+    auto aut = std::const_pointer_cast<spot::twa_graph>(si.get_aut());
+    const spot::acc_cond orig_acc = aut->acc();
     std::string res(nc, 0);
     for (unsigned sc = 0; sc < nc; ++sc)
     {
@@ -316,6 +324,7 @@ namespace
       // other type is 0
       res[sc] = type;
     }
+    aut->set_acceptance(orig_acc);
 
     // Compute predecessors map from SCC successors
     std::vector<std::set<unsigned>> preds(nc);

@@ -64,6 +64,7 @@ set(TEST_SOURCES
     modular/test_scc_types.cpp
     inclusion/test_inclusion.cpp
     determinization/test_determinize_tela.cpp
+    determinization/test_iadacs_acc_cond.cpp
     ${CMAKE_SOURCE_DIR}/src/algorithms/complement_alg_sd_inductive.cpp
     ${CMAKE_SOURCE_DIR}/src/util/sets.cpp
 )

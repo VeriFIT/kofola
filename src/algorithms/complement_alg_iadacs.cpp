@@ -2,6 +2,8 @@
 
 #include "complement_alg_iadacs.hpp"
 
+#include <stdexcept>
+
 using namespace kofola;
 using mstate_set = abstract_complement_alg::mstate_set;
 using mstate_col_set = abstract_complement_alg::mstate_col_set;
@@ -74,27 +76,42 @@ bool mstate_init_almost_det::lt(const mstate& rhs) const
 
 } // anonymous namespace }}}
 
-determinisation_acc_cond::determinisation_acc_cond(const spot::acc_cond::acc_code& acc_cond, unsigned disjuncts) {
-  auto template_code = acc_cond;
-  auto max_col = template_code.used_sets().max_set();
+unsigned determinisation_acc_cond::colours_needed(const spot::acc_cond::acc_code& acc_cond, unsigned disjuncts) {
+  return (acc_cond.used_sets().count() + 1) * disjuncts;
+}
 
-  template_code &= spot::acc_cond::acc_code::fin({max_col}); // add Fin() clause for discontinuation event
+determinisation_acc_cond::determinisation_acc_cond(const spot::acc_cond::acc_code& acc_cond, unsigned disjuncts)
+  : used_(acc_cond.used_sets())
+{
+  // a colour beyond SPOT_MAX_ACCSETS would be silently dropped by the shifts
+  // below (only the shift amount itself is checked), which makes the condition
+  // unsound; the callers fall back to another algorithm before getting here
+  const unsigned needed = colours_needed(acc_cond, disjuncts);
+  if (needed > SPOT_MAX_ACCSETS) {
+    throw std::runtime_error("IADACs: the acceptance condition needs " +
+      std::to_string(needed) + " colours, more than the " +
+      std::to_string(SPOT_MAX_ACCSETS) + " supported by Spot");
+  }
+
+  // compact the condition onto the colours it mentions: colours below the
+  // largest one that it does not mention would otherwise either waste colours
+  // or (if they occur on transitions) clash with the discontinuation colour
+  auto template_code = acc_cond.strip(~used_, false);
+  const unsigned disc_col = used_.count();
+
+  template_code &= spot::acc_cond::acc_code::fin({disc_col}); // add Fin() clause for discontinuation event
 
   acc_code_ = spot::acc_cond::acc_code::f(); // set to neutral element for disjunction
-  disj_size_ = template_code.used_sets().count();
+  disj_size_ = disc_col + 1;
   for(unsigned i = 0; i < disjuncts; ++i) {
     acc_code_ |= (template_code << (disj_size_ * i));
-    additional_fins_.push_back(max_col + disj_size_ * i);
+    additional_fins_.push_back(disc_col + disj_size_ * i);
   }
   DEBUG_PRINT_LN("Created determinisation_acc_cond with acc cond: " + std::to_string(acc_code_));
 }
 
 spot::acc_cond determinisation_acc_cond::get_acc_cond() const {
-    return spot::acc_cond(acc_code_);
-}
-
-unsigned determinisation_acc_cond::get_min_colour() const {
-    return acc_code_.used_sets().min_set() - 1;
+    return spot::acc_cond(disj_size_ * additional_fins_.size(), acc_code_);
 }
 
 spot::acc_cond::mark_t determinisation_acc_cond::get_all_discontinuation_colours() const {
@@ -274,9 +291,7 @@ mstate_col_set complement_init_almost_det::get_succ_active(
         continue;
       }
 
-      for (auto col : t.acc.sets()) {
-        colors_set.insert(acc_cond_.map_colour(col, matching_prefix_len));
-      }
+      acc_cond_.add_colours(t.acc, matching_prefix_len, colors_set);
       break;
     }
   }

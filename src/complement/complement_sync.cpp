@@ -1102,23 +1102,26 @@ namespace helpers {
     helpers::tnba_complement::create_initial_almost_deterministic_algorithm(size_t partition_index) { // {{{
         
         auto bound = max_runs_in_partition(*(this->info_.get()), partition_index);
-        if(kofola::has_value("det_based_on_iadac", "yes", kofola::OPTIONS.params)) {
-            return std::make_unique<kofola::complement_init_almost_det>(*(this->info_.get()), partition_index, bound);
-        } else {
-            auto acc = this->info_->part_to_acc_map_.at(partition_index);
-            auto acc_sets_num = acc.num_sets();
-            auto compl_cols = bound * (acc_sets_num + 1); // +1 for discontinuation colour introduced in IADACs determinization-based complementation
+        // the colours of the IADACs condition, see determinisation_acc_cond
+        auto compl_cols = kofola::determinisation_acc_cond::colours_needed(
+            this->info_->aut_->get_acceptance(), bound);
 
+        if(kofola::has_value("det_based_on_iadac", "yes", kofola::OPTIONS.params)) {
+            // forced, but only as long as the colours fit into Spot's limit:
+            // beyond it the condition cannot be represented at all
+            if(compl_cols <= SPOT_MAX_ACCSETS) {
+                return std::make_unique<kofola::complement_init_almost_det>(*(this->info_.get()), partition_index, bound);
+            }
+        } else {
             auto extra_colors_heuristic = this->info_->num_partitions_; // most of our algorithms introduce at most 1 extra color per partition, 
                                                                         // so we can use the number of SCCs as a heuristic for the number of 
                                                                         // extra colors needed in the worst case
 
             if(SPOT_MAX_ACCSETS > compl_cols + extra_colors_heuristic) {
                 return std::make_unique<kofola::complement_init_almost_det>(*(this->info_.get()), partition_index, bound);
-            } else {
-                return std::make_unique<kofola::complement_sd_tela>(*(this->info_.get()), partition_index);
             }
         }
+        return std::make_unique<kofola::complement_sd_tela>(*(this->info_.get()), partition_index);
     } // create_initial_almost_deterministic_algorithm() }}}
 
     unsigned helpers::tnba_complement::max_runs_in_partition(const kofola::cmpl_info& info, unsigned part_index) {
@@ -1194,8 +1197,10 @@ namespace helpers {
 
         // Count the number of states in the partition
         unsigned num_states_in_partition = 0;
+        // states in no SCC (unreachable ones, e.g. left behind by elevatorization) are not in the map
         for(unsigned state = 0; state < info.aut_->num_states(); ++state) {
-            if(info.st_to_part_map_.at(state) == static_cast<int>(part_index)) {
+            auto it = info.st_to_part_map_.find(state);
+            if(it != info.st_to_part_map_.end() && it->second == static_cast<int>(part_index)) {
                 num_states_in_partition++;
             }
         }
