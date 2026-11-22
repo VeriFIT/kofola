@@ -131,5 +131,5 @@ For more details, see the [tests README](tests/README.md).
 ## Publications
 
 - O. Alexaj, V. Havlena, O. Lengál, Y. Li and N. Mazzocchi. [Complementing Emerson-Lei Elevator Automata](https://drops.dagstuhl.de/entities/document/10.4230/LIPIcs.CONCUR.2026.8). In *Proc. of CONCUR'26*, volume 391 of LIPIcs, pages 8:1-8:22, 2026. Schloss Dagstuhl – Leibniz-Zentrum für Informatik.
-- O. Alexaj, V. Havlena, L. Holík, O. Lengál, Y. Li and N. Mazzocchi. [Kofola 1.0: A Modular Approach to ω-Regular Complementation and Inclusion Checking](https://link.springer.com/chapter/10.1007/978-3-032-32519-8_10). In *Proc. of CAV'26*, LNCS, pages 181-197, 2026. Springer.
+- O. Alexaj, V. Havlena, L. Holík, O. Lengál, Y. Li and N. Mazzocchi. [Kofola 1.0: A Modular Approach to ω-Regular Complementation and Inclusion Checking](https://link.springer.com/chapter/10.1007/978-3-032-32519-8_10). In *Proc. of CAV'26*, volume 16682 of LNCS, pages 181-197, 2026. Springer.
 - V. Havlena, O. Lengál, Y. Li, B. Šmahlíková and A. Turrini. [Modular Mix-and-Match Complementation of Büchi Automata](https://link.springer.com/chapter/10.1007/978-3-031-30823-9_13). In *Proc. of TACAS'23*, volume 13993 of LNCS, pages 249-270, 2023. Springer.
